@@ -729,16 +729,18 @@ export default function CadastroPage() {
         {/* ─── Step 3: Confirmação ──────────────────────────────────────── */}
         {step === 3 && result && (() => {
           const portalBase = getTenantPortalUrl(result.slug);
-          const buildPortalUrl = (path: string) => {
+          const buildPortalUrl = (path: string, extraParams?: Record<string, string>) => {
             try {
               const url = new URL(portalBase);
               const params = new URLSearchParams(url.search);
+              Object.entries(extraParams ?? {}).forEach(([key, value]) => params.set(key, value));
               return `${url.origin}${path}${params.toString() ? `?${params.toString()}` : ""}`;
             } catch {
-              return `${portalBase}${path}`;
+              const query = new URLSearchParams(extraParams ?? {}).toString();
+              return `${portalBase}${path}${query ? `?${query}` : ""}`;
             }
           };
-          const loginPath = buildPortalUrl(result.loginUrl ?? "/login");
+          const loginPath = buildPortalUrl(result.loginUrl ?? "/login", { modo: "equipe" });
           const dashboardPath = buildPortalUrl(result.dashboardUrl ?? "/painel/dashboard");
           // Mantém o link de ativação Manus como alternativa para instalações que ainda usem vínculo OAuth.
           // Em preview: base é https://preview.manus.computer/?tenant=slug
@@ -804,7 +806,7 @@ export default function CadastroPage() {
                 Fazer login agora
               </Button>
               <p className="text-xs text-muted-foreground">
-                Use o e-mail e a senha informados neste cadastro. Após o login, você será levado ao painel da assistência.
+                Use o e-mail e a senha informados neste cadastro. O login abrirá na aba Equipe e, após entrar, você será levado ao painel da assistência.
               </p>
               {result.claimToken && (
                 <Button
@@ -855,7 +857,7 @@ export default function CadastroPage() {
               <p className="text-sm font-semibold text-foreground mb-3">Próximos passos</p>
               <div className="space-y-2.5">
                 {[
-                  "Clique em \"Fazer login agora\" e entre com e-mail e senha",
+                  "Clique em \"Fazer login agora\" e entre pela aba Equipe com e-mail e senha",
                   "Configure o logo e as cores da sua marca",
                   "Cadastre sua equipe (técnicos e entregadores)",
                   "Abra sua primeira ordem de serviço",

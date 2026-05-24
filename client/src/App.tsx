@@ -92,7 +92,7 @@ function TenantGuard({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (loading) return;
     if (!user) {
-      navigate("/login", { replace: true });
+      navigate("/login?modo=equipe", { replace: true });
     } else if (user.role === "super_admin") {
       navigate("/superadmin", { replace: true });
     } else if (!TENANT_STAFF_ROLES.includes(user.role)) {
@@ -162,7 +162,7 @@ function DelivererGuard({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (loading) return;
     if (!user) {
-      navigate("/login", { replace: true });
+      navigate("/login?modo=equipe", { replace: true });
     } else if (user.role !== "entregador") {
       navigate("/painel/dashboard", { replace: true });
     }

@@ -56,8 +56,17 @@ export default function CustomerLogin() {
   const [claimStatus, setClaimStatus] = useState<"idle" | "claiming" | "done" | "error">("idle");
   const claimAttempted = useRef(false);
 
-  // Extrai o claimToken da URL (?claim=TOKEN)
-  const claimToken = new URLSearchParams(search).get("claim");
+  const searchParams = new URLSearchParams(search);
+
+  // Extrai parâmetros da URL para deep links administrativos e ativação de conta.
+  const claimToken = searchParams.get("claim");
+  const requestedMode = (
+    searchParams.get("modo") ??
+    searchParams.get("mode") ??
+    searchParams.get("tipo") ??
+    searchParams.get("tab") ??
+    ""
+  ).toLowerCase();
 
   const claimTenantMutation = trpc.tenants.claimTenant.useMutation({
     onSuccess: (data) => {
@@ -72,6 +81,14 @@ export default function CustomerLogin() {
       setErrorMsg(err.message);
     },
   });
+
+  // Deep links administrativos devem abrir a aba Equipe, evitando que o dono tente entrar como Cliente.
+  useEffect(() => {
+    if (["equipe", "staff", "admin", "painel"].includes(requestedMode)) {
+      setMode("equipe");
+      setErrorMsg(null);
+    }
+  }, [requestedMode]);
 
   // Quando há claimToken na URL e o usuário está autenticado: ativa automaticamente
   useEffect(() => {
@@ -326,6 +343,7 @@ export default function CustomerLogin() {
                     const params = new URLSearchParams();
                     if (tenant?.slug) params.set("tenant", tenant.slug);
                     if (claimToken) params.set("claim", claimToken);
+                    if (mode === "equipe") params.set("modo", "equipe");
                     const qs = params.toString();
                     const returnPath = qs ? `/login?${qs}` : "/login";
                     window.location.href = getLoginUrl(returnPath);
