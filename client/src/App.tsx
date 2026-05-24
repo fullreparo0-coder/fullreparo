@@ -24,6 +24,7 @@ import TenantSettings from "./pages/tenant/Settings";
 import TenantChecklist from "./pages/tenant/Checklist";
 import NotificationsPage from "./pages/tenant/NotificationsPage";
 import FinancialReports from "./pages/tenant/FinancialReports";
+import HelpTraining from "./pages/tenant/HelpTraining";
 import DelivererDashboard from "./pages/deliverer/Dashboard";
 import PublicTrack from "./pages/public/Track";
 import PublicColeta from "./pages/public/Coleta";
@@ -230,6 +231,7 @@ function Router() {
       <Route path="/painel/checklist">{() => <TenantGuard><TenantChecklist /></TenantGuard>}</Route>
       <Route path="/painel/notificacoes">{() => <TenantGuard><NotificationsPage /></TenantGuard>}</Route>
       <Route path="/painel/relatorios">{() => <TenantGuard><FinancialReports /></TenantGuard>}</Route>
+      <Route path="/painel/ajuda">{() => <TenantGuard><HelpTraining /></TenantGuard>}</Route>
       <Route path="/painel/entregador">{() => <DelivererGuard><DelivererDashboard /></DelivererGuard>}</Route>
 
       {/* /painel sem subpath → redireciona para /painel/dashboard */}

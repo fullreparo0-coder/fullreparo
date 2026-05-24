@@ -11,7 +11,8 @@ import {
   LayoutDashboard, ClipboardList, Plus, Users, Package,
   Settings, Truck, LogOut, Wrench, Menu, X, ChevronRight,
   SunMedium,
-  UserCog, ShieldCheck, CheckSquare, Bell, BarChart2, AlertTriangle
+  UserCog, ShieldCheck, CheckSquare, Bell, BarChart2, AlertTriangle,
+  HelpCircle
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 
@@ -35,6 +36,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/painel/checklist", label: "Checklist", icon: CheckSquare, roles: ["tenant_admin", "admin", "super_admin"] },
   { href: "/painel/notificacoes", label: "Notificações", icon: Bell, roles: ["tenant_admin", "admin", "super_admin"] },
   { href: "/painel/relatorios", label: "Relatórios", icon: BarChart2, roles: ["tenant_admin", "admin", "super_admin"] },
+  { href: "/painel/ajuda", label: "Ajuda e Treinamento", icon: HelpCircle },
 ];
 
 // Item dinâmico de Coletas — inserido após "Ordens de Serviço" com badge numérico
