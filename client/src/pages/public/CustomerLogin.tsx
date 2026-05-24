@@ -91,13 +91,17 @@ export default function CustomerLogin() {
   }, [authLoading, user, claimToken]);
 
   function redirectByRole(role: string) {
-    if (role === "super_admin") {
-      navigate("/superadmin", { replace: true });
-    } else if (STAFF_ROLES.includes(role)) {
-      tenantNavigate("/painel/dashboard");
-    } else {
-      tenantNavigate("/minha-conta");
-    }
+    const target = role === "super_admin"
+      ? "/superadmin"
+      : STAFF_ROLES.includes(role)
+        ? "/painel/dashboard"
+        : "/minha-conta";
+
+    const resolvedTarget = role === "super_admin" ? target : tenantPath(target);
+
+    // Após login, força uma navegação de página inteira para que os guards leiam
+    // a sessão recém-gravada no cookie antes de decidir se devem redirecionar.
+    window.location.replace(resolvedTarget);
   }
 
   const customerLoginMutation = trpc.customerAuth.loginLocal.useMutation({

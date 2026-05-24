@@ -15,6 +15,7 @@ import { getDb } from "../db";
 import { customers } from "../../drizzle/schema";
 import { publicProcedure, protectedProcedure, router } from "../_core/trpc";
 import { ENV } from "../_core/env";
+import { deriveCookieDomain } from "../_core/cookies";
 import { ONE_YEAR_MS } from "@shared/const";
 
 // ─── Constantes ──────────────────────────────────────────────────────────────
@@ -98,25 +99,14 @@ export function extractCustomerToken(cookieHeader: string): string | null {
 
 function getCustomerCookieOptions(req: any) {
   const host: string = req.hostname ?? req.headers?.host ?? "";
-  const isPreview =
-    host.includes("manus.computer") ||
-    host.includes("manus.space") ||
-    host === "localhost" ||
-    /^\d+\.\d+\.\d+\.\d+$/.test(host);
-
-  const parts = host.split(".");
-  const domain =
-    !isPreview && parts.length >= 2
-      ? `.${parts.slice(-2).join(".")}`
-      : undefined;
-
+  const domain = deriveCookieDomain(host);
   const isSecure =
     req.secure || req.headers?.["x-forwarded-proto"] === "https";
 
   return {
     httpOnly: true,
     path: "/",
-    domain,
+    ...(domain ? { domain } : {}),
     sameSite: isSecure ? ("none" as const) : ("lax" as const),
     secure: isSecure,
     maxAge: ONE_YEAR_MS / 1000,
