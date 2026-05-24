@@ -27,7 +27,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import {
   Truck, CheckCircle2, Wrench, ArrowRight, MessageCircle,
   FileText, User, MapPin, Smartphone, ChevronRight,
-  CalendarDays, Sun, Sunset, Moon, Search, Camera, X, Navigation,
+  CalendarDays, Sun, Sunset, Moon, Search, Camera, X, Navigation, ArrowLeft,
 } from "lucide-react";
 import { WhatsAppFAB } from "@/components/WhatsAppFAB";
 import { useTenantHost } from "@/contexts/TenantHostContext";
@@ -1093,25 +1093,36 @@ export function TenantPublicHeader({ tenant, subtitle }: TenantPublicHeaderProps
     .join("");
   return (
     <header className="sticky top-0 z-10 shadow-sm" style={{ backgroundColor: primaryColor }}>
-      <div className="max-w-xl mx-auto px-4 py-3.5 flex items-center gap-3">
+      <div className="max-w-xl mx-auto px-4 py-3.5 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3 min-w-0">
+          <a
+            href={tenantPath("/")}
+            aria-label={`Voltar para o portal ${tenant.name}`}
+            className="h-8 w-8 rounded-lg overflow-hidden shrink-0 flex items-center justify-center bg-white/20 hover:opacity-80 transition-opacity"
+          >
+            {tenant.logoUrl ? (
+              <img src={tenant.logoUrl} alt={tenant.name} className="h-full w-full object-contain" />
+            ) : (
+              <span className="text-xs font-bold" style={{ color: textColor }}>
+                {initials || "FR"}
+              </span>
+            )}
+          </a>
+          <div className="min-w-0">
+            <a href={tenantPath("/")} className="font-display text-sm font-bold truncate hover:opacity-90 transition-opacity block" style={{ color: textColor }}>
+              {tenant.name}
+            </a>
+            <p className="text-xs" style={{ color: textColor, opacity: 0.75 }}>{subtitle}</p>
+          </div>
+        </div>
         <a
           href={tenantPath("/")}
-          className="h-8 w-8 rounded-lg overflow-hidden shrink-0 flex items-center justify-center bg-white/20 hover:opacity-80 transition-opacity"
+          className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1.5 text-xs font-medium hover:bg-white/25 transition-colors shrink-0"
+          style={{ color: textColor }}
         >
-          {tenant.logoUrl ? (
-            <img src={tenant.logoUrl} alt={tenant.name} className="h-full w-full object-contain" />
-          ) : (
-            <span className="text-xs font-bold" style={{ color: textColor }}>
-              {initials || "FR"}
-            </span>
-          )}
+          <ArrowLeft className="h-3.5 w-3.5" />
+          Portal
         </a>
-        <div className="min-w-0">
-          <a href={tenantPath("/")} className="font-display text-sm font-bold truncate hover:opacity-90 transition-opacity block" style={{ color: textColor }}>
-            {tenant.name}
-          </a>
-          <p className="text-xs" style={{ color: textColor, opacity: 0.75 }}>{subtitle}</p>
-        </div>
       </div>
     </header>
   );

@@ -284,7 +284,7 @@ export default function CadastroPage() {
           </button>
           <span className="text-sm text-muted-foreground">
             Já tem conta?{" "}
-            <a href="/" className="text-primary font-medium hover:underline">
+            <a href="/login" className="text-primary font-medium hover:underline">
               Entrar
             </a>
           </span>

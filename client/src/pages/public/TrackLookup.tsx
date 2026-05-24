@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { trpc } from "@/lib/trpc";
 import { useTenantHost } from "@/contexts/TenantHostContext";
 import { TenantPublicHeader } from "./Coleta";
-import { Search, Wrench, ArrowRight } from "lucide-react";
+import { Search, Wrench, ArrowRight, ArrowLeft } from "lucide-react";
 import { WhatsAppFAB } from "@/components/WhatsAppFAB";
 import { toast } from "sonner";
 
@@ -50,14 +50,20 @@ export default function TrackLookup() {
         <TenantPublicHeader tenant={hostTenant} subtitle="Rastrear OS" />
       ) : (
         <header className="border-b border-border bg-background/95 backdrop-blur-sm sticky top-0 z-10">
-          <div className="max-w-xl mx-auto px-4 py-4 flex items-center gap-3">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
-              <Wrench className="h-4 w-4 text-primary-foreground" />
-            </div>
-            <div>
-              <p className="font-display text-sm font-bold text-foreground">fullreparo</p>
-              <p className="text-xs text-muted-foreground">Rastrear OS</p>
-            </div>
+          <div className="max-w-xl mx-auto px-4 py-4 flex items-center justify-between gap-3">
+            <a href="/" className="flex items-center gap-3 min-w-0 hover:opacity-80 transition-opacity" aria-label="Voltar para a home do FullReparo">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
+                <Wrench className="h-4 w-4 text-primary-foreground" />
+              </div>
+              <div>
+                <p className="font-display text-sm font-bold text-foreground">fullreparo</p>
+                <p className="text-xs text-muted-foreground">Rastrear OS</p>
+              </div>
+            </a>
+            <a href="/" className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
+              <ArrowLeft className="h-3.5 w-3.5" />
+              Home
+            </a>
           </div>
         </header>
       )}
