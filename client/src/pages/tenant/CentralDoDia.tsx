@@ -136,6 +136,8 @@ export default function CentralDoDia() {
   const alerts = (data.alerts ?? []).filter((item): item is AlertItem => item !== null);
   const actionQueue = data.actionQueue ?? [];
   const recentCommunications = data.recentCommunications ?? [];
+  const statusDistribution = data.statusDistribution ?? [];
+  const technicianMetrics = data.technicianMetrics ?? [];
 
   return (
     <TenantLayout title="Central do Dia">
@@ -227,6 +229,7 @@ export default function CentralDoDia() {
                       </div>
                       <p className="truncate text-sm font-medium">{order.customerName ?? "Cliente não informado"}</p>
                       <p className="truncate text-xs text-muted-foreground">{order.deviceLabel} • {order.reason}</p>
+                      <p className="text-xs font-medium text-primary">Ação sugerida: {order.suggestedAction ?? "Atualizar andamento"}</p>
                     </div>
                     <div className="shrink-0 text-left md:text-right">
                       <p className="text-xs text-muted-foreground">Prazo</p>
@@ -282,6 +285,46 @@ export default function CentralDoDia() {
               </CardContent>
             </Card>
           </div>
+        </div>
+
+        <div className="grid gap-4 lg:grid-cols-2">
+          <Card>
+            <CardHeader>
+              <CardTitle>Distribuição por status</CardTitle>
+              <p className="text-sm text-muted-foreground">Volume atual de OS por etapa operacional.</p>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {statusDistribution.length === 0 ? (
+                <p className="text-sm text-muted-foreground">Nenhum status encontrado.</p>
+              ) : statusDistribution.map((item) => (
+                <button key={item.status} onClick={() => navigate(`/painel/os?status=${item.status}`)} className="flex w-full items-center justify-between rounded-lg border p-3 text-left hover:border-primary/40">
+                  <div className="flex items-center gap-2"><StatusBadge status={item.status} /><span className="text-xs text-muted-foreground">abrir fila</span></div>
+                  <strong>{item.count}</strong>
+                </button>
+              ))}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Métricas por técnico</CardTitle>
+              <p className="text-sm text-muted-foreground">Produtividade e gargalos por responsável.</p>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {technicianMetrics.length === 0 ? (
+                <p className="text-sm text-muted-foreground">Nenhuma OS atribuída ainda.</p>
+              ) : technicianMetrics.map((item) => (
+                <div key={`${item.technicianId ?? "none"}-${item.technicianName}`} className="rounded-lg border p-3">
+                  <div className="flex items-center justify-between gap-2"><p className="font-semibold">{item.technicianName}</p><Badge variant={item.overdueCount > 0 ? "destructive" : "secondary"}>{item.total} OS</Badge></div>
+                  <div className="mt-2 grid grid-cols-3 gap-2 text-center text-xs text-muted-foreground">
+                    <span><strong className="block text-foreground">{item.openCount}</strong> abertas</span>
+                    <span><strong className="block text-foreground">{item.finishedCount}</strong> concluídas</span>
+                    <span><strong className="block text-foreground">{item.overdueCount}</strong> atrasadas</span>
+                  </div>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
         </div>
 
         <Card>

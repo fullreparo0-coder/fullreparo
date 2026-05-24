@@ -36,7 +36,7 @@ function makeTable(name: string, columns: string[]) {
 vi.mock("../drizzle/schema", () => ({
   serviceOrders: makeTable("serviceOrders", [
     "id", "tenantId", "osNumber", "status", "reportedDefect", "estimatedDelivery", "totalAmount", "createdAt",
-    "customerId", "deviceId", "budgetStatus", "warrantyDays", "updatedAt", "description", "notes",
+    "customerId", "deviceId", "technicianId", "budgetStatus", "warrantyDays", "updatedAt", "description", "notes",
   ]),
   customers: makeTable("customers", ["id", "tenantId", "name", "email", "phone", "address", "createdAt"]),
   devices: makeTable("devices", ["id", "tenantId", "customerId", "brand", "model", "serial", "createdAt"]),
@@ -129,8 +129,17 @@ function makeJoinedChainFor(rows: unknown[]) {
   chain.from = vi.fn(() => chain);
   chain.leftJoin = vi.fn(() => chain);
   chain.where = vi.fn(() => chain);
+  chain.groupBy = vi.fn(() => chain);
   chain.orderBy = vi.fn(() => chain);
   chain.limit = vi.fn(() => Promise.resolve(rows));
+  return chain;
+}
+
+function makeGroupedChainFor(rows: unknown[]) {
+  const chain: Record<string, unknown> = {};
+  chain.from = vi.fn(() => chain);
+  chain.where = vi.fn(() => chain);
+  chain.groupBy = vi.fn(() => Promise.resolve(rows));
   return chain;
 }
 
@@ -146,6 +155,8 @@ type CentralDayRows = {
   pendingAmount?: unknown[];
   actionRows?: unknown[];
   recentCommunications?: unknown[];
+  statusDistribution?: unknown[];
+  technicianMetrics?: unknown[];
 };
 
 function mockCentralDayQueries(rows: CentralDayRows = {}) {
@@ -161,6 +172,8 @@ function mockCentralDayQueries(rows: CentralDayRows = {}) {
     makeSimpleChainFor(rows.pendingAmount ?? [{ total: 0 }]),
     makeJoinedChainFor(rows.actionRows ?? []),
     makeJoinedChainFor(rows.recentCommunications ?? []),
+    makeGroupedChainFor(rows.statusDistribution ?? []),
+    makeJoinedChainFor(rows.technicianMetrics ?? []),
   ];
   let callCount = 0;
   mocks.mockSelect.mockImplementation(() => chains[callCount++]);
@@ -198,6 +211,8 @@ describe("serviceOrders.centralDay", () => {
     expect(result.actionQueue).toEqual([]);
     expect(result.alerts).toEqual([]);
     expect(result.recentCommunications).toEqual([]);
+    expect(result.statusDistribution).toEqual([]);
+    expect(result.technicianMetrics).toEqual([]);
   });
 
   it("retorna cards zerados e alerta de operação em dia quando não há OS acionável", async () => {
@@ -216,6 +231,8 @@ describe("serviceOrders.centralDay", () => {
     expect(result.actionQueue).toEqual([]);
     expect(result.alerts).toHaveLength(1);
     expect(result.alerts[0]).toMatchObject({ type: "success", title: "Operação em dia" });
+    expect(result.statusDistribution).toEqual([]);
+    expect(result.technicianMetrics).toEqual([]);
   });
 
   it("prioriza OS atrasada na fila e gera alerta danger", async () => {
@@ -336,6 +353,17 @@ describe("serviceOrders.centralDay", () => {
           sentAt,
         },
       ],
+      statusDistribution: [{ status: "em_reparo", count: "3" }, { status: "pronto", count: 1 }],
+      technicianMetrics: [
+        {
+          technicianId: 7,
+          technicianName: "Técnica Ana",
+          total: "4",
+          openCount: "3",
+          finishedCount: "1",
+          overdueCount: "1",
+        },
+      ],
     });
 
     const result = await callCentralDay();
@@ -355,5 +383,12 @@ describe("serviceOrders.centralDay", () => {
       eventType: "auto_communication",
       sentAt: sentAt.toISOString(),
     });
+    expect(result.statusDistribution).toEqual([
+      { status: "em_reparo", count: 3 },
+      { status: "pronto", count: 1 },
+    ]);
+    expect(result.technicianMetrics).toEqual([
+      { technicianId: 7, technicianName: "Técnica Ana", total: 4, openCount: 3, finishedCount: 1, overdueCount: 1 },
+    ]);
   });
 });

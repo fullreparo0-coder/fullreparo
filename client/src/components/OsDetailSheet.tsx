@@ -30,7 +30,7 @@ import { toast } from "sonner";
 import {
   Wrench, Smartphone, Clock, CheckCircle2, Package, Truck,
   Calendar, ShieldCheck, DollarSign, ExternalLink, AlertCircle,
-  ThumbsUp, ThumbsDown, Bell, CreditCard, QrCode, Loader2, Copy,
+  ThumbsUp, ThumbsDown, Bell, CreditCard, QrCode, Loader2, Copy, FileText, MessageSquare,
 } from "lucide-react";
 
 // ─── Mapeamento de status ─────────────────────────────────────────────────────
@@ -66,6 +66,21 @@ function getStatus(status: string) {
 }
 
 const READY_FOR_DELIVERY_PAYMENT = new Set(["pronto", "aguardando_entrega", "saiu_para_entrega", "entregue", "finalizado"]);
+
+const NEXT_STEP_BY_STATUS: Record<string, { title: string; description: string; action: string }> = {
+  aguardando_aprovacao: { title: "Sua aprovação está pendente", description: "Revise o orçamento e aprove ou recuse para a assistência continuar.", action: "Responder orçamento" },
+  pronto: { title: "Serviço pronto", description: "Confira pagamento, retirada, entrega e garantia disponível.", action: "Organizar retirada" },
+  aguardando_entrega: { title: "Entrega em preparação", description: "A entrega está autorizada ou aguardando finalização logística.", action: "Acompanhar entrega" },
+  saiu_para_entrega: { title: "Saiu para entrega", description: "Mantenha contato disponível para receber o aparelho.", action: "Acompanhar entrega" },
+  em_reparo: { title: "Reparo em andamento", description: "A assistência está executando o serviço aprovado.", action: "Acompanhar evolução" },
+  aguardando_peca: { title: "Aguardando peça", description: "O reparo depende de peça; acompanhe a previsão na timeline.", action: "Ver previsão" },
+  finalizado: { title: "Atendimento concluído", description: "Comprovantes, garantia e histórico ficam disponíveis para consulta.", action: "Ver documentos" },
+  entregue: { title: "Aparelho entregue", description: "Consulte garantia e histórico sempre que precisar.", action: "Ver documentos" },
+};
+
+function getNextStep(status?: string | null) {
+  return NEXT_STEP_BY_STATUS[String(status ?? "")] ?? { title: "Acompanhamento em andamento", description: "Consulte a timeline, comunicações e documentos desta OS.", action: "Acompanhar OS" };
+}
 
 function formatCurrency(value: unknown) {
   return Number(value || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -241,6 +256,8 @@ export function OsDetailSheet({ osId, tenantId, primaryColor, onClose }: OsDetai
   const timeline = data?.timeline ?? [];
   const warranty = data?.warranty;
   const budget = data?.budget;
+  const recentCommunications = data?.recentCommunications ?? [];
+  const nextStep = getNextStep(os?.status);
 
   const currentStatus = os ? getStatus(os.status) : null;
   const StatusIcon = currentStatus?.icon ?? Clock;
@@ -700,6 +717,57 @@ export function OsDetailSheet({ osId, tenantId, primaryColor, onClose }: OsDetai
                   </div>
                 </section>
               )}
+
+              <section>
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">
+                  Documentos e comprovantes
+                </p>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {os.publicToken && (
+                    <Button variant="outline" className="justify-start gap-2" onClick={() => window.open(`/rastrear/${os.publicToken}`, "_blank")}>
+                      <ExternalLink className="h-4 w-4" /> Rastreamento público
+                    </Button>
+                  )}
+                  {warranty && (
+                    <Button variant="outline" className="justify-start gap-2" onClick={() => window.open(`/garantia/${warranty.warrantyCode}`, "_blank")}>
+                      <ShieldCheck className="h-4 w-4" /> Garantia digital
+                    </Button>
+                  )}
+                  {budget && (
+                    <div className="rounded-lg border bg-muted/30 p-3 text-xs">
+                      <div className="flex items-center gap-2 font-semibold"><FileText className="h-3.5 w-3.5" /> Orçamento</div>
+                      <p className="mt-1 text-muted-foreground">{formatCurrency(budget.totalCost)} • {budget.status}</p>
+                    </div>
+                  )}
+                  {paymentSummary && Number(paymentSummary.paid ?? 0) > 0 && (
+                    <div className="rounded-lg border bg-muted/30 p-3 text-xs">
+                      <div className="flex items-center gap-2 font-semibold"><CreditCard className="h-3.5 w-3.5" /> Pagamentos</div>
+                      <p className="mt-1 text-muted-foreground">Pago: {formatCurrency(paymentSummary.paid)}</p>
+                    </div>
+                  )}
+                </div>
+              </section>
+
+              <section>
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">
+                  Comunicações recentes
+                </p>
+                {recentCommunications.length === 0 ? (
+                  <p className="rounded-lg border border-dashed p-3 text-sm text-muted-foreground">Nenhuma comunicação registrada para esta OS ainda.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {recentCommunications.slice().reverse().map((item) => (
+                      <div key={item.id} className="rounded-lg border bg-card p-3 text-xs">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="flex items-center gap-1.5 font-semibold"><MessageSquare className="h-3.5 w-3.5" /> {item.channel}</span>
+                          <span className="text-muted-foreground">{item.sentAt ? new Date(item.sentAt).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) : "Agora"}</span>
+                        </div>
+                        <p className="mt-1 text-muted-foreground line-clamp-2">{item.message}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </section>
 
               {/* ── Timeline ───────────────────────────────────────────────── */}
               <section>

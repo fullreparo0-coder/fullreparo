@@ -10,7 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   LogOut, User, ArrowLeft, ClipboardList, Wrench, Clock,
   CheckCircle2, Package, Truck, Smartphone, MapPin, Calendar,
-  Pencil, Save, X, Search, Shield,
+  Pencil, Save, X, Search, Shield, AlertTriangle, ArrowRight, CreditCard,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -57,6 +57,34 @@ const STATUS_LABELS: Record<string, { label: string; icon: React.ElementType; co
   finalizado:           { label: "Finalizado",         icon: CheckCircle2, color: "bg-gray-100 text-gray-700 border-gray-200" },
   cancelado:            { label: "Cancelado",          icon: ClipboardList,color: "bg-red-100 text-red-800 border-red-200" },
 };
+
+
+const NEXT_STEP_BY_STATUS: Record<string, { title: string; description: string; action: string; tone: string }> = {
+  solicitado: { title: "Solicitação recebida", description: "A assistência vai revisar os dados e confirmar os próximos passos.", action: "Acompanhar solicitação", tone: "bg-blue-50 text-blue-800 border-blue-200" },
+  aguardando_coleta: { title: "Coleta pendente", description: "A equipe precisa combinar ou confirmar a retirada do aparelho.", action: "Ver coleta", tone: "bg-amber-50 text-amber-800 border-amber-200" },
+  coleta_agendada: { title: "Coleta agendada", description: "Confira endereço e horário combinado para evitar remarcações.", action: "Conferir agendamento", tone: "bg-blue-50 text-blue-800 border-blue-200" },
+  recebido_na_assistencia: { title: "Aparelho recebido", description: "O aparelho já está na assistência e seguirá para diagnóstico.", action: "Ver detalhes", tone: "bg-indigo-50 text-indigo-800 border-indigo-200" },
+  em_diagnostico: { title: "Diagnóstico em andamento", description: "A equipe está avaliando o defeito e preparará uma orientação.", action: "Acompanhar diagnóstico", tone: "bg-indigo-50 text-indigo-800 border-indigo-200" },
+  aguardando_aprovacao: { title: "Orçamento aguardando sua aprovação", description: "Aprove ou recuse o orçamento para destravar o andamento do reparo.", action: "Responder orçamento", tone: "bg-orange-50 text-orange-800 border-orange-200" },
+  aprovado: { title: "Orçamento aprovado", description: "A assistência já pode seguir com o reparo conforme aprovado.", action: "Acompanhar reparo", tone: "bg-green-50 text-green-800 border-green-200" },
+  aguardando_peca: { title: "Aguardando peça", description: "O reparo depende de peça ou insumo; acompanhe a previsão informada.", action: "Ver previsão", tone: "bg-amber-50 text-amber-800 border-amber-200" },
+  em_reparo: { title: "Reparo em execução", description: "O serviço está em bancada. Você será avisado quando ficar pronto.", action: "Acompanhar reparo", tone: "bg-indigo-50 text-indigo-800 border-indigo-200" },
+  pronto: { title: "Pronto para retirada", description: "Seu aparelho está pronto. Combine retirada, entrega ou pagamento pendente.", action: "Ver retirada/pagamento", tone: "bg-emerald-50 text-emerald-800 border-emerald-200" },
+  aguardando_entrega: { title: "Aguardando entrega", description: "A entrega está liberada ou em preparação pela assistência.", action: "Ver entrega", tone: "bg-blue-50 text-blue-800 border-blue-200" },
+  saiu_para_entrega: { title: "Saiu para entrega", description: "Acompanhe a entrega e mantenha seus contatos atualizados.", action: "Acompanhar entrega", tone: "bg-blue-50 text-blue-800 border-blue-200" },
+  entregue: { title: "Aparelho entregue", description: "Consulte garantia, comprovantes e histórico sempre que precisar.", action: "Ver documentos", tone: "bg-slate-50 text-slate-700 border-slate-200" },
+  finalizado: { title: "Atendimento finalizado", description: "Seu histórico, garantia e comprovantes permanecem disponíveis no portal.", action: "Ver histórico", tone: "bg-slate-50 text-slate-700 border-slate-200" },
+  recusado: { title: "Orçamento recusado", description: "A assistência pode orientar retirada, novo orçamento ou encerramento.", action: "Falar com assistência", tone: "bg-red-50 text-red-800 border-red-200" },
+};
+
+function getNextStep(status?: string | null) {
+  return NEXT_STEP_BY_STATUS[String(status ?? "")] ?? { title: "Acompanhamento disponível", description: "Abra a OS para consultar timeline, orçamento, pagamentos e documentos.", action: "Ver detalhes", tone: "bg-slate-50 text-slate-700 border-slate-200" };
+}
+
+function getOrderDate(value?: string | Date | null) {
+  if (!value) return "Sem data";
+  return new Date(value).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" });
+}
 
 const PICKUP_STATUS_LABELS: Record<string, { label: string; color: string }> = {
   pending:     { label: "Pendente",     color: "bg-yellow-100 text-yellow-800 border-yellow-200" },
@@ -259,6 +287,13 @@ export default function MinhaContaPortal() {
     );
   }
 
+  const activeOrders = myOrders.filter((order) => !["entregue", "finalizado", "cancelado", "delivered", "cancelled"].includes(String(order.status)));
+  const priorityOrder = activeOrders.find((order) => ["aguardando_aprovacao", "pronto", "aguardando_entrega", "saiu_para_entrega"].includes(String(order.status))) ?? activeOrders[0] ?? myOrders[0];
+  const priorityStep = getNextStep(priorityOrder?.status);
+  const pendingApprovalCount = myOrders.filter((order) => String(order.status) === "aguardando_aprovacao").length;
+  const readyCount = myOrders.filter((order) => ["pronto", "aguardando_entrega", "saiu_para_entrega"].includes(String(order.status))).length;
+  const finishedCount = myOrders.filter((order) => ["entregue", "finalizado", "delivered"].includes(String(order.status))).length;
+
   const initials = tenant?.name
     ?.split(" ")
     .slice(0, 2)
@@ -304,6 +339,32 @@ export default function MinhaContaPortal() {
       </header>
 
       <main className="flex-1 max-w-xl mx-auto w-full px-4 py-6 space-y-5">
+        <Card className={`border ${priorityStep.tone}`}>
+          <CardContent className="p-4 space-y-3">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-xs font-semibold uppercase tracking-wide opacity-75">Próximo passo</p>
+                <h2 className="mt-1 text-base font-bold">{priorityStep.title}</h2>
+                <p className="mt-1 text-sm opacity-85">{priorityStep.description}</p>
+              </div>
+              <AlertTriangle className="h-5 w-5 shrink-0 opacity-70" />
+            </div>
+            {priorityOrder ? (
+              <Button className="w-full justify-between" variant="outline" onClick={() => setSelectedOsId(priorityOrder.id)}>
+                <span>{priorityStep.action} • OS #{priorityOrder.osNumber}</span>
+                <ArrowRight className="h-4 w-4" />
+              </Button>
+            ) : (
+              <p className="rounded-lg bg-white/60 p-3 text-sm">Nenhuma OS encontrada para acompanhamento no momento.</p>
+            )}
+          </CardContent>
+        </Card>
+
+        <div className="grid grid-cols-3 gap-2">
+          <Card><CardContent className="p-3 text-center"><p className="text-xl font-bold">{pendingApprovalCount}</p><p className="text-[11px] text-muted-foreground">Orçamentos</p></CardContent></Card>
+          <Card><CardContent className="p-3 text-center"><p className="text-xl font-bold">{readyCount}</p><p className="text-[11px] text-muted-foreground">Prontos</p></CardContent></Card>
+          <Card><CardContent className="p-3 text-center"><p className="text-xl font-bold">{finishedCount}</p><p className="text-[11px] text-muted-foreground">Histórico</p></CardContent></Card>
+        </div>
         {/* Perfil do usuário */}
         <Card>
           <CardContent className="p-4 flex items-center gap-4">

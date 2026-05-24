@@ -1,7 +1,7 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { getDb, getServiceOrdersByTenant, getServiceOrderById, getOsTimeline, generateOsNumber, getPhotosByOs, getChecklistByOs, countOsThisMonth, getFinancialReport } from "../db";
-import { serviceOrders, osStatusHistory, osChecklist, photos, devices, payments, customers, osNotifications } from "../../drizzle/schema";
+import { serviceOrders, osStatusHistory, osChecklist, photos, devices, payments, customers, osNotifications, users } from "../../drizzle/schema";
 import { protectedProcedure, publicProcedure, router } from "../_core/trpc";
 import { and, eq } from "drizzle-orm";
 import { nanoid } from "nanoid";
@@ -669,7 +669,7 @@ export const serviceOrdersRouter = router({
       const access = await resolveCustomerPortalAccess(ctx, db, input.tenantId);
       if (!access) return null;
 
-      const { devices, osStatusHistory, warranties, budgets, budgetItems } = await import("../../drizzle/schema");
+      const { devices, osStatusHistory, warranties, budgets, budgetItems, osNotifications } = await import("../../drizzle/schema");
       const { inArray } = await import("drizzle-orm");
 
       // Busca a OS verificando que pertence ao tenant E ao customer do usuário
@@ -686,7 +686,7 @@ export const serviceOrdersRouter = router({
       if (!os) return null;
 
       // 3. Busca dados relacionados em paralelo
-      const [timeline, device, warranty, budget, osPayments] = await Promise.all([
+      const [timeline, device, warranty, budget, osPayments, recentCommunications] = await Promise.all([
         // Timeline de status
         db.select()
           .from(osStatusHistory)
@@ -728,6 +728,23 @@ export const serviceOrdersRouter = router({
             eq(payments.tenantId, access.tenantId),
             eq(payments.serviceOrderId, os.id),
           )),
+
+        db.select({
+          id: osNotifications.id,
+          channel: osNotifications.channel,
+          eventType: osNotifications.eventType,
+          status: osNotifications.status,
+          message: osNotifications.message,
+          actorName: osNotifications.actorName,
+          sentAt: osNotifications.sentAt,
+        })
+          .from(osNotifications)
+          .where(and(
+            eq(osNotifications.tenantId, access.tenantId),
+            eq(osNotifications.serviceOrderId, os.id),
+          ))
+          .orderBy(osNotifications.sentAt)
+          .limit(8),
       ]);
 
       // 4. Itens do orçamento (se houver)
@@ -746,6 +763,10 @@ export const serviceOrdersRouter = router({
         warranty,
         budget: budget ? { ...budget, items: budgetItemsList } : null,
         payments: osPayments,
+        recentCommunications: recentCommunications.map((item) => ({
+          ...item,
+          sentAt: item.sentAt ? new Date(item.sentAt).toISOString() : null,
+        })),
       };
     }),
 
@@ -882,6 +903,8 @@ export const serviceOrdersRouter = router({
         actionQueue: [],
         alerts: [],
         recentCommunications: [],
+        statusDistribution: [],
+        technicianMetrics: [],
       };
     }
 
@@ -906,6 +929,8 @@ export const serviceOrdersRouter = router({
       pendingAmount,
       actionRows,
       recentCommunications,
+      statusDistributionRows,
+      technicianMetricRows,
     ] = await Promise.all([
       db.select({ count: countExpr }).from(serviceOrders).where(and(
         eq(serviceOrders.tenantId, tenantId),
@@ -989,6 +1014,26 @@ export const serviceOrdersRouter = router({
         .where(eq(osNotifications.tenantId, tenantId))
         .orderBy(desc(osNotifications.sentAt))
         .limit(6),
+      db
+        .select({ status: serviceOrders.status, count: countExpr })
+        .from(serviceOrders)
+        .where(eq(serviceOrders.tenantId, tenantId))
+        .groupBy(serviceOrders.status),
+      db
+        .select({
+          technicianId: serviceOrders.technicianId,
+          technicianName: users.name,
+          total: countExpr,
+          openCount: sql<number>`SUM(CASE WHEN ${serviceOrders.status} NOT IN ('finalizado','cancelado','entregue') THEN 1 ELSE 0 END)`,
+          finishedCount: sql<number>`SUM(CASE WHEN ${serviceOrders.status} IN ('finalizado','entregue') THEN 1 ELSE 0 END)`,
+          overdueCount: sql<number>`SUM(CASE WHEN ${serviceOrders.estimatedDelivery} IS NOT NULL AND ${serviceOrders.estimatedDelivery} < ${now} AND ${serviceOrders.status} NOT IN ('finalizado','cancelado','entregue') THEN 1 ELSE 0 END)`,
+        })
+        .from(serviceOrders)
+        .leftJoin(users, eq(users.id, serviceOrders.technicianId))
+        .where(eq(serviceOrders.tenantId, tenantId))
+        .groupBy(serviceOrders.technicianId, users.name)
+        .orderBy(desc(countExpr))
+        .limit(8),
     ]);
 
     const cards = {
@@ -1018,6 +1063,15 @@ export const serviceOrdersRouter = router({
           ...order,
           priority,
           reason,
+          suggestedAction: isOverdue
+            ? "Revisar prazo e avisar o cliente"
+            : order.status === "aguardando_aprovacao"
+              ? "Cobrar aprovação do orçamento"
+              : order.status === "pronto" || order.status === "aguardando_entrega"
+                ? "Combinar retirada, entrega ou pagamento"
+                : order.status === "aguardando_peca"
+                  ? "Atualizar previsão da peça"
+                  : "Atualizar andamento e comunicar cliente",
           href: `/painel/os/${order.id}`,
           deviceLabel: [order.deviceBrand, order.deviceModel].filter(Boolean).join(" ") || "Aparelho não informado",
           estimatedDelivery: estimatedDelivery ? estimatedDelivery.toISOString() : null,
@@ -1052,6 +1106,18 @@ export const serviceOrdersRouter = router({
       recentCommunications: recentCommunications.map((item) => ({
         ...item,
         sentAt: item.sentAt ? new Date(item.sentAt).toISOString() : null,
+      })),
+      statusDistribution: statusDistributionRows.map((item) => ({
+        status: item.status,
+        count: Number(item.count ?? 0),
+      })),
+      technicianMetrics: technicianMetricRows.map((item) => ({
+        technicianId: item.technicianId,
+        technicianName: item.technicianName ?? "Sem técnico",
+        total: Number(item.total ?? 0),
+        openCount: Number(item.openCount ?? 0),
+        finishedCount: Number(item.finishedCount ?? 0),
+        overdueCount: Number(item.overdueCount ?? 0),
       })),
       generatedAt: now.toISOString(),
     };
