@@ -10,6 +10,7 @@ import { notifyOwner } from "../_core/notification";
 import { buildTrialEndsAt, getTenantSubscriptionSnapshot, notifyPlanSelected } from "../_core/subscription";
 import { storagePut } from "../storage";
 import { sanitizePagarmeConfig } from "../_core/pagarme";
+import { sanitizeUberDirectConfig } from "../_core/uberDirect";
 import { validatePassword } from "../../shared/passwordRules";
 
 // Valida CNPJ
@@ -889,6 +890,84 @@ export const tenantsRouter = router({
         pagarmeWebhookSecret: webhookSecret,
       } as any).where(eq(tenants.id, ctx.user.tenantId));
       await notifyOwner({ title: "Configuração Pagar.me atualizada", content: input.enabled ? "O Pagar.me foi habilitado/atualizado para PIX e cartão no pagamento do cliente." : "O Pagar.me foi desabilitado no console da assistência." }).catch(() => undefined);
+      return { success: true };
+    }),
+
+  getUberDirectConfig: tenantAdminProcedure.query(async ({ ctx }) => {
+    const db = await getDb();
+    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+    if (!ctx.user.tenantId) throw new TRPCError({ code: "FORBIDDEN" });
+    const [tenant] = await db
+      .select({
+        ownDeliveryEnabled: tenants.ownDeliveryEnabled,
+        uberDirectEnabled: tenants.uberDirectEnabled,
+        uberDirectEnvironment: tenants.uberDirectEnvironment,
+        uberDirectCustomerId: tenants.uberDirectCustomerId,
+        uberDirectClientId: tenants.uberDirectClientId,
+        uberDirectClientSecret: tenants.uberDirectClientSecret,
+      })
+      .from(tenants)
+      .where(eq(tenants.id, ctx.user.tenantId))
+      .limit(1);
+    return sanitizeUberDirectConfig({
+      ownDeliveryEnabled: tenant?.ownDeliveryEnabled ?? true,
+      enabled: Boolean(tenant?.uberDirectEnabled),
+      environment: tenant?.uberDirectEnvironment || "sandbox",
+      customerId: tenant?.uberDirectCustomerId || null,
+      clientId: tenant?.uberDirectClientId || null,
+      clientSecret: tenant?.uberDirectClientSecret || null,
+    });
+  }),
+
+  updateUberDirectConfig: tenantAdminProcedure
+    .input(z.object({
+      ownDeliveryEnabled: z.boolean().default(true),
+      enabled: z.boolean(),
+      environment: z.enum(["sandbox", "production"]).default("sandbox"),
+      customerId: z.string().max(128).optional().nullable(),
+      clientId: z.string().max(255).optional().nullable(),
+      clientSecret: z.string().max(1000).optional().nullable(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      if (!ctx.user.tenantId) throw new TRPCError({ code: "FORBIDDEN" });
+
+      const [current] = await db
+        .select({
+          uberDirectCustomerId: tenants.uberDirectCustomerId,
+          uberDirectClientId: tenants.uberDirectClientId,
+          uberDirectClientSecret: tenants.uberDirectClientSecret,
+        })
+        .from(tenants)
+        .where(eq(tenants.id, ctx.user.tenantId))
+        .limit(1);
+
+      const customerId = input.customerId?.trim() || current?.uberDirectCustomerId || null;
+      const clientId = input.clientId?.trim() || current?.uberDirectClientId || null;
+      const clientSecret = input.clientSecret?.trim() || current?.uberDirectClientSecret || null;
+
+      if (input.enabled && (!customerId || !clientId || !clientSecret)) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Informe Customer ID, Client ID e Client Secret para ativar o Uber Direct.",
+        });
+      }
+
+      await db.update(tenants).set({
+        ownDeliveryEnabled: input.ownDeliveryEnabled,
+        uberDirectEnabled: input.enabled,
+        uberDirectEnvironment: input.environment,
+        uberDirectCustomerId: customerId,
+        uberDirectClientId: clientId,
+        uberDirectClientSecret: clientSecret,
+      } as any).where(eq(tenants.id, ctx.user.tenantId));
+
+      await notifyOwner({
+        title: "Configuração Uber Direct atualizada",
+        content: input.enabled ? "O Uber Direct foi habilitado/atualizado como opção logística da assistência." : "O Uber Direct foi desabilitado no painel da assistência.",
+      }).catch(() => undefined);
+
       return { success: true };
     }),
 

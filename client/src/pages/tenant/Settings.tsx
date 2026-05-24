@@ -116,6 +116,40 @@ export default function TenantSettings() {
     }
   }, [pagarmeConfig]);
 
+  // Logística: coleta própria e Uber Direct
+  const { data: uberDirectConfig } = trpc.tenants.getUberDirectConfig.useQuery();
+  const [uberDirectForm, setUberDirectForm] = useState({
+    ownDeliveryEnabled: true,
+    enabled: false,
+    environment: "sandbox" as "sandbox" | "production",
+    customerId: "",
+    clientId: "",
+    clientSecret: "",
+  });
+  const updateUberDirectConfig = trpc.tenants.updateUberDirectConfig.useMutation({
+    onSuccess: () => {
+      toast.success("Configuração de logística salva com segurança");
+      setUberDirectForm((prev) => ({ ...prev, customerId: "", clientId: "", clientSecret: "" }));
+      utils.tenants.getUberDirectConfig.invalidate();
+      utils.tenants.getMine.invalidate();
+    },
+    onError: (err) => toast.error(err.message ?? "Erro ao salvar configuração Uber Direct"),
+  });
+
+  useEffect(() => {
+    if (uberDirectConfig) {
+      setUberDirectForm((prev) => ({
+        ...prev,
+        ownDeliveryEnabled: Boolean(uberDirectConfig.ownDeliveryEnabled),
+        enabled: Boolean(uberDirectConfig.enabled),
+        environment: uberDirectConfig.environment,
+        customerId: "",
+        clientId: "",
+        clientSecret: "",
+      }));
+    }
+  }, [uberDirectConfig]);
+
   // Cobertura por CEP
   const [coveragePrefixes, setCoveragePrefixes] = useState<string[]>([]);
   const [coverageInput, setCoverageInput] = useState("");
@@ -1229,6 +1263,118 @@ export default function TenantSettings() {
                   Nenhum e-mail configurado. Sem e-mail, as notificações de nova OS aparecerão apenas no painel de notificações interno.
                 </p>
               )}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Logística */}
+        <Card className="border-emerald-200">
+          <CardHeader>
+            <CardTitle className="text-sm font-semibold flex items-center gap-2 text-emerald-700">
+              <Truck className="h-4 w-4" /> Logística — Coleta Própria e Uber Direct
+            </CardTitle>
+            <p className="text-xs text-muted-foreground">
+              Defina quais modalidades a assistência poderá usar para buscar e entregar aparelhos. A coleta própria
+              continua disponível para entregadores internos; o Uber Direct pode ser ativado com as credenciais da conta da assistência.
+            </p>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center justify-between gap-3 rounded-lg border border-emerald-100 bg-emerald-50/60 p-3">
+              <div>
+                <p className="text-sm font-medium text-foreground">Coleta própria da assistência</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Mantém o fluxo atual com atendente, técnico ou entregador interno responsável pela rota.
+                </p>
+              </div>
+              <Switch
+                checked={uberDirectForm.ownDeliveryEnabled}
+                onCheckedChange={(checked) => setUberDirectForm((prev) => ({ ...prev, ownDeliveryEnabled: checked }))}
+              />
+            </div>
+
+            <div className="flex items-center justify-between gap-3 rounded-lg border border-border p-3">
+              <div>
+                <p className="text-sm font-medium text-foreground">Uber Direct</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Quando ativo, a assistência poderá usar entregadores sob demanda da Uber para coletas e entregas.
+                </p>
+              </div>
+              <Switch
+                checked={uberDirectForm.enabled}
+                onCheckedChange={(checked) => setUberDirectForm((prev) => ({ ...prev, enabled: checked }))}
+              />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label>Ambiente</Label>
+                <select
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  value={uberDirectForm.environment}
+                  onChange={(e) => setUberDirectForm((prev) => ({ ...prev, environment: e.target.value as "sandbox" | "production" }))}
+                >
+                  <option value="sandbox">Sandbox / testes</option>
+                  <option value="production">Produção</option>
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Customer ID</Label>
+                <Input
+                  value={uberDirectForm.customerId}
+                  onChange={(e) => setUberDirectForm((prev) => ({ ...prev, customerId: e.target.value }))}
+                  placeholder={uberDirectConfig?.customerIdConfigured ? uberDirectConfig.customerIdPreview ?? "Customer ID já configurado" : "cus_..."}
+                  className="font-mono text-xs"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Client ID</Label>
+                <Input
+                  value={uberDirectForm.clientId}
+                  onChange={(e) => setUberDirectForm((prev) => ({ ...prev, clientId: e.target.value }))}
+                  placeholder={uberDirectConfig?.clientIdConfigured ? uberDirectConfig.clientIdPreview ?? "Client ID já configurado" : "Client ID da Uber"}
+                  className="font-mono text-xs"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Client Secret</Label>
+                <Input
+                  type="password"
+                  value={uberDirectForm.clientSecret}
+                  onChange={(e) => setUberDirectForm((prev) => ({ ...prev, clientSecret: e.target.value }))}
+                  placeholder={uberDirectConfig?.clientSecretConfigured ? "Client Secret já configurado — deixe em branco para manter" : "Client Secret da Uber"}
+                  className="font-mono text-xs"
+                />
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-emerald-100 bg-emerald-50 p-3 text-xs text-emerald-800 leading-relaxed">
+              As credenciais não são exibidas novamente após salvar. Se trocar a chave na Uber, cole os novos dados aqui e salve.
+              A ativação operacional de cotações, criação de entrega e rastreio será conectada ao fluxo de coletas/entregas em uma próxima etapa.
+            </div>
+
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex flex-wrap gap-2">
+                <Badge variant={uberDirectForm.ownDeliveryEnabled ? "default" : "secondary"}>
+                  Coleta própria {uberDirectForm.ownDeliveryEnabled ? "ativa" : "inativa"}
+                </Badge>
+                <Badge variant={uberDirectForm.enabled ? "default" : "secondary"}>
+                  Uber Direct {uberDirectForm.enabled ? "ativo" : "inativo"}
+                </Badge>
+              </div>
+              <Button
+                size="sm"
+                onClick={() => updateUberDirectConfig.mutate({
+                  ownDeliveryEnabled: uberDirectForm.ownDeliveryEnabled,
+                  enabled: uberDirectForm.enabled,
+                  environment: uberDirectForm.environment,
+                  customerId: uberDirectForm.customerId.trim() || undefined,
+                  clientId: uberDirectForm.clientId.trim() || undefined,
+                  clientSecret: uberDirectForm.clientSecret.trim() || undefined,
+                })}
+                disabled={updateUberDirectConfig.isPending}
+              >
+                {updateUberDirectConfig.isPending ? "Salvando..." : "Salvar logística"}
+              </Button>
             </div>
           </CardContent>
         </Card>

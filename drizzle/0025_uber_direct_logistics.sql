@@ -1,0 +1,7 @@
+ALTER TABLE tenants
+  ADD COLUMN ownDeliveryEnabled BOOLEAN NOT NULL DEFAULT TRUE,
+  ADD COLUMN uberDirectEnabled BOOLEAN NOT NULL DEFAULT FALSE,
+  ADD COLUMN uberDirectEnvironment VARCHAR(20) NOT NULL DEFAULT 'sandbox',
+  ADD COLUMN uberDirectCustomerId VARCHAR(128) NULL,
+  ADD COLUMN uberDirectClientId VARCHAR(255) NULL,
+  ADD COLUMN uberDirectClientSecret TEXT NULL;

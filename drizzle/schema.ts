@@ -65,6 +65,12 @@ export const tenants = mysqlTable("tenants", {
   coverageDeadlines: text("coverage_deadlines"),
   welcomeText: text("welcome_text"),             // JSON: Record<string, number> — prazo em horas por prefixo (ex: {"01":2,"04":4,"default":24})
   notificationEmail: varchar("notificationEmail", { length: 320 }), // E-mail para receber notificações de novas OS
+  ownDeliveryEnabled: boolean("ownDeliveryEnabled").notNull().default(true),
+  uberDirectEnabled: boolean("uberDirectEnabled").notNull().default(false),
+  uberDirectEnvironment: varchar("uberDirectEnvironment", { length: 20 }).notNull().default("sandbox"),
+  uberDirectCustomerId: varchar("uberDirectCustomerId", { length: 128 }),
+  uberDirectClientId: varchar("uberDirectClientId", { length: 255 }),
+  uberDirectClientSecret: text("uberDirectClientSecret"),
   pagarmeEnabled: boolean("pagarmeEnabled").notNull().default(false),
   pagarmeEnvironment: varchar("pagarmeEnvironment", { length: 20 }).notNull().default("sandbox"),
   pagarmePublicKey: varchar("pagarmePublicKey", { length: 255 }),
