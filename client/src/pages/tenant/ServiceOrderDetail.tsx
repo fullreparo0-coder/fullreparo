@@ -263,6 +263,20 @@ export default function ServiceOrderDetail() {
     ? `https://www.google.com/maps?q=${pickupLatitude},${pickupLongitude}`
     : "";
 
+  const nextBestAction = (os as any).nextBestAction as { code?: string; priority?: string; title?: string; description?: string; ctaLabel?: string } | undefined;
+  const sla = (os as any).sla as { statusAgeHours?: number; isOverdue?: boolean; isStageStalled?: boolean; estimatedDelivery?: string | null; overdueDays?: number } | undefined;
+  const priorityClass = nextBestAction?.priority === "alta"
+    ? "border-red-200 bg-red-50/70 text-red-900 dark:border-red-900/60 dark:bg-red-950/25 dark:text-red-100"
+    : nextBestAction?.priority === "media"
+      ? "border-amber-200 bg-amber-50/70 text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/25 dark:text-amber-100"
+      : "border-emerald-200 bg-emerald-50/70 text-emerald-900 dark:border-emerald-900/60 dark:bg-emerald-950/25 dark:text-emerald-100";
+  const statusAgeLabel = typeof sla?.statusAgeHours === "number"
+    ? sla.statusAgeHours >= 24
+      ? `${Math.floor(sla.statusAgeHours / 24)} dia(s) nesta etapa`
+      : `${Math.max(1, Math.round(sla.statusAgeHours))}h nesta etapa`
+    : "Tempo de etapa indisponível";
+  const quickActionStatus = nextBestAction?.code === "ready_pickup" ? "pronto" : nextBestAction?.code === "delivery_ready" ? "saiu_para_entrega" : nextBestAction?.code === "diagnosis_needed" ? "em_diagnostico" : nextBestAction?.code === "approved_repair" ? "em_reparo" : null;
+
   // Monta link e mensagem de WhatsApp para o comprovante de garantia
   const buildWarrantyWhatsApp = () => {
     if (!warranty) return null;
@@ -403,6 +417,44 @@ export default function ServiceOrderDetail() {
           </DropdownMenu>
         </div>
 
+        {nextBestAction && (
+          <Card className={`border shadow-sm ${priorityClass}`}>
+            <CardContent className="p-4">
+              <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                <div className="space-y-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge variant={nextBestAction.priority === "alta" ? "destructive" : "secondary"} className="uppercase tracking-wide">
+                      {nextBestAction.priority === "alta" ? "ação crítica" : nextBestAction.priority === "media" ? "atenção" : "próxima ação"}
+                    </Badge>
+                    <span className="text-xs font-medium opacity-80">{statusAgeLabel}</span>
+                    {sla?.isOverdue && <Badge variant="destructive">prazo vencido</Badge>}
+                    {sla?.isStageStalled && <Badge variant="outline">etapa parada</Badge>}
+                  </div>
+                  <h2 className="text-base font-semibold">{nextBestAction.title}</h2>
+                  <p className="text-sm opacity-85">{nextBestAction.description}</p>
+                </div>
+                <div className="flex flex-wrap gap-2 md:justify-end">
+                  <Button size="sm" variant="secondary" onClick={openWhatsApp}>
+                    <MessageSquare className="h-3.5 w-3.5 mr-1.5" /> Avisar cliente
+                  </Button>
+                  {quickActionStatus && os.status !== quickActionStatus && (
+                    <Button
+                      size="sm"
+                      disabled={updateStatus.isPending}
+                      onClick={() => updateStatus.mutate({ id: osId, status: quickActionStatus as any, notes: `Ação rápida v19: ${nextBestAction.ctaLabel ?? nextBestAction.title}` })}
+                    >
+                      <Clock className="h-3.5 w-3.5 mr-1.5" /> {nextBestAction.ctaLabel ?? "Aplicar ação"}
+                    </Button>
+                  )}
+                  <Button size="sm" variant="outline" onClick={copyTrackingLink}>
+                    <Copy className="h-3.5 w-3.5 mr-1.5" /> Link do cliente
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           {/* Main info */}
           <div className="lg:col-span-2 space-y-4">
@@ -497,6 +549,28 @@ export default function ServiceOrderDetail() {
             )}
 
             {/* Update Status */}
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                  <Clock className="h-4 w-4 text-muted-foreground" /> SLA e tempo parado
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
+                <div className="rounded-lg border bg-muted/30 p-3">
+                  <p className="text-xs text-muted-foreground">Tempo na etapa</p>
+                  <p className="font-semibold">{statusAgeLabel}</p>
+                </div>
+                <div className="rounded-lg border bg-muted/30 p-3">
+                  <p className="text-xs text-muted-foreground">Sinalização</p>
+                  <p className="font-semibold">{sla?.isOverdue ? "Prazo vencido" : sla?.isStageStalled ? "Etapa parada" : "Dentro do fluxo"}</p>
+                </div>
+                <div className="rounded-lg border bg-muted/30 p-3">
+                  <p className="text-xs text-muted-foreground">Entrega prevista</p>
+                  <p className="font-semibold">{sla?.estimatedDelivery ? new Date(sla.estimatedDelivery).toLocaleDateString("pt-BR") : os.estimatedDelivery ? new Date(os.estimatedDelivery).toLocaleDateString("pt-BR") : "Não informada"}</p>
+                </div>
+              </CardContent>
+            </Card>
+
             <Card>
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm font-semibold flex items-center gap-2">

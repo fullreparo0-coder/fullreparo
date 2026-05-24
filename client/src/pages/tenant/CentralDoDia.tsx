@@ -12,6 +12,7 @@ import {
   Bell,
   CalendarClock,
   CheckCircle2,
+  Clock3,
   ClipboardList,
   CreditCard,
   Mail,
@@ -21,6 +22,7 @@ import {
   Smartphone,
   Wallet,
   Wrench,
+  Zap,
 } from "lucide-react";
 
 const currency = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
@@ -31,6 +33,7 @@ const priorityClasses: Record<string, string> = {
   alta: "border-red-200 bg-red-50 text-red-700",
   media: "border-amber-200 bg-amber-50 text-amber-700",
   normal: "border-slate-200 bg-slate-50 text-slate-700",
+  baixa: "border-emerald-200 bg-emerald-50 text-emerald-700",
 };
 
 const alertClasses: Record<string, string> = {
@@ -138,6 +141,8 @@ export default function CentralDoDia() {
   const recentCommunications = data.recentCommunications ?? [];
   const statusDistribution = data.statusDistribution ?? [];
   const technicianMetrics = data.technicianMetrics ?? [];
+  const actionSummary = data.actionSummary ?? { high: 0, medium: 0, normal: 0, stalled: 0 };
+  const inboxByOs = data.inboxByOs ?? [];
 
   return (
     <TenantLayout title="Central do Dia">
@@ -196,6 +201,21 @@ export default function CentralDoDia() {
           />
         </div>
 
+        <Card className="border-primary/20 bg-gradient-to-br from-primary/5 via-background to-background">
+          <CardHeader className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2"><Zap className="h-5 w-5 text-primary" /> Console inteligente de ações</CardTitle>
+              <p className="text-sm text-muted-foreground">Fila priorizada por urgência, SLA parado, prazo vencido e próxima melhor ação para cada OS.</p>
+            </div>
+            <div className="grid grid-cols-4 gap-2 text-center text-xs">
+              <div className="rounded-lg border bg-red-50 p-2 text-red-700"><strong className="block text-lg">{actionSummary.high}</strong> alta</div>
+              <div className="rounded-lg border bg-amber-50 p-2 text-amber-700"><strong className="block text-lg">{actionSummary.medium}</strong> média</div>
+              <div className="rounded-lg border bg-slate-50 p-2 text-slate-700"><strong className="block text-lg">{actionSummary.normal}</strong> normal</div>
+              <div className="rounded-lg border bg-purple-50 p-2 text-purple-700"><strong className="block text-lg">{actionSummary.stalled}</strong> paradas</div>
+            </div>
+          </CardHeader>
+        </Card>
+
         <div className="grid gap-4 lg:grid-cols-3">
           <Card className="lg:col-span-2">
             <CardHeader className="flex flex-row items-center justify-between gap-2">
@@ -228,13 +248,20 @@ export default function CentralDoDia() {
                         </Badge>
                       </div>
                       <p className="truncate text-sm font-medium">{order.customerName ?? "Cliente não informado"}</p>
-                      <p className="truncate text-xs text-muted-foreground">{order.deviceLabel} • {order.reason}</p>
-                      <p className="text-xs font-medium text-primary">Ação sugerida: {order.suggestedAction ?? "Atualizar andamento"}</p>
+                      <p className="truncate text-xs text-muted-foreground">{order.deviceLabel} • {order.nextBestAction?.description ?? order.reason}</p>
+                      <div className="mt-2 flex flex-wrap gap-2 text-xs">
+                        <Badge variant="secondary" className="gap-1"><Zap className="h-3 w-3" />{order.nextBestAction?.title ?? order.reason}</Badge>
+                        <Badge variant="outline" className={order.sla?.isOverdue || order.sla?.isStageStalled ? "border-red-200 bg-red-50 text-red-700" : "border-emerald-200 bg-emerald-50 text-emerald-700"}>
+                          <Clock3 className="mr-1 h-3 w-3" />{order.sla?.label ?? "SLA em análise"}
+                        </Badge>
+                      </div>
+                      <p className="mt-2 text-xs font-medium text-primary">Ação sugerida: {order.suggestedAction ?? order.nextBestAction?.ctaLabel ?? "Atualizar andamento"}</p>
                     </div>
                     <div className="shrink-0 text-left md:text-right">
                       <p className="text-xs text-muted-foreground">Prazo</p>
                       <p className="text-sm font-medium">{formatDate(order.estimatedDelivery)}</p>
                       <p className="text-xs text-muted-foreground">{currency.format(order.totalAmount ?? 0)}</p>
+                      <p className="text-xs text-muted-foreground">{order.sla?.statusAgeHours ?? 0}h na etapa</p>
                     </div>
                   </div>
                 </button>
@@ -330,33 +357,34 @@ export default function CentralDoDia() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between gap-2">
             <div>
-              <CardTitle>Comunicações recentes</CardTitle>
-              <p className="text-sm text-muted-foreground">Últimos push PWA, e-mails e avisos registrados na OS.</p>
+              <CardTitle>Inbox operacional por OS</CardTitle>
+              <p className="text-sm text-muted-foreground">Mensagens recentes organizadas para abrir a OS certa e continuar o atendimento.</p>
             </div>
             <Button variant="outline" size="sm" onClick={() => navigate("/painel/notificacoes")}>Histórico</Button>
           </CardHeader>
           <CardContent>
-            {recentCommunications.length === 0 ? (
+            {inboxByOs.length === 0 ? (
               <div className="rounded-xl border border-dashed p-8 text-center">
                 <Bell className="mx-auto h-9 w-9 text-muted-foreground" />
                 <p className="mt-3 text-sm text-muted-foreground">Nenhuma comunicação recente registrada.</p>
               </div>
             ) : (
               <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                {recentCommunications.map((item) => {
+                {inboxByOs.map((item, idx) => {
                   const Icon = channelIcon[item.channel] ?? Bell;
                   return (
                     <button
-                      key={item.id}
-                      onClick={() => navigate(`/painel/os/${item.serviceOrderId}`)}
+                      key={`${item.osId}-${item.sentAt}-${idx}`}
+                      onClick={() => navigate(item.href ?? `/painel/os/${item.osId}`)}
                       className="rounded-xl border bg-card p-4 text-left transition hover:border-primary/40 hover:shadow-sm"
                     >
                       <div className="flex items-center justify-between gap-2">
                         <Badge variant="secondary" className="gap-1"><Icon className="h-3 w-3" />{item.channel}</Badge>
                         <span className="text-xs text-muted-foreground">{formatDateTime(item.sentAt)}</span>
                       </div>
-                      <p className="mt-3 text-sm font-medium">OS #{item.osNumber ?? item.serviceOrderId}</p>
+                      <p className="mt-3 text-sm font-medium">OS #{item.osNumber ?? item.osId}</p>
                       <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{item.message}</p>
+                      <p className="mt-2 text-xs text-muted-foreground">Responsável: {item.actorName ?? "Sistema"}</p>
                     </button>
                   );
                 })}

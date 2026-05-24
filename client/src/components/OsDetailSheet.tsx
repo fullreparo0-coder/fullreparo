@@ -86,6 +86,32 @@ function formatCurrency(value: unknown) {
   return Number(value || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
 
+function getActionPriorityTone(priority?: string | null) {
+  if (priority === "alta") return "border-red-200 bg-red-50 text-red-800";
+  if (priority === "media") return "border-amber-200 bg-amber-50 text-amber-800";
+  return "border-slate-200 bg-slate-50 text-slate-700";
+}
+
+function getActionPriorityLabel(priority?: string | null) {
+  if (priority === "alta") return "Prioridade alta";
+  if (priority === "media") return "Prioridade média";
+  return "Ação sugerida";
+}
+
+function getSlaTone(sla?: { isOverdue?: boolean | null; isStageStalled?: boolean | null } | null) {
+  if (sla?.isOverdue) return "border-red-200 bg-red-50 text-red-800";
+  if (sla?.isStageStalled) return "border-amber-200 bg-amber-50 text-amber-800";
+  return "border-emerald-200 bg-emerald-50 text-emerald-800";
+}
+
+function getSlaLabel(sla?: { isOverdue?: boolean | null; isStageStalled?: boolean | null; statusAgeHours?: number | null } | null) {
+  const hours = Number(sla?.statusAgeHours ?? 0);
+  const humanAge = hours >= 24 ? `${Math.floor(hours / 24)} dia(s) nesta etapa` : `${Math.max(0, Math.round(hours))} hora(s) nesta etapa`;
+  if (sla?.isOverdue) return `Prazo de atendimento vencido · ${humanAge}`;
+  if (sla?.isStageStalled) return `Etapa sem avanço recente · ${humanAge}`;
+  return `Dentro do prazo · ${humanAge}`;
+}
+
 // ─── Props ────────────────────────────────────────────────────────────────────
 
 interface OsDetailSheetProps {
@@ -257,7 +283,11 @@ export function OsDetailSheet({ osId, tenantId, primaryColor, onClose }: OsDetai
   const warranty = data?.warranty;
   const budget = data?.budget;
   const recentCommunications = data?.recentCommunications ?? [];
+  const inbox = data?.inbox ?? recentCommunications;
   const nextStep = getNextStep(os?.status);
+  const nextBestAction = data?.nextBestAction ?? nextStep;
+  const actionPriority = data?.nextBestAction?.priority ?? (os?.status === "aguardando_aprovacao" ? "alta" : "normal");
+  const sla = data?.sla;
 
   const currentStatus = os ? getStatus(os.status) : null;
   const StatusIcon = currentStatus?.icon ?? Clock;
@@ -377,6 +407,55 @@ export function OsDetailSheet({ osId, tenantId, primaryColor, onClose }: OsDetai
                   </div>
                 </section>
               )}
+
+              {/* ── Console inteligente v19: próxima melhor ação, SLA e jornada ── */}
+              <section className="space-y-3">
+                <div className={`rounded-xl border p-4 ${getActionPriorityTone(actionPriority)}`}>
+                  <div className="flex items-start gap-3">
+                    <div className="h-9 w-9 rounded-full bg-white/70 border flex items-center justify-center shrink-0">
+                      <Bell className="h-4 w-4" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-[11px] font-semibold uppercase tracking-wide">{getActionPriorityLabel(actionPriority)}</span>
+                        <Badge variant="outline" className="bg-white/70 text-[11px]">Console inteligente</Badge>
+                      </div>
+                      <p className="text-sm font-semibold mt-1">{nextBestAction.title}</p>
+                      <p className="text-xs opacity-80 mt-0.5 leading-relaxed">{nextBestAction.description}</p>
+                      <Button
+                        size="sm"
+                        className="mt-3 h-8 gap-2"
+                        style={{ backgroundColor: primaryColor, color: "#fff" }}
+                        onClick={() => {
+                          if (isAwaitingApproval) return;
+                          document.getElementById("os-v19-inbox")?.scrollIntoView({ behavior: "smooth", block: "start" });
+                        }}
+                      >
+                        {data?.nextBestAction?.ctaLabel ?? nextStep.action}
+                        <ExternalLink className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  <div className="rounded-xl border border-border bg-card p-3">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Etapa atual</p>
+                    <div className="mt-1 flex items-center gap-2 text-sm font-semibold text-foreground">
+                      <StatusIcon className="h-4 w-4" />
+                      {currentStatus?.label ?? "Em acompanhamento"}
+                    </div>
+                  </div>
+                  <div className={`rounded-xl border p-3 ${getSlaTone(sla)}`}>
+                    <p className="text-[11px] font-semibold uppercase tracking-wide">SLA da etapa</p>
+                    <p className="mt-1 text-sm font-semibold leading-tight">{getSlaLabel(sla)}</p>
+                  </div>
+                  <div className="rounded-xl border border-border bg-card p-3">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Jornada</p>
+                    <p className="mt-1 text-sm font-semibold text-foreground leading-tight">{nextStep.title}</p>
+                  </div>
+                </div>
+              </section>
 
               {/* ── Aparelho ───────────────────────────────────────────────── */}
               {device && (
@@ -748,21 +827,28 @@ export function OsDetailSheet({ osId, tenantId, primaryColor, onClose }: OsDetai
                 </div>
               </section>
 
-              <section>
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">
-                  Comunicações recentes
-                </p>
-                {recentCommunications.length === 0 ? (
+              <section id="os-v19-inbox">
+                <div className="flex items-center justify-between gap-2 mb-3">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                    Inbox da OS
+                  </p>
+                  <Badge variant="outline" className="text-[11px]">{inbox.length} mensagem(ns)</Badge>
+                </div>
+                {inbox.length === 0 ? (
                   <p className="rounded-lg border border-dashed p-3 text-sm text-muted-foreground">Nenhuma comunicação registrada para esta OS ainda.</p>
                 ) : (
                   <div className="space-y-2">
-                    {recentCommunications.slice().reverse().map((item) => (
+                    {inbox.slice().reverse().map((item) => (
                       <div key={item.id} className="rounded-lg border bg-card p-3 text-xs">
                         <div className="flex items-center justify-between gap-2">
                           <span className="flex items-center gap-1.5 font-semibold"><MessageSquare className="h-3.5 w-3.5" /> {item.channel}</span>
                           <span className="text-muted-foreground">{item.sentAt ? new Date(item.sentAt).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) : "Agora"}</span>
                         </div>
-                        <p className="mt-1 text-muted-foreground line-clamp-2">{item.message}</p>
+                        <div className="mt-1 flex items-center gap-2 text-[11px] text-muted-foreground">
+                          {"eventType" in item && item.eventType ? <span className="rounded-full bg-muted px-2 py-0.5">{item.eventType}</span> : null}
+                          {"status" in item && item.status ? <span className="rounded-full bg-muted px-2 py-0.5">{item.status}</span> : null}
+                        </div>
+                        <p className="mt-1 text-muted-foreground leading-relaxed">{item.message}</p>
                       </div>
                     ))}
                   </div>

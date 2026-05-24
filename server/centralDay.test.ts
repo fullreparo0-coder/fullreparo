@@ -209,6 +209,8 @@ describe("serviceOrders.centralDay", () => {
     });
     expect(result.financial).toEqual({ paidToday: 0, paidMonth: 0, pendingAmount: 0, pendingCount: 0 });
     expect(result.actionQueue).toEqual([]);
+    expect(result.actionSummary).toEqual({ high: 0, medium: 0, normal: 0, stalled: 0 });
+    expect(result.inboxByOs).toEqual([]);
     expect(result.alerts).toEqual([]);
     expect(result.recentCommunications).toEqual([]);
     expect(result.statusDistribution).toEqual([]);
@@ -229,6 +231,8 @@ describe("serviceOrders.centralDay", () => {
       failedCommunications: 0,
     });
     expect(result.actionQueue).toEqual([]);
+    expect(result.actionSummary).toEqual({ high: 0, medium: 0, normal: 0, stalled: 0 });
+    expect(result.inboxByOs).toEqual([]);
     expect(result.alerts).toHaveLength(1);
     expect(result.alerts[0]).toMatchObject({ type: "success", title: "Operação em dia" });
     expect(result.statusDistribution).toEqual([]);
@@ -266,11 +270,24 @@ describe("serviceOrders.centralDay", () => {
       href: "/painel/os/101",
       deviceLabel: "Samsung A54",
       totalAmount: 350.5,
+      suggestedAction: "Atualizar prazo",
+      nextBestAction: {
+        code: "overdue_followup",
+        priority: "alta",
+        title: "Revisar prazo e avisar cliente",
+        ctaLabel: "Atualizar prazo",
+      },
+      sla: {
+        status: "em_reparo",
+        isOverdue: true,
+        label: "Prazo vencido",
+      },
     });
+    expect(result.actionSummary).toEqual({ high: 1, medium: 0, normal: 0, stalled: 1 });
     expect(result.actionQueue[0].estimatedDelivery).toBe(overdueDate.toISOString());
   });
 
-  it("gera alerta warning e prioridade média para orçamento pendente", async () => {
+  it("gera alerta warning e prioridade alta para orçamento pendente", async () => {
     mockCentralDayQueries({
       pendingBudgets: [{ count: 1 }],
       actionRows: [
@@ -282,6 +299,7 @@ describe("serviceOrders.centralDay", () => {
           estimatedDelivery: null,
           totalAmount: 500,
           createdAt: new Date("2024-01-10T12:00:00Z"),
+          updatedAt: new Date(),
           customerName: "Cliente B",
           deviceBrand: "Apple",
           deviceModel: "iPhone 12",
@@ -295,13 +313,16 @@ describe("serviceOrders.centralDay", () => {
     expect(result.alerts).toEqual(expect.arrayContaining([expect.objectContaining({ type: "warning", title: "Orçamentos pendentes" })]));
     expect(result.actionQueue[0]).toMatchObject({
       id: 202,
-      priority: "media",
-      reason: "Aguardando aprovação de orçamento",
+      priority: "alta",
+      reason: "Cobrar aprovação do orçamento",
+      suggestedAction: "Enviar lembrete",
       deviceLabel: "Apple iPhone 12",
+      nextBestAction: expect.objectContaining({ code: "budget_waiting", ctaLabel: "Enviar lembrete" }),
+      sla: expect.objectContaining({ status: "aguardando_aprovacao", isOverdue: false }),
     });
   });
 
-  it("gera alerta success e prioridade média para OS pronta para retirada", async () => {
+  it("gera alerta success e prioridade alta para OS pronta para retirada com valor pendente", async () => {
     mockCentralDayQueries({
       readyForPickup: [{ count: 1 }],
       actionRows: [
@@ -313,6 +334,7 @@ describe("serviceOrders.centralDay", () => {
           estimatedDelivery: null,
           totalAmount: "189.90",
           createdAt: new Date("2024-02-01T08:00:00Z"),
+          updatedAt: new Date(),
           customerName: "Cliente C",
           deviceBrand: "Motorola",
           deviceModel: "G84",
@@ -326,9 +348,12 @@ describe("serviceOrders.centralDay", () => {
     expect(result.alerts).toEqual(expect.arrayContaining([expect.objectContaining({ type: "success", title: "Prontos para retirada" })]));
     expect(result.actionQueue[0]).toMatchObject({
       id: 303,
-      priority: "media",
-      reason: "Pronto para retirada/entrega",
+      priority: "alta",
+      reason: "Combinar retirada, entrega ou pagamento",
+      suggestedAction: "Finalizar entrega",
       deviceLabel: "Motorola G84",
+      nextBestAction: expect.objectContaining({ code: "ready_for_delivery", ctaLabel: "Finalizar entrega" }),
+      sla: expect.objectContaining({ status: "pronto", isOverdue: false }),
       totalAmount: 189.9,
     });
   });
@@ -383,6 +408,16 @@ describe("serviceOrders.centralDay", () => {
       eventType: "auto_communication",
       sentAt: sentAt.toISOString(),
     });
+    expect(result.inboxByOs).toEqual([
+      expect.objectContaining({
+        osId: 404,
+        osNumber: "OS-COM-001",
+        channel: "email",
+        eventType: "auto_communication",
+        sentAt: sentAt.toISOString(),
+      }),
+    ]);
+    expect(result.actionSummary).toEqual({ high: 0, medium: 0, normal: 0, stalled: 0 });
     expect(result.statusDistribution).toEqual([
       { status: "em_reparo", count: 3 },
       { status: "pronto", count: 1 },

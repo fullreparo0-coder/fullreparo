@@ -19,6 +19,154 @@ const tenantProcedure = protectedProcedure.use(({ ctx, next }) => {
   return next({ ctx });
 });
 
+
+
+type SmartActionContext = {
+  id?: number;
+  status?: string | null;
+  estimatedDelivery?: Date | string | null;
+  createdAt?: Date | string | null;
+  updatedAt?: Date | string | null;
+  totalAmount?: string | number | null;
+  paymentRequestedAt?: Date | string | null;
+  deliveryAuthorizedAt?: Date | string | null;
+};
+
+const FINAL_STATUSES = new Set(["finalizado", "cancelado", "entregue"]);
+const HIGH_TOUCH_STATUSES = new Set(["aguardando_aprovacao", "pronto", "aguardando_entrega", "aguardando_peca"]);
+
+const SLA_LIMIT_HOURS: Record<string, number> = {
+  solicitado: 4,
+  aguardando_coleta: 8,
+  coleta_agendada: 24,
+  coletado: 8,
+  recebido_na_assistencia: 24,
+  em_diagnostico: 48,
+  aguardando_aprovacao: 24,
+  aprovado: 12,
+  aguardando_peca: 72,
+  em_reparo: 48,
+  pronto: 24,
+  aguardando_entrega: 24,
+  saiu_para_entrega: 8,
+};
+
+function toDateOrNull(value: Date | string | null | undefined) {
+  if (!value) return null;
+  const parsed = value instanceof Date ? value : new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function hoursBetween(start: Date | null, end: Date) {
+  if (!start) return 0;
+  return Math.max(0, Math.round(((end.getTime() - start.getTime()) / 36_000) ) / 100);
+}
+
+function buildSlaSnapshot(order: SmartActionContext, now = new Date()) {
+  const status = String(order.status ?? "");
+  const baseDate = toDateOrNull(order.updatedAt) ?? toDateOrNull(order.createdAt);
+  const estimatedDelivery = toDateOrNull(order.estimatedDelivery);
+  const hoursInStage = hoursBetween(baseDate, now);
+  const limitHours = SLA_LIMIT_HOURS[status] ?? 48;
+  const isFinal = FINAL_STATUSES.has(status);
+  const isOverdue = !!estimatedDelivery && estimatedDelivery < now && !isFinal;
+  const isStageStalled = !isFinal && hoursInStage >= limitHours;
+  const remainingHours = isFinal ? null : Math.max(0, Math.round((limitHours - hoursInStage) * 100) / 100);
+
+  return {
+    status,
+    statusAgeHours: hoursInStage,
+    limitHours,
+    remainingHours,
+    isOverdue,
+    isStageStalled,
+    dueAt: estimatedDelivery ? estimatedDelivery.toISOString() : null,
+    label: isFinal
+      ? "Concluída"
+      : isOverdue
+        ? "Prazo vencido"
+        : isStageStalled
+          ? "Etapa parada"
+          : "Dentro do SLA",
+  };
+}
+
+function buildNextBestAction(order: SmartActionContext, audience: "tenant" | "customer" = "tenant", now = new Date()) {
+  const status = String(order.status ?? "");
+  const sla = buildSlaSnapshot(order, now);
+  const totalAmount = Number(order.totalAmount ?? 0);
+  const hasDeliveryAuthorization = !!order.deliveryAuthorizedAt;
+  const isFinal = FINAL_STATUSES.has(status);
+
+  if (isFinal) {
+    return {
+      code: "completed",
+      priority: "baixa",
+      title: audience === "customer" ? "Serviço concluído" : "OS concluída",
+      description: audience === "customer" ? "Consulte a garantia, documentos e histórico desta ordem." : "Revise garantia, pagamento e documentação se necessário.",
+      ctaLabel: audience === "customer" ? "Ver documentos" : "Revisar OS",
+    };
+  }
+
+  if (sla.isOverdue) {
+    return {
+      code: "overdue_followup",
+      priority: "alta",
+      title: audience === "customer" ? "Prazo em revisão" : "Revisar prazo e avisar cliente",
+      description: audience === "customer" ? "A assistência precisa atualizar a previsão desta ordem." : "A OS passou do prazo estimado. Atualize a previsão e registre uma comunicação.",
+      ctaLabel: audience === "customer" ? "Falar com assistência" : "Atualizar prazo",
+    };
+  }
+
+  if (status === "aguardando_aprovacao") {
+    return {
+      code: "budget_waiting",
+      priority: "alta",
+      title: audience === "customer" ? "Orçamento aguardando sua aprovação" : "Cobrar aprovação do orçamento",
+      description: audience === "customer" ? "Revise valores, itens e autorize ou recuse o orçamento." : "Cliente ainda não respondeu ao orçamento. Envie lembrete ou faça contato ativo.",
+      ctaLabel: audience === "customer" ? "Ver orçamento" : "Enviar lembrete",
+    };
+  }
+
+  if (status === "pronto" || status === "aguardando_entrega") {
+    return {
+      code: "ready_for_delivery",
+      priority: totalAmount > 0 && !hasDeliveryAuthorization ? "alta" : "media",
+      title: audience === "customer" ? "Seu equipamento está pronto" : "Combinar retirada, entrega ou pagamento",
+      description: audience === "customer" ? "Autorize a entrega, combine retirada e veja opções de pagamento quando liberadas." : "A OS está pronta. Confirme retirada/entrega, autorização e pendências financeiras.",
+      ctaLabel: audience === "customer" ? "Autorizar entrega" : "Finalizar entrega",
+    };
+  }
+
+  if (status === "aguardando_peca") {
+    return {
+      code: "parts_waiting",
+      priority: "media",
+      title: audience === "customer" ? "Aguardando peça" : "Atualizar previsão da peça",
+      description: audience === "customer" ? "A assistência acompanha a chegada da peça necessária para o reparo." : "Registre previsão da peça e comunique o cliente para reduzir ansiedade.",
+      ctaLabel: audience === "customer" ? "Ver andamento" : "Atualizar previsão",
+    };
+  }
+
+  if (sla.isStageStalled || HIGH_TOUCH_STATUSES.has(status)) {
+    return {
+      code: "stage_followup",
+      priority: "media",
+      title: audience === "customer" ? "Acompanhamento em andamento" : "Atualizar etapa e comunicar cliente",
+      description: audience === "customer" ? "A próxima atualização aparecerá no histórico desta OS." : "A etapa atual já merece atualização operacional ou comunicação preventiva.",
+      ctaLabel: audience === "customer" ? "Ver histórico" : "Registrar atualização",
+    };
+  }
+
+  return {
+    code: "monitor",
+    priority: "normal",
+    title: audience === "customer" ? "Serviço em andamento" : "Acompanhar andamento",
+    description: audience === "customer" ? "Acompanhe a linha do tempo e as comunicações da assistência." : "Continue acompanhando a OS e mantenha o cliente informado em mudanças relevantes.",
+    ctaLabel: audience === "customer" ? "Ver detalhes" : "Abrir OS",
+  };
+}
+
 const OS_STATUSES = [
   "solicitado", "aguardando_coleta", "coleta_agendada", "coletado",
   "recebido_na_assistencia", "em_diagnostico", "aguardando_aprovacao",
@@ -58,7 +206,14 @@ export const serviceOrdersRouter = router({
       getChecklistByOs(ctx.user.tenantId!, input.id),
       getPhotosByOs(ctx.user.tenantId!, input.id),
     ]);
-    return { ...os, timeline, checklist: checklistItems, photos: photoList };
+    return {
+      ...os,
+      timeline,
+      checklist: checklistItems,
+      photos: photoList,
+      sla: buildSlaSnapshot(os as SmartActionContext),
+      nextBestAction: buildNextBestAction(os as SmartActionContext, "tenant"),
+    };
   }),
 
   // Consultar uso de OS do mês atual vs limite do plano
@@ -623,6 +778,11 @@ export const serviceOrdersRouter = router({
           reportedDefect: serviceOrders.reportedDefect,
           publicToken: serviceOrders.publicToken,
           createdAt: serviceOrders.createdAt,
+          updatedAt: serviceOrders.updatedAt,
+          estimatedDelivery: serviceOrders.estimatedDelivery,
+          totalAmount: serviceOrders.totalAmount,
+          paymentRequestedAt: serviceOrders.paymentRequestedAt,
+          deliveryAuthorizedAt: serviceOrders.deliveryAuthorizedAt,
           deviceId: serviceOrders.deviceId,
         })
         .from(serviceOrders)
@@ -634,7 +794,9 @@ export const serviceOrdersRouter = router({
 
       const enriched = await Promise.all(
         orders.map(async (os) => {
-          if (!os.deviceId) return { ...os, deviceBrand: null, deviceModel: null, trackingToken: os.publicToken };
+          const nextBestAction = buildNextBestAction(os as SmartActionContext, "customer");
+          const sla = buildSlaSnapshot(os as SmartActionContext);
+          if (!os.deviceId) return { ...os, deviceBrand: null, deviceModel: null, trackingToken: os.publicToken, nextBestAction, sla };
           const [device] = await db
             .select({ brand: devices.brand, model: devices.model })
             .from(devices)
@@ -645,6 +807,8 @@ export const serviceOrdersRouter = router({
             deviceBrand: device?.brand ?? null,
             deviceModel: device?.model ?? null,
             trackingToken: os.publicToken,
+            nextBestAction,
+            sla,
           };
         })
       );
@@ -767,6 +931,17 @@ export const serviceOrdersRouter = router({
           ...item,
           sentAt: item.sentAt ? new Date(item.sentAt).toISOString() : null,
         })),
+        inbox: recentCommunications.map((item) => ({
+          id: item.id,
+          channel: item.channel,
+          eventType: item.eventType,
+          status: item.status,
+          message: item.message,
+          actorName: item.actorName ?? "Sistema",
+          sentAt: item.sentAt ? new Date(item.sentAt).toISOString() : null,
+        })),
+        sla: buildSlaSnapshot(os as SmartActionContext),
+        nextBestAction: buildNextBestAction(os as SmartActionContext, "customer"),
       };
     }),
 
@@ -905,6 +1080,8 @@ export const serviceOrdersRouter = router({
         recentCommunications: [],
         statusDistribution: [],
         technicianMetrics: [],
+        actionSummary: { high: 0, medium: 0, normal: 0, stalled: 0 },
+        inboxByOs: [],
       };
     }
 
@@ -982,14 +1159,19 @@ export const serviceOrdersRouter = router({
           reportedDefect: serviceOrders.reportedDefect,
           estimatedDelivery: serviceOrders.estimatedDelivery,
           totalAmount: serviceOrders.totalAmount,
+          paymentRequestedAt: serviceOrders.paymentRequestedAt,
+          deliveryAuthorizedAt: serviceOrders.deliveryAuthorizedAt,
           createdAt: serviceOrders.createdAt,
+          updatedAt: serviceOrders.updatedAt,
           customerName: customers.name,
           deviceBrand: devices.brand,
           deviceModel: devices.model,
+          technicianName: users.name,
         })
         .from(serviceOrders)
         .leftJoin(customers, eq(customers.id, serviceOrders.customerId))
         .leftJoin(devices, eq(devices.id, serviceOrders.deviceId))
+        .leftJoin(users, eq(users.id, serviceOrders.technicianId))
         .where(and(
           eq(serviceOrders.tenantId, tenantId),
           sql`(${serviceOrders.status} IN ('recebido_na_assistencia','solicitado','aguardando_coleta','coleta_agendada','em_diagnostico','aguardando_aprovacao','aguardando_peca','em_reparo','pronto','aguardando_entrega') OR ${serviceOrders.estimatedDelivery} < ${now})`,
@@ -1048,42 +1230,53 @@ export const serviceOrdersRouter = router({
     const actionQueue = actionRows
       .map((order) => {
         const estimatedDelivery = order.estimatedDelivery ? new Date(order.estimatedDelivery) : null;
-        const isOverdue = !!estimatedDelivery && estimatedDelivery < now && !["finalizado", "cancelado", "entregue"].includes(String(order.status));
-        const priority = isOverdue ? "alta" : order.status === "aguardando_aprovacao" || order.status === "pronto" ? "media" : "normal";
-        const reason = isOverdue
-          ? "Prazo vencido"
-          : order.status === "aguardando_aprovacao"
-            ? "Aguardando aprovação de orçamento"
-            : order.status === "pronto" || order.status === "aguardando_entrega"
-              ? "Pronto para retirada/entrega"
-              : order.status === "aguardando_peca"
-                ? "Aguardando peça"
-                : "Acompanhar andamento";
+        const sla = buildSlaSnapshot(order as SmartActionContext, now);
+        const nextBestAction = buildNextBestAction(order as SmartActionContext, "tenant", now);
         return {
           ...order,
-          priority,
-          reason,
-          suggestedAction: isOverdue
-            ? "Revisar prazo e avisar o cliente"
-            : order.status === "aguardando_aprovacao"
-              ? "Cobrar aprovação do orçamento"
-              : order.status === "pronto" || order.status === "aguardando_entrega"
-                ? "Combinar retirada, entrega ou pagamento"
-                : order.status === "aguardando_peca"
-                  ? "Atualizar previsão da peça"
-                  : "Atualizar andamento e comunicar cliente",
+          priority: nextBestAction.priority,
+          reason: sla.isOverdue ? "Prazo vencido" : sla.isStageStalled ? "Etapa parada" : nextBestAction.title,
+          suggestedAction: nextBestAction.ctaLabel,
+          nextBestAction,
+          sla,
           href: `/painel/os/${order.id}`,
           deviceLabel: [order.deviceBrand, order.deviceModel].filter(Boolean).join(" ") || "Aparelho não informado",
           estimatedDelivery: estimatedDelivery ? estimatedDelivery.toISOString() : null,
           createdAt: order.createdAt ? new Date(order.createdAt).toISOString() : null,
+          updatedAt: order.updatedAt ? new Date(order.updatedAt).toISOString() : null,
           totalAmount: Number(order.totalAmount ?? 0),
         };
       })
       .sort((a, b) => {
-        const weight = { alta: 3, media: 2, normal: 1 } as Record<string, number>;
-        return (weight[b.priority] ?? 0) - (weight[a.priority] ?? 0);
+        const weight = { alta: 3, media: 2, normal: 1, baixa: 0 } as Record<string, number>;
+        const priorityDiff = (weight[b.priority] ?? 0) - (weight[a.priority] ?? 0);
+        if (priorityDiff !== 0) return priorityDiff;
+        return Number(b.sla?.statusAgeHours ?? 0) - Number(a.sla?.statusAgeHours ?? 0);
       })
-      .slice(0, 8);
+      .slice(0, 10);
+
+
+    const actionSummary = actionQueue.reduce((acc, item) => {
+      if (item.priority === "alta") acc.high += 1;
+      else if (item.priority === "media") acc.medium += 1;
+      else acc.normal += 1;
+      if (item.sla?.isStageStalled || item.sla?.isOverdue) acc.stalled += 1;
+      return acc;
+    }, { high: 0, medium: 0, normal: 0, stalled: 0 });
+
+    const inboxByOs = recentCommunications
+      .filter((item) => item.serviceOrderId)
+      .map((item) => ({
+        osId: item.serviceOrderId,
+        osNumber: item.osNumber,
+        status: item.status,
+        channel: item.channel,
+        eventType: item.eventType,
+        message: item.message,
+        actorName: item.actorName ?? "Sistema",
+        sentAt: item.sentAt ? new Date(item.sentAt).toISOString() : null,
+        href: item.serviceOrderId ? `/painel/os/${item.serviceOrderId}` : "/painel/notificacoes",
+      }));
 
     const alerts = [
       cards.overdueOrders > 0 ? { type: "danger", title: "OS atrasadas", description: `${cards.overdueOrders} ordem(ns) passaram do prazo estimado.`, href: "/painel/os" } : null,
@@ -1102,6 +1295,8 @@ export const serviceOrdersRouter = router({
         pendingCount: cards.pendingPayments,
       },
       actionQueue,
+      actionSummary,
+      inboxByOs,
       alerts,
       recentCommunications: recentCommunications.map((item) => ({
         ...item,

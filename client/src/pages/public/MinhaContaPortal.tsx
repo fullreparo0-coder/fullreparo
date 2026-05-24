@@ -86,6 +86,32 @@ function getOrderDate(value?: string | Date | null) {
   return new Date(value).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" });
 }
 
+function getActionPriorityTone(priority?: string | null) {
+  if (priority === "alta") return "bg-red-50 text-red-700 border-red-200";
+  if (priority === "media") return "bg-amber-50 text-amber-700 border-amber-200";
+  return "bg-slate-50 text-slate-700 border-slate-200";
+}
+
+function getActionPriorityLabel(priority?: string | null) {
+  if (priority === "alta") return "Prioridade alta";
+  if (priority === "media") return "Prioridade média";
+  return "Ação sugerida";
+}
+
+function getSlaTone(sla?: { isOverdue?: boolean | null; isStageStalled?: boolean | null } | null) {
+  if (sla?.isOverdue) return "bg-red-50 text-red-700 border-red-200";
+  if (sla?.isStageStalled) return "bg-amber-50 text-amber-700 border-amber-200";
+  return "bg-emerald-50 text-emerald-700 border-emerald-200";
+}
+
+function getSlaLabel(sla?: { isOverdue?: boolean | null; isStageStalled?: boolean | null; statusAgeHours?: number | null } | null) {
+  const hours = Number(sla?.statusAgeHours ?? 0);
+  const humanAge = hours >= 24 ? `${Math.floor(hours / 24)}d na etapa` : `${Math.max(0, Math.round(hours))}h na etapa`;
+  if (sla?.isOverdue) return `SLA vencido · ${humanAge}`;
+  if (sla?.isStageStalled) return `Etapa parada · ${humanAge}`;
+  return `No prazo · ${humanAge}`;
+}
+
 const PICKUP_STATUS_LABELS: Record<string, { label: string; color: string }> = {
   pending:     { label: "Pendente",     color: "bg-yellow-100 text-yellow-800 border-yellow-200" },
   assigned:    { label: "Atribuído",    color: "bg-blue-100 text-blue-800 border-blue-200" },
@@ -453,54 +479,71 @@ export default function MinhaContaPortal() {
                 const statusInfo = STATUS_LABELS[os.status] ?? STATUS_LABELS["pending"]!;
                 const StatusIcon = statusInfo.icon;
                 const needsAction = os.status === "aguardando_aprovacao";
+                const nextAction = os.nextBestAction ?? getNextStep(os.status);
+                const actionPriority = os.nextBestAction?.priority ?? (needsAction ? "alta" : "normal");
+                const isSlaAttention = Boolean(os.sla?.isOverdue || os.sla?.isStageStalled);
                 return (
                   <Card
                     key={os.id}
                     className={`cursor-pointer transition-all duration-200 active:scale-[0.99] ${
-                      needsAction
+                      needsAction || isSlaAttention
                         ? "hover:shadow-orange-200 hover:shadow-md ring-2 ring-orange-400 ring-offset-1"
                         : "hover:shadow-md"
                     }`}
                     onClick={() => setSelectedOsId(os.id)}
                   >
-                    <CardContent className="p-4 flex items-center gap-4">
-                      {/* Ícone do aparelho com ponto pulsante quando aguardando aprovação */}
-                      <div className="relative shrink-0">
+                    <CardContent className="p-4 flex items-start gap-4">
+                      {/* Ícone do aparelho com ponto pulsante quando há ação crítica */}
+                      <div className="relative shrink-0 pt-0.5">
                         <div
                           className="h-10 w-10 rounded-xl flex items-center justify-center"
-                          style={{ backgroundColor: needsAction ? "#fff7ed" : `${primaryColor}15` }}
+                          style={{ backgroundColor: needsAction || isSlaAttention ? "#fff7ed" : `${primaryColor}15` }}
                         >
-                          <Wrench className="h-5 w-5" style={{ color: needsAction ? "#f97316" : primaryColor }} />
+                          <Wrench className="h-5 w-5" style={{ color: needsAction || isSlaAttention ? "#f97316" : primaryColor }} />
                         </div>
-                        {needsAction && (
+                        {(needsAction || isSlaAttention) && (
                           <span className="absolute -top-1 -right-1 flex h-3.5 w-3.5">
                             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75" />
                             <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-orange-500" />
                           </span>
                         )}
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <p className="text-sm font-semibold text-foreground truncate">
-                            OS #{os.osNumber ?? os.id} — {os.deviceBrand ?? ""} {os.deviceModel ?? ""}
-                          </p>
+                      <div className="flex-1 min-w-0 space-y-2">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <p className="text-sm font-semibold text-foreground truncate">
+                              OS #{os.osNumber ?? os.id} — {os.deviceBrand ?? ""} {os.deviceModel ?? ""}
+                            </p>
+                            <p className="text-xs text-muted-foreground truncate">
+                              {os.reportedDefect ?? "Sem descrição"}
+                            </p>
+                          </div>
+                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border shrink-0 ${
+                            needsAction ? "bg-orange-100 text-orange-700 border-orange-300" : statusInfo.color
+                          }`}>
+                            <StatusIcon className="h-3 w-3" />
+                            {statusInfo.label}
+                          </span>
                         </div>
-                        {needsAction ? (
-                          <p className="text-xs font-medium text-orange-600 truncate">
-                            ⚠️ Orçamento aguardando sua resposta
-                          </p>
-                        ) : (
-                          <p className="text-xs text-muted-foreground truncate">
-                            {os.reportedDefect ?? "Sem descrição"}
-                          </p>
-                        )}
+
+                        <div className={`rounded-xl border p-3 ${getActionPriorityTone(actionPriority)}`}>
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-[11px] font-semibold uppercase tracking-wide">
+                              {getActionPriorityLabel(actionPriority)}
+                            </span>
+                            <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium ${getSlaTone(os.sla)}`}>
+                              <Clock className="h-3 w-3" />
+                              {getSlaLabel(os.sla)}
+                            </span>
+                          </div>
+                          <p className="mt-1 text-xs font-semibold">{nextAction.title}</p>
+                          <p className="mt-0.5 text-xs opacity-80 line-clamp-2">{nextAction.description}</p>
+                          <div className="mt-2 inline-flex items-center gap-1 text-xs font-semibold">
+                            {os.nextBestAction?.ctaLabel ?? getNextStep(os.status).action}
+                            <ArrowRight className="h-3 w-3" />
+                          </div>
+                        </div>
                       </div>
-                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border shrink-0 ${
-                        needsAction ? "bg-orange-100 text-orange-700 border-orange-300" : statusInfo.color
-                      }`}>
-                        <StatusIcon className="h-3 w-3" />
-                        {statusInfo.label}
-                      </span>
                     </CardContent>
                   </Card>
                 );
