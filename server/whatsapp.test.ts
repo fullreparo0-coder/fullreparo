@@ -148,6 +148,16 @@ describe("WhatsApp Meta Cloud API multi-tenant", () => {
     expect(global.fetch).not.toHaveBeenCalled();
   });
 
+  it("sanitiza a integração sem expor o accessToken bruto ao frontend", async () => {
+    const { sanitizeWhatsappIntegration } = await import("./_core/whatsapp");
+    const result = sanitizeWhatsappIntegration(integrationRow);
+
+    expect(result).not.toHaveProperty("accessToken");
+    expect(result?.hasAccessToken).toBe(true);
+    expect(result?.accessTokenPreview).toBe("••••oken");
+    expect(result?.phoneNumberId).toBe("123456789");
+  });
+
   it("envia template Utility pela Meta Cloud API e registra log por tenant", async () => {
     mockSelect
       .mockReturnValueOnce(makeSelectChain([eligiblePlanRow]))

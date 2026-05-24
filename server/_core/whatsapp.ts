@@ -33,10 +33,10 @@ function normalizePhoneToE164(phone?: string | null): string | null {
   return digits.length >= 12 ? digits : null;
 }
 
-function maskToken(token?: string | null): string | null {
+function maskTokenPreview(token?: string | null): string | null {
   if (!token) return null;
-  if (token.length <= 8) return "********";
-  return `${token.slice(0, 4)}…${token.slice(-4)}`;
+  if (token.length <= 8) return "••••••••";
+  return `••••${token.slice(-4)}`;
 }
 
 function buildTemplateComponents(params: {
@@ -125,10 +125,11 @@ export async function getWhatsappIntegrationForTenant(tenantId: number) {
 
 export function sanitizeWhatsappIntegration<T extends { accessToken?: string | null } | null>(integration: T) {
   if (!integration) return null;
+  const { accessToken: _accessToken, ...safeIntegration } = integration;
   return {
-    ...integration,
-    accessToken: integration.accessToken ? maskToken(integration.accessToken) : null,
-    hasAccessToken: Boolean(integration.accessToken),
+    ...safeIntegration,
+    hasAccessToken: Boolean(_accessToken),
+    accessTokenPreview: maskTokenPreview(_accessToken),
   };
 }
 

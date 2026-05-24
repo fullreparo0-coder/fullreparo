@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { PasswordInput } from "@/components/ui/password-input";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import { 
@@ -179,6 +180,8 @@ export default function SuperAdminTenantDetail() {
 
   const whatsappEligible = Boolean(whatsappStatus?.eligibility?.eligible);
   const whatsappConfigured = Boolean(whatsappStatus?.integration?.hasAccessToken && whatsappStatus.integration.phoneNumberId);
+  const whatsappTokenPreview = whatsappStatus?.integration?.accessTokenPreview;
+  const whatsappHealthLabel = whatsappStatus?.integration?.lastHealthStatus || "não verificado";
 
   return (
     <TenantLayout title={`Detalhes: ${tenant.name}`}>
@@ -383,8 +386,8 @@ export default function SuperAdminTenantDetail() {
                   </div>
                   <div className="rounded-lg border p-3">
                     <p className="text-xs text-muted-foreground uppercase">Saúde</p>
-                    <Badge variant={whatsappStatus?.integration?.lastHealthStatus === "error" ? "destructive" : "outline"} className="mt-2">
-                      {whatsappStatus?.integration?.lastHealthStatus || "não verificado"}
+                    <Badge variant={whatsappStatus?.integration?.lastHealthStatus === "error" ? "destructive" : whatsappConfigured ? "default" : "outline"} className="mt-2">
+                      {whatsappHealthLabel}
                     </Badge>
                   </div>
                 </div>
@@ -392,9 +395,9 @@ export default function SuperAdminTenantDetail() {
                 <div className="flex items-center justify-between rounded-lg border p-3">
                   <div>
                     <Label>Ativar envios transacionais</Label>
-                    <p className="text-xs text-muted-foreground">Orçamento disponível e OS pronta. O backend ainda bloqueia se o plano não tiver WhatsApp.</p>
+                    <p className="text-xs text-muted-foreground">Orçamento disponível e OS pronta. O backend bloqueia se o plano não tiver WhatsApp ou se a configuração estiver incompleta.</p>
                   </div>
-                  <Switch checked={whatsappForm.enabled} onCheckedChange={(enabled) => setWhatsappForm(f => ({ ...f, enabled }))} />
+                  <Switch checked={whatsappForm.enabled} disabled={!whatsappEligible} onCheckedChange={(enabled) => setWhatsappForm(f => ({ ...f, enabled }))} />
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -415,8 +418,21 @@ export default function SuperAdminTenantDetail() {
                     <Input value={whatsappForm.phoneNumberId} onChange={e => setWhatsappForm(f => ({ ...f, phoneNumberId: e.target.value }))} placeholder="ID do número na Meta" />
                   </div>
                   <div className="space-y-1.5 sm:col-span-2">
-                    <Label>Access Token</Label>
-                    <Input type="password" value={whatsappForm.accessToken} onChange={e => setWhatsappForm(f => ({ ...f, accessToken: e.target.value }))} placeholder={whatsappStatus?.integration?.hasAccessToken ? "Token já salvo; preencha apenas para substituir" : "Cole o token permanente da Meta"} />
+                    <div className="flex items-center justify-between gap-3">
+                      <Label>Access Token da Meta</Label>
+                      {whatsappStatus?.integration?.hasAccessToken && (
+                        <Badge variant="outline">Token salvo {whatsappTokenPreview ? `(${whatsappTokenPreview})` : ""}</Badge>
+                      )}
+                    </div>
+                    <PasswordInput
+                      value={whatsappForm.accessToken}
+                      onChange={(accessToken) => setWhatsappForm(f => ({ ...f, accessToken }))}
+                      autoComplete="off"
+                      placeholder={whatsappStatus?.integration?.hasAccessToken ? "Deixe em branco para manter o token atual" : "Cole o token permanente da Meta"}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      O token completo nunca é exibido após salvo. Preencha este campo somente para cadastrar ou substituir a credencial do tenant.
+                    </p>
                   </div>
                   <div className="space-y-1.5">
                     <Label>Template orçamento</Label>
