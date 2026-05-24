@@ -155,6 +155,27 @@
       "when": 1779508800000,
       "tag": "0021_pickup_shared_location",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "5",
+      "when": 1779600000000,
+      "tag": "0023_pagarme_payments",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "5",
+      "when": 1779603600000,
+      "tag": "0024_whatsapp_meta_cloud",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "5",
+      "when": 1779607200000,
+      "tag": "0025_uber_direct_logistics",
+      "breakpoints": true
     }
   ]
 }
