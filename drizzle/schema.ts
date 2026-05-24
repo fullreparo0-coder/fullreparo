@@ -386,11 +386,53 @@ export const osNotifications = mysqlTable("os_notifications", {
   status: varchar("status", { length: 50 }).notNull(),
   channel: varchar("channel", { length: 20 }).notNull().default("whatsapp"),
   message: text("message").notNull(),
-  /** Tipo do evento: status_change | budget_approved | budget_rejected */
+  /** Tipo do evento: status_change | budget_approved | budget_rejected | whatsapp_* */
   eventType: varchar("eventType", { length: 50 }).notNull().default("status_change"),
   /** Nome de quem disparou o evento (cliente, técnico, atendente) */
   actorName: varchar("actorName", { length: 200 }),
   sentAt: timestamp("sentAt").defaultNow().notNull(),
+});
+
+// ─── WHATSAPP META CLOUD API (configuração isolada por tenant) ────────────────
+export const whatsappIntegrations = mysqlTable("whatsapp_integrations", {
+  id: int("id").autoincrement().primaryKey(),
+  tenantId: int("tenantId").notNull(),
+  enabled: boolean("enabled").notNull().default(false),
+  provider: varchar("provider", { length: 40 }).notNull().default("meta_cloud_api"),
+  displayName: varchar("displayName", { length: 120 }),
+  businessAccountId: varchar("businessAccountId", { length: 120 }),
+  phoneNumberId: varchar("phoneNumberId", { length: 120 }),
+  phoneNumber: varchar("phoneNumber", { length: 30 }),
+  accessToken: text("accessToken"),
+  graphApiVersion: varchar("graphApiVersion", { length: 20 }).notNull().default("v23.0"),
+  budgetTemplateName: varchar("budgetTemplateName", { length: 120 }).notNull().default("fullreparo_orcamento_disponivel"),
+  readyTemplateName: varchar("readyTemplateName", { length: 120 }).notNull().default("fullreparo_os_pronta"),
+  templateLanguage: varchar("templateLanguage", { length: 20 }).notNull().default("pt_BR"),
+  lastHealthStatus: varchar("lastHealthStatus", { length: 40 }).notNull().default("not_configured"),
+  lastHealthMessage: text("lastHealthMessage"),
+  lastCheckedAt: timestamp("lastCheckedAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export const whatsappMessageLogs = mysqlTable("whatsapp_message_logs", {
+  id: int("id").autoincrement().primaryKey(),
+  tenantId: int("tenantId").notNull(),
+  serviceOrderId: int("serviceOrderId").notNull(),
+  customerId: int("customerId"),
+  eventType: varchar("eventType", { length: 50 }).notNull(),
+  templateName: varchar("templateName", { length: 120 }).notNull(),
+  templateLanguage: varchar("templateLanguage", { length: 20 }).notNull().default("pt_BR"),
+  toPhone: varchar("toPhone", { length: 30 }).notNull(),
+  status: mysqlEnum("status", ["queued", "sent", "skipped", "failed"]).notNull().default("queued"),
+  metaMessageId: varchar("metaMessageId", { length: 160 }),
+  requestPayload: json("requestPayload"),
+  responsePayload: json("responsePayload"),
+  errorMessage: text("errorMessage"),
+  estimatedCostUsd: decimal("estimatedCostUsd", { precision: 10, scale: 4 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  sentAt: timestamp("sentAt"),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
 
 // ─── OS CHECKLIST STATE (estado do checklist por OS) ───────────────────────
@@ -410,6 +452,8 @@ export type InsertUser = typeof users.$inferInsert;
 export type Tenant = typeof tenants.$inferSelect;
 export type InsertTenant = typeof tenants.$inferInsert;
 export type Plan = typeof plans.$inferSelect;
+export type WhatsappIntegration = typeof whatsappIntegrations.$inferSelect;
+export type WhatsappMessageLog = typeof whatsappMessageLogs.$inferSelect;
 export type Customer = typeof customers.$inferSelect;
 export type Device = typeof devices.$inferSelect;
 export type ServiceOrder = typeof serviceOrders.$inferSelect;

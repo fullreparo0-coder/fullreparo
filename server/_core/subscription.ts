@@ -17,6 +17,7 @@ export type TenantSubscriptionSnapshot = {
   maxOsPerMonth: number;
   maxUsers: number;
   hasPickupDelivery: boolean;
+  hasWhatsapp: boolean;
 };
 
 const TRIAL_DAYS = 14;
@@ -150,6 +151,7 @@ export async function getTenantSubscriptionSnapshot(tenantId: number): Promise<T
       maxOsPerMonth: plans.maxOsPerMonth,
       maxUsers: plans.maxUsers,
       hasPickupDelivery: plans.hasPickupDelivery,
+      hasWhatsapp: plans.hasWhatsapp,
     })
     .from(tenants)
     .innerJoin(plans, eq(tenants.planId, plans.id))

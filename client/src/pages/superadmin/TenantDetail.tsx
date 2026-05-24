@@ -6,12 +6,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import { 
   Building2, ArrowLeft, Save, MapPin, Mail, Phone, 
-  FileText, ShieldCheck, Users, BarChart3, Globe, Lock, Unlock 
+  FileText, ShieldCheck, Users, Globe, Lock, Unlock, MessageCircle, Activity 
 } from "lucide-react";
 
 export default function SuperAdminTenantDetail() {
@@ -26,6 +27,14 @@ export default function SuperAdminTenantDetail() {
   );
   
   const { data: plans } = trpc.plans.list.useQuery();
+  const { data: whatsappStatus } = trpc.whatsapp.getByTenant.useQuery(
+    { tenantId: tenantId! },
+    { enabled: !!tenantId }
+  );
+  const { data: whatsappLogs } = trpc.whatsapp.listLogsByTenant.useQuery(
+    { tenantId: tenantId!, limit: 5 },
+    { enabled: !!tenantId }
+  );
 
   const update = trpc.tenants.update.useMutation({
     onSuccess: () => {
@@ -40,6 +49,16 @@ export default function SuperAdminTenantDetail() {
       toast.success("Status atualizado");
       utils.tenants.getById.invalidate({ id: tenantId! });
     },
+  });
+
+  const saveWhatsapp = trpc.whatsapp.saveForTenant.useMutation({
+    onSuccess: () => {
+      toast.success("Configuração WhatsApp atualizada");
+      utils.whatsapp.getByTenant.invalidate({ tenantId: tenantId! });
+      utils.whatsapp.listLogsByTenant.invalidate({ tenantId: tenantId!, limit: 5 });
+      setWhatsappForm((f) => ({ ...f, accessToken: "" }));
+    },
+    onError: (err) => toast.error(err.message || "Erro ao atualizar WhatsApp"),
   });
 
   const [form, setForm] = useState({
@@ -57,6 +76,19 @@ export default function SuperAdminTenantDetail() {
     subscriptionEndsAt: ""
   });
 
+  const [whatsappForm, setWhatsappForm] = useState({
+    enabled: false,
+    displayName: "",
+    businessAccountId: "",
+    phoneNumberId: "",
+    phoneNumber: "",
+    accessToken: "",
+    graphApiVersion: "v23.0",
+    budgetTemplateName: "fullreparo_orcamento_disponivel",
+    readyTemplateName: "fullreparo_os_pronta",
+    templateLanguage: "pt_BR",
+  });
+
   const toDateTimeLocal = (value?: string | Date | null) => {
     if (!value) return "";
     const date = new Date(value);
@@ -64,6 +96,23 @@ export default function SuperAdminTenantDetail() {
     const offset = date.getTimezoneOffset() * 60000;
     return new Date(date.getTime() - offset).toISOString().slice(0, 16);
   };
+
+  useEffect(() => {
+    if (whatsappStatus?.integration) {
+      setWhatsappForm({
+        enabled: Boolean(whatsappStatus.integration.enabled),
+        displayName: whatsappStatus.integration.displayName || "",
+        businessAccountId: whatsappStatus.integration.businessAccountId || "",
+        phoneNumberId: whatsappStatus.integration.phoneNumberId || "",
+        phoneNumber: whatsappStatus.integration.phoneNumber || "",
+        accessToken: "",
+        graphApiVersion: whatsappStatus.integration.graphApiVersion || "v23.0",
+        budgetTemplateName: whatsappStatus.integration.budgetTemplateName || "fullreparo_orcamento_disponivel",
+        readyTemplateName: whatsappStatus.integration.readyTemplateName || "fullreparo_os_pronta",
+        templateLanguage: whatsappStatus.integration.templateLanguage || "pt_BR",
+      });
+    }
+  }, [whatsappStatus?.integration]);
 
   useEffect(() => {
     if (tenant) {
@@ -115,6 +164,21 @@ export default function SuperAdminTenantDetail() {
       subscriptionEndsAt: form.subscriptionEndsAt ? new Date(form.subscriptionEndsAt).getTime() : null
     });
   };
+
+  const handleSaveWhatsapp = () => {
+    saveWhatsapp.mutate({
+      tenantId: tenantId!,
+      ...whatsappForm,
+      displayName: whatsappForm.displayName || null,
+      businessAccountId: whatsappForm.businessAccountId || null,
+      phoneNumberId: whatsappForm.phoneNumberId || null,
+      phoneNumber: whatsappForm.phoneNumber || null,
+      accessToken: whatsappForm.accessToken || null,
+    });
+  };
+
+  const whatsappEligible = Boolean(whatsappStatus?.eligibility?.eligible);
+  const whatsappConfigured = Boolean(whatsappStatus?.integration?.hasAccessToken && whatsappStatus.integration.phoneNumberId);
 
   return (
     <TenantLayout title={`Detalhes: ${tenant.name}`}>
@@ -290,6 +354,108 @@ export default function SuperAdminTenantDetail() {
                     <Label>Estado (UF)</Label>
                     <Input value={form.state} onChange={e => setForm(f => ({ ...f, state: e.target.value }))} maxLength={2} />
                   </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center">
+                  <MessageCircle className="h-5 w-5 mr-2 text-primary" /> WhatsApp Meta Cloud API
+                </CardTitle>
+                <CardDescription>
+                  Governança multi-tenant controlada pelo super admin. O envio só dispara para tenants com plano habilitado e configuração válida.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="rounded-lg border p-3">
+                    <p className="text-xs text-muted-foreground uppercase">Elegibilidade do plano</p>
+                    <Badge variant={whatsappEligible ? "default" : "secondary"} className="mt-2">
+                      {whatsappEligible ? "WhatsApp incluso" : "Plano sem WhatsApp"}
+                    </Badge>
+                  </div>
+                  <div className="rounded-lg border p-3">
+                    <p className="text-xs text-muted-foreground uppercase">Configuração</p>
+                    <Badge variant={whatsappConfigured ? "default" : "outline"} className="mt-2">
+                      {whatsappConfigured ? "Credenciais salvas" : "Pendente"}
+                    </Badge>
+                  </div>
+                  <div className="rounded-lg border p-3">
+                    <p className="text-xs text-muted-foreground uppercase">Saúde</p>
+                    <Badge variant={whatsappStatus?.integration?.lastHealthStatus === "error" ? "destructive" : "outline"} className="mt-2">
+                      {whatsappStatus?.integration?.lastHealthStatus || "não verificado"}
+                    </Badge>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between rounded-lg border p-3">
+                  <div>
+                    <Label>Ativar envios transacionais</Label>
+                    <p className="text-xs text-muted-foreground">Orçamento disponível e OS pronta. O backend ainda bloqueia se o plano não tiver WhatsApp.</p>
+                  </div>
+                  <Switch checked={whatsappForm.enabled} onCheckedChange={(enabled) => setWhatsappForm(f => ({ ...f, enabled }))} />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <Label>Nome exibido</Label>
+                    <Input value={whatsappForm.displayName} onChange={e => setWhatsappForm(f => ({ ...f, displayName: e.target.value }))} placeholder="Assistência FullReparo" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Número WhatsApp</Label>
+                    <Input value={whatsappForm.phoneNumber} onChange={e => setWhatsappForm(f => ({ ...f, phoneNumber: e.target.value }))} placeholder="+55 11 99999-9999" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>WABA ID</Label>
+                    <Input value={whatsappForm.businessAccountId} onChange={e => setWhatsappForm(f => ({ ...f, businessAccountId: e.target.value }))} placeholder="ID da conta WhatsApp Business" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Phone Number ID</Label>
+                    <Input value={whatsappForm.phoneNumberId} onChange={e => setWhatsappForm(f => ({ ...f, phoneNumberId: e.target.value }))} placeholder="ID do número na Meta" />
+                  </div>
+                  <div className="space-y-1.5 sm:col-span-2">
+                    <Label>Access Token</Label>
+                    <Input type="password" value={whatsappForm.accessToken} onChange={e => setWhatsappForm(f => ({ ...f, accessToken: e.target.value }))} placeholder={whatsappStatus?.integration?.hasAccessToken ? "Token já salvo; preencha apenas para substituir" : "Cole o token permanente da Meta"} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Template orçamento</Label>
+                    <Input value={whatsappForm.budgetTemplateName} onChange={e => setWhatsappForm(f => ({ ...f, budgetTemplateName: e.target.value }))} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Template OS pronta</Label>
+                    <Input value={whatsappForm.readyTemplateName} onChange={e => setWhatsappForm(f => ({ ...f, readyTemplateName: e.target.value }))} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Idioma</Label>
+                    <Input value={whatsappForm.templateLanguage} onChange={e => setWhatsappForm(f => ({ ...f, templateLanguage: e.target.value }))} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Graph API</Label>
+                    <Input value={whatsappForm.graphApiVersion} onChange={e => setWhatsappForm(f => ({ ...f, graphApiVersion: e.target.value }))} />
+                  </div>
+                </div>
+
+                {whatsappStatus?.integration?.lastHealthMessage && (
+                  <div className="rounded-lg bg-muted/50 p-3 text-xs text-muted-foreground">
+                    Último status: {whatsappStatus.integration.lastHealthMessage}
+                  </div>
+                )}
+
+                <div className="rounded-lg border p-3 space-y-2">
+                  <div className="flex items-center gap-2 text-sm font-medium"><Activity className="h-4 w-4" /> Últimos envios</div>
+                  {whatsappLogs?.length ? whatsappLogs.map((log) => (
+                    <div key={log.id} className="flex items-center justify-between gap-2 text-xs text-muted-foreground border-t pt-2">
+                      <span>{log.eventType} · {log.toPhone}</span>
+                      <Badge variant={log.status === "failed" ? "destructive" : log.status === "sent" ? "default" : "outline"}>{log.status}</Badge>
+                    </div>
+                  )) : <p className="text-xs text-muted-foreground">Nenhum envio registrado para este tenant.</p>}
+                </div>
+
+                <div className="flex justify-end">
+                  <Button onClick={handleSaveWhatsapp} disabled={saveWhatsapp.isPending || !whatsappEligible}>
+                    <Save className="h-4 w-4 mr-2" /> {saveWhatsapp.isPending ? "Salvando..." : "Salvar WhatsApp"}
+                  </Button>
                 </div>
               </CardContent>
             </Card>

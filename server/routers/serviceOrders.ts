@@ -9,6 +9,7 @@ import { storagePut } from "../storage";
 import { notifyOwner } from "../_core/notification";
 import { prepareStatusNotification, notifyTenantStatusChange } from "../_core/statusNotification";
 import { autoCommunicationEventForStatus, triggerAutoCommunication } from "../_core/autoCommunication";
+import { triggerWhatsappTransactional } from "../_core/whatsapp";
 import { getTenantPortalUrl } from "../../shared/tenantUrl";
 import { sendTenantEmail, buildNewOsEmailHtml } from "../email";
 import { resolveCustomerPortalAccess } from "../_core/customerPortalAuth";
@@ -585,14 +586,24 @@ export const serviceOrdersRouter = router({
         changedByName: ctx.user.name ?? "Usuário",
       });
       const autoEvent = os.status !== input.status ? autoCommunicationEventForStatus(input.status) : null;
+      const origin = ctx.req?.headers?.origin ?? null;
       if (autoEvent) {
         triggerAutoCommunication({
           tenantId: ctx.user.tenantId!,
           serviceOrderId: input.id,
           event: autoEvent,
           actorName: ctx.user.name ?? "Atendente",
-          origin: ctx.req?.headers?.origin ?? null,
+          origin,
         }).catch((err) => console.warn(`[updateStatus] Falha na comunicação automática ${autoEvent}:`, err));
+      }
+      if (os.status !== input.status && input.status === "pronto") {
+        triggerWhatsappTransactional({
+          tenantId: ctx.user.tenantId!,
+          serviceOrderId: input.id,
+          event: "service_order_ready",
+          actorName: ctx.user.name ?? "Atendente",
+          origin,
+        }).catch((err) => console.warn("[updateStatus] Falha no WhatsApp de OS pronta:", err));
       }
 
       // Preparar notificação ao cliente (WhatsApp)

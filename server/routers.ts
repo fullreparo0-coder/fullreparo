@@ -24,6 +24,7 @@ import { tenantChecklistRouter } from "./routers/tenantChecklist";
 import { osChecklistRouter } from "./routers/osChecklist";
 import { notificationsRouter } from "./routers/notifications";
 import { customerAuthRouter } from "./routers/customerAuth";
+import { whatsappRouter } from "./routers/whatsapp";
 
 export const appRouter = router({
   system: systemRouter,
@@ -98,6 +99,7 @@ export const appRouter = router({
   osChecklist: osChecklistRouter,
   notifications: notificationsRouter,
   customerAuth: customerAuthRouter,
+  whatsapp: whatsappRouter,
 });
 
 export type AppRouter = typeof appRouter;

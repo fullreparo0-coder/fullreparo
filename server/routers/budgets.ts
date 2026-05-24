@@ -6,6 +6,7 @@ import { protectedProcedure, publicProcedure, router } from "../_core/trpc";
 import { and, eq } from "drizzle-orm";
 import { notifyOwner } from "../_core/notification";
 import { triggerAutoCommunication } from "../_core/autoCommunication";
+import { triggerWhatsappTransactional } from "../_core/whatsapp";
 import { resolveCustomerPortalAccess } from "../_core/customerPortalAuth";
 
 const tenantProcedure = protectedProcedure.use(({ ctx, next }) => {
@@ -86,13 +87,21 @@ export const budgetsRouter = router({
         changedById: ctx.user.id,
         changedByName: ctx.user.name ?? "Atendente",
       });
+      const origin = ctx.req?.headers?.origin ?? null;
       triggerAutoCommunication({
         tenantId: ctx.user.tenantId!,
         serviceOrderId: input.serviceOrderId,
         event: "budget_available",
         actorName: ctx.user.name ?? "Atendente",
-        origin: ctx.req?.headers?.origin ?? null,
+        origin,
       }).catch((err) => console.warn("[budgets.create] Falha na comunicação automática de orçamento:", err));
+      triggerWhatsappTransactional({
+        tenantId: ctx.user.tenantId!,
+        serviceOrderId: input.serviceOrderId,
+        event: "budget_available",
+        actorName: ctx.user.name ?? "Atendente",
+        origin,
+      }).catch((err) => console.warn("[budgets.create] Falha no WhatsApp de orçamento:", err));
       return { id: budgetId, totalCost, success: true };
     }),
 
