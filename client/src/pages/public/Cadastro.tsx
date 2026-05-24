@@ -729,8 +729,17 @@ export default function CadastroPage() {
         {/* ─── Step 3: Confirmação ──────────────────────────────────────── */}
         {step === 3 && result && (() => {
           const portalBase = getTenantPortalUrl(result.slug);
-          const loginPath = result.loginUrl ?? "/login";
-          const dashboardPath = result.dashboardUrl ?? "/painel/dashboard";
+          const buildPortalUrl = (path: string) => {
+            try {
+              const url = new URL(portalBase);
+              const params = new URLSearchParams(url.search);
+              return `${url.origin}${path}${params.toString() ? `?${params.toString()}` : ""}`;
+            } catch {
+              return `${portalBase}${path}`;
+            }
+          };
+          const loginPath = buildPortalUrl(result.loginUrl ?? "/login");
+          const dashboardPath = buildPortalUrl(result.dashboardUrl ?? "/painel/dashboard");
           // Mantém o link de ativação Manus como alternativa para instalações que ainda usem vínculo OAuth.
           // Em preview: base é https://preview.manus.computer/?tenant=slug
           //   → https://preview.manus.computer/login?tenant=slug&claim=TOKEN

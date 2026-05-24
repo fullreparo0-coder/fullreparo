@@ -1,18 +1,14 @@
 /**
- * CustomerLogin — Login unificado para todos os perfis do FullReparo.
+ * CustomerLogin — Login do portal público do tenant.
  *
  * Rota canônica: /login
- * Funciona para: cliente, atendente, técnico, entregador, tenant_admin
- * Separação por: role + tenant_id no JWT (backend)
+ * - Em fullreparo.com.br: exibe somente o acesso administrativo do super admin.
+ * - Em loja.fullreparo.com.br ou modo ?tenant=slug: exibe login local de cliente e equipe da assistência.
  *
  * Após autenticar:
  *   - super_admin           → /superadmin
  *   - tenant_admin / staff  → /painel/dashboard
  *   - cliente / user        → /minha-conta
- *
- * Quando acessado via subdomínio (rochacell.fullreparo.com.br/login) ou
- * modo de teste (?tenant=rocha), exibe o branding da assistência.
- * Quando acessado sem tenant (fullreparo.com.br/login), exibe branding genérico.
  */
 
 import { useState, useEffect, useRef } from "react";
@@ -27,12 +23,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Wrench, AlertCircle, ArrowLeft, KeyRound } from "lucide-react";
+import { Wrench, AlertCircle, ArrowLeft, KeyRound, ShieldCheck, UserRound } from "lucide-react";
 import { PasswordInput } from "@/components/ui/password-input";
 import { Link } from "wouter";
 import { getLoginUrl } from "@/const";
 
 const STAFF_ROLES = ["super_admin", "tenant_admin", "atendente", "tecnico", "entregador", "admin"];
+type LoginMode = "cliente" | "equipe";
 
 /** Retorna '#ffffff' ou '#000000' com base na luminância WCAG */
 function getContrastColor(hex: string): string {
@@ -52,6 +49,7 @@ export default function CustomerLogin() {
   const { user, loading: authLoading, refresh: refreshAuth } = useAuth();
   const search = useSearch();
 
+  const [mode, setMode] = useState<LoginMode>("cliente");
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -102,7 +100,7 @@ export default function CustomerLogin() {
     }
   }
 
-  const loginMutation = trpc.customerAuth.loginLocal.useMutation({
+  const customerLoginMutation = trpc.customerAuth.loginLocal.useMutation({
     onSuccess: (data) => {
       toast.success(`Bem-vindo, ${data.name}!`);
       if (data.passwordMustChange) {
@@ -116,16 +114,40 @@ export default function CustomerLogin() {
     },
   });
 
+  const staffLoginMutation = trpc.auth.login.useMutation({
+    onSuccess: async (data) => {
+      toast.success(`Bem-vindo, ${data.user.name ?? "equipe"}!`);
+      await refreshAuth();
+      redirectByRole(data.user.role);
+    },
+    onError: (err) => {
+      setErrorMsg(err.message);
+    },
+  });
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg(null);
 
     if (!tenant) {
-      setErrorMsg("Assistência não identificada. Acesse pelo link da sua assistência técnica.");
+      setErrorMsg("Acesse o painel administrativo do FullReparo pelo botão abaixo.");
       return;
     }
 
-    loginMutation.mutate({
+    if (mode === "equipe") {
+      if (!identifier.includes("@")) {
+        setErrorMsg("Para entrar como equipe, informe o e-mail cadastrado pelo administrador da assistência.");
+        return;
+      }
+      staffLoginMutation.mutate({
+        tenantId: tenant.id,
+        email: identifier.trim(),
+        password,
+      });
+      return;
+    }
+
+    customerLoginMutation.mutate({
       tenantId: tenant.id,
       identifier: identifier.trim(),
       password,
@@ -148,6 +170,7 @@ export default function CustomerLogin() {
   const primaryColor = tenant?.primaryColor ?? "#1e3a5f";
   const contrastColor = getContrastColor(primaryColor);
   const hasTenant = !!tenant;
+  const isPending = customerLoginMutation.isPending || staffLoginMutation.isPending;
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
@@ -175,143 +198,160 @@ export default function CustomerLogin() {
         <Card className="w-full max-w-md shadow-lg">
           <CardHeader className="text-center pb-4">
             <CardTitle className="text-2xl font-bold text-gray-900">
-              {hasTenant ? "Área do Cliente" : "Entrar"}
+              {hasTenant ? "Entrar no portal" : "Acesso administrativo"}
             </CardTitle>
             <CardDescription className="text-gray-500">
               {hasTenant
-                ? "Entre com seu CPF ou e-mail e a senha fornecida pela assistência"
-                : "Acesse com suas credenciais"}
+                ? "Clientes e equipe entram pelo canal da própria assistência."
+                : "Somente super admin do FullReparo entra por este domínio."}
             </CardDescription>
           </CardHeader>
 
           <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              {errorMsg && (
-                <Alert variant="destructive">
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertDescription>{errorMsg}</AlertDescription>
-                </Alert>
-              )}
-
-              {!hasTenant && (
+            {!hasTenant ? (
+              <div className="space-y-4">
                 <Alert>
-                  <AlertCircle className="h-4 w-4" />
+                  <ShieldCheck className="h-4 w-4" />
                   <AlertDescription>
-                    Acesse pelo link da sua assistência técnica para fazer login como cliente.
+                    Assistências e clientes devem acessar pelo link da loja, por exemplo:
                     <br />
-                    <span className="text-xs text-muted-foreground">
-                      Ex: rochacell.fullreparo.com.br/login
-                    </span>
+                    <span className="text-xs text-muted-foreground">loja.fullreparo.com.br/login</span>
                   </AlertDescription>
                 </Alert>
-              )}
-
-              <div className="space-y-2">
-                <Label htmlFor="identifier">CPF ou E-mail</Label>
-                <Input
-                  id="identifier"
-                  type="text"
-                  placeholder="000.000.000-00 ou email@exemplo.com"
-                  value={identifier}
-                  onChange={(e) => setIdentifier(e.target.value)}
-                  autoComplete="username"
-                  required
-                  disabled={!hasTenant}
-                />
+                <Button className="w-full font-semibold" onClick={() => navigate("/superadmin/login")}>Entrar como super admin</Button>
+                <Button variant="outline" className="w-full" onClick={() => navigate("/")}>Voltar para o site</Button>
               </div>
+            ) : (
+              <>
+                <div className="grid grid-cols-2 gap-2 mb-5 rounded-xl bg-slate-100 p-1">
+                  <button
+                    type="button"
+                    onClick={() => { setMode("cliente"); setErrorMsg(null); }}
+                    className={`rounded-lg px-3 py-2 text-sm font-medium transition ${mode === "cliente" ? "bg-white shadow text-slate-900" : "text-slate-500 hover:text-slate-700"}`}
+                  >
+                    <UserRound className="h-4 w-4 inline mr-1.5" /> Cliente
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setMode("equipe"); setErrorMsg(null); }}
+                    className={`rounded-lg px-3 py-2 text-sm font-medium transition ${mode === "equipe" ? "bg-white shadow text-slate-900" : "text-slate-500 hover:text-slate-700"}`}
+                  >
+                    <ShieldCheck className="h-4 w-4 inline mr-1.5" /> Equipe
+                  </button>
+                </div>
 
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="password">Senha</Label>
-                  {hasTenant && (
-                    <Link href={tenantPath("/esqueci-senha")}>
-                      <span className="text-xs text-blue-600 hover:text-blue-700 hover:underline inline-flex items-center gap-1 cursor-pointer">
-                        <KeyRound className="h-3 w-3" />
-                        Esqueci minha senha
+                <form onSubmit={handleSubmit} className="space-y-4">
+                  {errorMsg && (
+                    <Alert variant="destructive">
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertDescription>{errorMsg}</AlertDescription>
+                    </Alert>
+                  )}
+
+                  <div className="space-y-2">
+                    <Label htmlFor="identifier">{mode === "equipe" ? "E-mail da equipe" : "CPF ou e-mail do cliente"}</Label>
+                    <Input
+                      id="identifier"
+                      type={mode === "equipe" ? "email" : "text"}
+                      placeholder={mode === "equipe" ? "seuemail@assistencia.com" : "000.000.000-00 ou email@exemplo.com"}
+                      value={identifier}
+                      onChange={(e) => setIdentifier(e.target.value)}
+                      autoComplete="username"
+                      required
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="password">Senha</Label>
+                      {mode === "cliente" && (
+                        <Link href={tenantPath("/esqueci-senha")}>
+                          <span className="text-xs text-blue-600 hover:text-blue-700 hover:underline inline-flex items-center gap-1 cursor-pointer">
+                            <KeyRound className="h-3 w-3" />
+                            Esqueci minha senha
+                          </span>
+                        </Link>
+                      )}
+                    </div>
+                    <PasswordInput
+                      id="password"
+                      value={password}
+                      onChange={setPassword}
+                      placeholder={mode === "equipe" ? "Senha cadastrada pelo admin" : "Senha provisória ou sua senha"}
+                      autoComplete="current-password"
+                    />
+                    <p className="text-xs text-gray-500">
+                      {mode === "equipe"
+                        ? "Apenas dono/admin, atendentes, técnicos e entregadores cadastrados pela assistência."
+                        : "Não tem senha? Solicite ao atendente da assistência técnica."}
+                    </p>
+                  </div>
+
+                  <Button
+                    type="submit"
+                    className="w-full font-semibold"
+                    style={{ backgroundColor: primaryColor, color: contrastColor }}
+                    disabled={isPending || !identifier || !password}
+                  >
+                    {isPending ? (
+                      <span className="flex items-center gap-2">
+                        <span className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" />
+                        Entrando...
+                      </span>
+                    ) : (
+                      mode === "equipe" ? "Entrar no painel" : "Entrar na minha conta"
+                    )}
+                  </Button>
+                </form>
+
+                {/* Divisor */}
+                <div className="relative my-5">
+                  <div className="absolute inset-0 flex items-center">
+                    <span className="w-full border-t border-gray-200" />
+                  </div>
+                  <div className="relative flex justify-center text-xs uppercase">
+                    <span className="bg-white px-2 text-gray-400">ou</span>
+                  </div>
+                </div>
+
+                {/* Login com conta Manus — preserva tenant e claim no returnPath */}
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => {
+                    const params = new URLSearchParams();
+                    if (tenant?.slug) params.set("tenant", tenant.slug);
+                    if (claimToken) params.set("claim", claimToken);
+                    const qs = params.toString();
+                    const returnPath = qs ? `/login?${qs}` : "/login";
+                    window.location.href = getLoginUrl(returnPath);
+                  }}
+                >
+                  Entrar com conta FullReparo
+                </Button>
+
+                {/* Link para cadastro */}
+                {mode === "cliente" && (
+                  <p className="mt-4 text-center text-sm text-gray-500">
+                    Não tem conta?{" "}
+                    <Link href={tenantPath("/register")}>
+                      <span className="text-blue-600 hover:text-blue-700 hover:underline font-medium cursor-pointer">
+                        Criar conta
                       </span>
                     </Link>
-                  )}
-                </div>
-                <PasswordInput
-                  id="password"
-                  value={password}
-                  onChange={setPassword}
-                  placeholder="Senha provisória ou sua senha"
-                  disabled={!hasTenant}
-                  autoComplete="current-password"
-                />
-                {hasTenant && (
-                  <p className="text-xs text-gray-500">
-                    Não tem senha? Solicite ao atendente da assistência técnica.
                   </p>
                 )}
-              </div>
 
-              <Button
-                type="submit"
-                className="w-full font-semibold"
-                style={{ backgroundColor: primaryColor, color: contrastColor }}
-                disabled={loginMutation.isPending || !identifier || !password || !hasTenant}
-              >
-                {loginMutation.isPending ? (
-                  <span className="flex items-center gap-2">
-                    <span className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" />
-                    Entrando...
-                  </span>
-                ) : (
-                  "Entrar"
-                )}
-              </Button>
-            </form>
-
-            {/* Divisor */}
-            <div className="relative my-5">
-              <div className="absolute inset-0 flex items-center">
-                <span className="w-full border-t border-gray-200" />
-              </div>
-              <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-white px-2 text-gray-400">ou</span>
-              </div>
-            </div>
-
-            {/* Login com conta Manus — preserva tenant e claim no returnPath */}
-            <Button
-              variant="outline"
-              className="w-full"
-              onClick={() => {
-                const params = new URLSearchParams();
-                if (tenant?.slug) params.set("tenant", tenant.slug);
-                if (claimToken) params.set("claim", claimToken);
-                const qs = params.toString();
-                const returnPath = qs ? `/login?${qs}` : "/login";
-                window.location.href = getLoginUrl(returnPath);
-              }}
-            >
-              Entrar com Google / e-mail (Manus)
-            </Button>
-
-            {/* Link para cadastro */}
-            {hasTenant && (
-              <p className="mt-4 text-center text-sm text-gray-500">
-                Não tem conta?{" "}
-                <Link href={tenantPath("/register")}>
-                  <span className="text-blue-600 hover:text-blue-700 hover:underline font-medium cursor-pointer">
-                    Criar conta
-                  </span>
-                </Link>
-              </p>
-            )}
-
-            {/* Voltar ao portal — apenas quando há tenant */}
-            {hasTenant && (
-              <button
-                type="button"
-                className="mt-4 flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 mx-auto"
-                onClick={() => tenantNavigate("/")}
-              >
-                <ArrowLeft className="h-3 w-3" />
-                Voltar ao portal
-              </button>
+                {/* Voltar ao portal */}
+                <button
+                  type="button"
+                  className="mt-4 flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 mx-auto"
+                  onClick={() => tenantNavigate("/")}
+                >
+                  <ArrowLeft className="h-3 w-3" />
+                  Voltar ao portal
+                </button>
+              </>
             )}
           </CardContent>
         </Card>

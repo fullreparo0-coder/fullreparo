@@ -4,11 +4,12 @@ import { getDb, getUsersByTenant } from "../db";
 import { users } from "../../drizzle/schema";
 import { protectedProcedure, router } from "../_core/trpc";
 import { and, eq } from "drizzle-orm";
+import bcrypt from "bcryptjs";
+import { validatePassword } from "../../shared/passwordRules";
 
 const tenantAdminProcedure = protectedProcedure.use(({ ctx, next }) => {
-  const allowed = ["super_admin", "admin", "tenant_admin"];
-  if (!allowed.includes(ctx.user.role)) {
-    throw new TRPCError({ code: "FORBIDDEN" });
+  if (ctx.user.role !== "tenant_admin") {
+    throw new TRPCError({ code: "FORBIDDEN", message: "Apenas o administrador da assistência pode gerenciar a equipe." });
   }
   return next({ ctx });
 });
@@ -24,22 +25,55 @@ export const usersRouter = router({
   // Criar usuário no tenant
   create: tenantAdminProcedure
     .input(
-      z.object({
-        name: z.string().min(2),
-        email: z.string().email().optional(),
-        phone: z.string().optional(),
-        role: z.enum(["tenant_admin", "atendente", "tecnico", "entregador"]),
-      })
+        z.object({
+          name: z.string().min(2),
+          email: z.string().email(),
+          phone: z.string().optional(),
+          role: z.enum(["atendente", "tecnico", "entregador"]),
+          password: z.string().min(8),
+          confirmPassword: z.string().min(8),
+        })
     )
     .mutation(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
       if (!ctx.user.tenantId) throw new TRPCError({ code: "FORBIDDEN" });
+
+      if (input.password !== input.confirmPassword) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "A confirmação de senha não confere." });
+      }
+
+      const passwordErrors = validatePassword(input.password);
+      if (passwordErrors.length > 0) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: `A senha deve conter: ${passwordErrors.join(", ")}.`,
+        });
+      }
+
+      const normalizedEmail = input.email.trim().toLowerCase();
+      const [existingUser] = await db
+        .select({ id: users.id })
+        .from(users)
+        .where(and(eq(users.tenantId, ctx.user.tenantId), eq(users.email, normalizedEmail)))
+        .limit(1);
+
+      if (existingUser) {
+        throw new TRPCError({ code: "CONFLICT", message: "Já existe um membro da equipe com este e-mail nesta assistência." });
+      }
+
+      const passwordHash = await bcrypt.hash(input.password, 10);
       await db.insert(users).values({
-        ...input,
-        openId: `manual_${Date.now()}_${Math.random().toString(36).slice(2)}`,
+        name: input.name.trim(),
+        email: normalizedEmail,
+        phone: input.phone?.trim() || undefined,
+        role: input.role,
+        openId: `local_staff_${ctx.user.tenantId}_${Date.now()}_${Math.random().toString(36).slice(2)}`,
         tenantId: ctx.user.tenantId,
-        loginMethod: "manual",
+        loginMethod: "local",
+        passwordHash,
+        localLoginEnabled: true,
+        isActive: true,
       });
       return { success: true };
     }),

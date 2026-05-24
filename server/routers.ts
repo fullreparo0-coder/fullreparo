@@ -6,9 +6,9 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { sdk } from "./_core/sdk";
-import { getUserByEmail, getDb } from "./db";
+import { getDb } from "./db";
 import { users } from "../drizzle/schema";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { tenantsRouter, plansRouter } from "./routers/tenants";
 import { usersRouter } from "./routers/users";
 import { customersRouter } from "./routers/customers";
@@ -35,11 +35,29 @@ export const appRouter = router({
         z.object({
           email: z.string().email(),
           password: z.string(),
+          tenantId: z.number().optional(),
         })
       )
       .mutation(async ({ input, ctx }) => {
-        const user = await getUserByEmail(input.email);
-        if (!user || !user.localLoginEnabled || !user.passwordHash) {
+        const db = await getDb();
+        if (!db) {
+          throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Serviço indisponível" });
+        }
+
+        const normalizedEmail = input.email.trim().toLowerCase();
+        const tenantIdFromHost = ctx.tenantFromHost?.id;
+        const tenantId = input.tenantId ?? tenantIdFromHost;
+        const isTenantLogin = typeof tenantId === "number";
+
+        const [user] = isTenantLogin
+          ? await db
+              .select()
+              .from(users)
+              .where(and(eq(users.email, normalizedEmail), eq(users.tenantId, tenantId)))
+              .limit(1)
+          : await db.select().from(users).where(eq(users.email, normalizedEmail)).limit(1);
+
+        if (!user || !user.localLoginEnabled || !user.passwordHash || !user.isActive) {
           throw new TRPCError({
             code: "UNAUTHORIZED",
             message: "E-mail ou senha inválidos.",
@@ -54,11 +72,18 @@ export const appRouter = router({
           });
         }
 
-        const allowedLocalRoles = ["super_admin", "tenant_admin"];
-        if (!allowedLocalRoles.includes(user.role)) {
+        const tenantStaffRoles = ["tenant_admin", "atendente", "tecnico", "entregador", "admin"];
+        if (isTenantLogin) {
+          if (!tenantStaffRoles.includes(user.role) || user.tenantId !== tenantId) {
+            throw new TRPCError({
+              code: "FORBIDDEN",
+              message: "Acesso permitido apenas para a equipe desta assistência.",
+            });
+          }
+        } else if (user.role !== "super_admin") {
           throw new TRPCError({
             code: "FORBIDDEN",
-            message: "Acesso restrito a administradores autorizados.",
+            message: "Acesso restrito ao administrador do FullReparo.",
           });
         }
 
@@ -66,14 +91,10 @@ export const appRouter = router({
         const cookieOptions = getSessionCookieOptions(ctx.req);
         ctx.res.cookie(COOKIE_NAME, token, cookieOptions);
 
-        // Atualiza o último login
-        const db = await getDb();
-        if (db) {
-          await db
-            .update(users)
-            .set({ lastSignedIn: new Date() })
-            .where(eq(users.id, user.id));
-        }
+        await db
+          .update(users)
+          .set({ lastSignedIn: new Date() })
+          .where(eq(users.id, user.id));
 
         return { success: true, user };
       }),

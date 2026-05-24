@@ -12,7 +12,6 @@ import { toast } from "sonner";
 import { Edit, Mail, Phone, Plus, Power, UserCog } from "lucide-react";
 
 const ROLE_OPTIONS = [
-  { value: "tenant_admin", label: "Administrador" },
   { value: "atendente", label: "Atendente" },
   { value: "tecnico", label: "Técnico" },
   { value: "entregador", label: "Entregador" },
@@ -25,6 +24,8 @@ type UserForm = {
   email: string;
   phone: string;
   role: TeamRole;
+  password: string;
+  confirmPassword: string;
 };
 
 type TeamUser = {
@@ -36,7 +37,7 @@ type TeamUser = {
   isActive: boolean;
 };
 
-const EMPTY_FORM: UserForm = { name: "", email: "", phone: "", role: "atendente" };
+const EMPTY_FORM: UserForm = { name: "", email: "", phone: "", role: "atendente", password: "", confirmPassword: "" };
 
 const ROLE_LABELS: Record<string, string> = {
   tenant_admin: "Administrador",
@@ -58,9 +59,11 @@ const ROLE_COLORS: Record<string, string> = {
 function normalizeForm(form: UserForm) {
   return {
     name: form.name.trim(),
-    email: form.email.trim() || undefined,
+    email: form.email.trim(),
     phone: form.phone.trim() || undefined,
     role: form.role,
+    password: form.password,
+    confirmPassword: form.confirmPassword,
   };
 }
 
@@ -101,6 +104,8 @@ export default function UsersList() {
       email: user.email ?? "",
       phone: user.phone ?? "",
       role: ROLE_OPTIONS.some((r) => r.value === user.role) ? (user.role as TeamRole) : "atendente",
+      password: "",
+      confirmPassword: "",
     });
     setEditOpen(true);
   }
@@ -109,6 +114,14 @@ export default function UsersList() {
     const payload = normalizeForm(form);
     if (!payload.name) {
       toast.error("Informe o nome do membro");
+      return;
+    }
+    if (!payload.email) {
+      toast.error("Informe o e-mail de acesso do membro");
+      return;
+    }
+    if (!payload.password || payload.password !== payload.confirmPassword) {
+      toast.error("Informe a senha e confirme corretamente");
       return;
     }
     create.mutate(payload);
@@ -121,7 +134,7 @@ export default function UsersList() {
       toast.error("Informe o nome do membro");
       return;
     }
-    update.mutate({ id: editingUser.id, ...payload });
+    update.mutate({ id: editingUser.id, name: payload.name, email: payload.email, phone: payload.phone, role: payload.role });
   }
 
   function toggleActive(user: TeamUser) {
@@ -173,7 +186,7 @@ export default function UsersList() {
                   <Input className="mt-1.5" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />
                 </div>
                 <div>
-                  <Label>E-mail</Label>
+                  <Label>E-mail de acesso *</Label>
                   <Input type="email" className="mt-1.5" value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} />
                 </div>
                 <div>
@@ -191,7 +204,18 @@ export default function UsersList() {
                     </SelectContent>
                   </Select>
                 </div>
-                <Button className="w-full" onClick={handleCreate} disabled={!form.name.trim() || create.isPending}>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <Label>Senha *</Label>
+                    <Input type="password" className="mt-1.5" value={form.password} onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))} />
+                  </div>
+                  <div>
+                    <Label>Confirmar senha *</Label>
+                    <Input type="password" className="mt-1.5" value={form.confirmPassword} onChange={(e) => setForm((f) => ({ ...f, confirmPassword: e.target.value }))} />
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground">Esta senha será usada pelo membro para entrar em {typeof window !== "undefined" ? window.location.host : "seu portal"}/login.</p>
+                <Button className="w-full" onClick={handleCreate} disabled={!form.name.trim() || !form.email.trim() || !form.password || form.password !== form.confirmPassword || create.isPending}>
                   {create.isPending ? "Salvando..." : "Adicionar"}
                 </Button>
               </div>
