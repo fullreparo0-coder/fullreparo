@@ -1,0 +1,1055 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Sora:wght@400;600;700&display=swap');
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+:root {
+  --radius: 0.625rem;
+  --background: oklch(0.98 0.003 240);
+  --foreground: oklch(0.15 0.02 240);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.15 0.02 240);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.15 0.02 240);
+  --primary: oklch(0.28 0.08 240);
+  --primary-foreground: oklch(0.98 0.003 240);
+  --secondary: oklch(0.72 0.12 65);
+  --secondary-foreground: oklch(0.15 0.02 240);
+  --muted: oklch(0.94 0.005 240);
+  --muted-foreground: oklch(0.52 0.02 240);
+  --accent: oklch(0.72 0.12 65);
+  --accent-foreground: oklch(0.15 0.02 240);
+  --destructive: oklch(0.55 0.22 25);
+  --border: oklch(0.88 0.008 240);
+  --input: oklch(0.88 0.008 240);
+  --ring: oklch(0.28 0.08 240);
+  --chart-1: oklch(0.28 0.08 240);
+  --chart-2: oklch(0.72 0.12 65);
+  --chart-3: oklch(0.55 0.15 160);
+  --chart-4: oklch(0.65 0.18 290);
+  --chart-5: oklch(0.60 0.20 25);
+  --sidebar: oklch(0.18 0.05 240);
+  --sidebar-foreground: oklch(0.92 0.01 240);
+  --sidebar-primary: oklch(0.72 0.12 65);
+  --sidebar-primary-foreground: oklch(0.15 0.02 240);
+  --sidebar-accent: oklch(0.25 0.06 240);
+  --sidebar-accent-foreground: oklch(0.92 0.01 240);
+  --sidebar-border: oklch(0.28 0.05 240);
+  --sidebar-ring: oklch(0.72 0.12 65);
+}
+
+.dark {
+  --background: oklch(0.12 0.03 240);
+  --foreground: oklch(0.92 0.01 240);
+  --card: oklch(0.16 0.04 240);
+  --card-foreground: oklch(0.92 0.01 240);
+  --popover: oklch(0.16 0.04 240);
+  --popover-foreground: oklch(0.92 0.01 240);
+  --primary: oklch(0.72 0.12 65);
+  --primary-foreground: oklch(0.15 0.02 240);
+  --secondary: oklch(0.25 0.06 240);
+  --secondary-foreground: oklch(0.92 0.01 240);
+  --muted: oklch(0.22 0.04 240);
+  --muted-foreground: oklch(0.62 0.02 240);
+  --accent: oklch(0.72 0.12 65);
+  --accent-foreground: oklch(0.15 0.02 240);
+  --destructive: oklch(0.65 0.22 25);
+  --border: oklch(0.28 0.05 240);
+  --input: oklch(0.28 0.05 240);
+  --ring: oklch(0.72 0.12 65);
+  --sidebar: oklch(0.10 0.03 240);
+  --sidebar-foreground: oklch(0.92 0.01 240);
+  --sidebar-primary: oklch(0.72 0.12 65);
+  --sidebar-primary-foreground: oklch(0.15 0.02 240);
+  --sidebar-accent: oklch(0.18 0.04 240);
+  --sidebar-accent-foreground: oklch(0.92 0.01 240);
+  --sidebar-border: oklch(0.22 0.04 240);
+  --sidebar-ring: oklch(0.72 0.12 65);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+  h1, h2, h3 {
+    font-family: 'Sora', 'Inter', sans-serif;
+  }
+}
+
+@layer utilities {
+  .container {
+    @apply mx-auto px-4 sm:px-6 lg:px-8;
+    max-width: 1280px;
+  }
+  .flex {
+    min-width: 0;
+    min-height: 0;
+  }
+  .font-display {
+    font-family: 'Sora', 'Inter', sans-serif;
+  }
+}
+
+/* Status badge colors */
+.status-solicitado { @apply bg-slate-100 text-slate-700; }
+.status-aguardando_coleta { @apply bg-amber-100 text-amber-800; }
+.status-coleta_agendada { @apply bg-blue-100 text-blue-800; }
+.status-coletado { @apply bg-cyan-100 text-cyan-800; }
+.status-recebido_na_assistencia { @apply bg-indigo-100 text-indigo-800; }
+.status-em_diagnostico { @apply bg-purple-100 text-purple-800; }
+.status-aguardando_aprovacao { @apply bg-orange-100 text-orange-800; }
+.status-aprovado { @apply bg-emerald-100 text-emerald-800; }
+.status-recusado { @apply bg-red-100 text-red-800; }
+.status-aguardando_peca { @apply bg-yellow-100 text-yellow-800; }
+.status-em_reparo { @apply bg-violet-100 text-violet-800; }
+.status-pronto { @apply bg-teal-100 text-teal-800; }
+.status-aguardando_entrega { @apply bg-sky-100 text-sky-800; }
+.status-saiu_para_entrega { @apply bg-blue-100 text-blue-800; }
+.status-entregue { @apply bg-green-100 text-green-800; }
+.status-finalizado { @apply bg-green-100 text-green-900; }
+.status-cancelado { @apply bg-gray-100 text-gray-600; }
+
+/* Smooth transitions */
+* {
+  transition-property: color, background-color, border-color, box-shadow, transform, opacity;
+  transition-timing-function: cubic-bezier(0.23, 1, 0.32, 1);
+  transition-duration: 150ms;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: oklch(0.75 0.01 240); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: oklch(0.60 0.02 240); }
+
+/* ═══════════════════════════════════════════════════════
+   PRINT STYLES — A4 + Thermal (58mm / 80mm) + Argox 80x40mm
+   ═══════════════════════════════════════════════════════ */
+
+.print-only { display: none; }
+
+@media print {
+  /* ── Global reset for print ── */
+  .no-print, nav, aside, header, [data-sidebar], [role="navigation"] {
+    display: none !important;
+  }
+  .print-only { display: block !important; }
+
+  body {
+    background: #fff !important;
+    color: #000 !important;
+    font-family: 'Inter', Arial, sans-serif !important;
+    font-size: 10pt !important;
+    line-height: 1.4 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* ── A4 page setup ── */
+  body.print-mode-a4 {
+    @page { size: A4 portrait; margin: 14mm 12mm 14mm 12mm; }
+  }
+
+  /* ── Thermal 58mm page setup ── */
+  body.print-mode-thermal58 {
+    @page { size: 58mm auto; margin: 2mm 2mm; }
+  }
+
+  /* ── Thermal 80mm page setup ── */
+  body.print-mode-thermal80 {
+    @page { size: 80mm auto; margin: 2mm 3mm; }
+  }
+
+  /* ── Argox 80x40mm label page setup ── */
+  body.print-mode-argox8040 {
+    @page { size: 80mm 40mm; margin: 1mm 2mm; }
+  }
+
+  /* Hide everything except the print sheet */
+  body > * { display: none !important; }
+  body > #print-root { display: block !important; }
+}
+
+/* ── A4 Sheet Styles ── */
+.print-a4-sheet {
+  font-family: 'Inter', Arial, sans-serif;
+  font-size: 9pt;
+  color: #111;
+  background: #fff;
+  line-height: 1.45;
+}
+
+.print-a4-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  border-bottom: 2.5px solid;
+  padding-bottom: 10px;
+  margin-bottom: 12px;
+}
+
+.print-a4-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.print-a4-logo {
+  width: 52px;
+  height: 52px;
+  object-fit: contain;
+  border-radius: 6px;
+}
+
+.print-a4-logo-placeholder {
+  width: 52px;
+  height: 52px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.print-a4-tenant-name {
+  font-size: 13pt;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.print-a4-tenant-sub {
+  font-size: 7.5pt;
+  color: #555;
+  line-height: 1.3;
+}
+
+.print-a4-os-badge {
+  text-align: right;
+  padding: 8px 12px;
+  border-radius: 6px;
+  color: #fff;
+  min-width: 130px;
+}
+
+.print-a4-os-label {
+  font-size: 6.5pt;
+  letter-spacing: 0.08em;
+  opacity: 0.85;
+  text-transform: uppercase;
+}
+
+.print-a4-os-number {
+  font-size: 15pt;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  line-height: 1.1;
+}
+
+.print-a4-os-date {
+  font-size: 7.5pt;
+  opacity: 0.85;
+  margin-top: 2px;
+}
+
+.print-a4-os-status {
+  font-size: 7.5pt;
+  font-weight: 600;
+  opacity: 0.9;
+  margin-top: 2px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.print-a4-body {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.print-a4-col {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.print-a4-section {
+  border: 1px solid #e0e0e0;
+  border-radius: 5px;
+  padding: 7px 9px;
+  background: #fafafa;
+}
+
+.print-a4-section-title {
+  font-size: 7pt;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-bottom: 5px;
+  padding-bottom: 3px;
+  border-bottom: 1px solid #e8e8e8;
+}
+
+.print-a4-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 8.5pt;
+}
+
+.print-a4-td-label {
+  color: #666;
+  font-size: 7.5pt;
+  width: 90px;
+  vertical-align: top;
+  padding: 1.5px 0;
+}
+
+.print-a4-text {
+  font-size: 8.5pt;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.print-a4-checklist {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.print-a4-checklist-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 8.5pt;
+}
+
+.print-a4-checkbox {
+  font-size: 10pt;
+  line-height: 1;
+}
+
+.print-a4-budget-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 8pt;
+}
+
+.print-a4-th {
+  font-size: 7pt;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #555;
+  border-bottom: 1px solid #ddd;
+  padding: 2px 3px;
+  text-align: left;
+}
+
+.print-a4-th.text-right, .print-a4-td.text-right {
+  text-align: right;
+}
+
+.print-a4-td {
+  padding: 2px 3px;
+  border-bottom: 1px solid #f0f0f0;
+  vertical-align: top;
+}
+
+.print-a4-total-label {
+  font-size: 9pt;
+  font-weight: 700;
+  text-align: right;
+  padding: 4px 3px 2px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.print-a4-total-value {
+  font-size: 11pt;
+  font-weight: 800;
+  text-align: right;
+  padding: 4px 3px 2px;
+}
+
+.print-a4-qr-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 6px;
+  border: 1px solid #e0e0e0;
+  border-radius: 5px;
+  background: #fafafa;
+  width: fit-content;
+  margin-left: auto;
+}
+
+.print-a4-qr-label {
+  font-size: 7pt;
+  color: #666;
+  text-align: center;
+}
+
+.print-a4-signatures {
+  display: flex;
+  gap: 16px;
+  margin-top: 18px;
+  padding-top: 8px;
+}
+
+.print-a4-sig-line {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.print-a4-sig-bar {
+  width: 100%;
+  height: 36px;
+  border-bottom: 1.5px solid;
+}
+
+.print-a4-sig-caption {
+  font-size: 7.5pt;
+  color: #666;
+  text-align: center;
+}
+
+.print-a4-terms {
+  margin-top: 12px;
+  padding: 8px 10px;
+  border: 1px solid #e0e0e0;
+  border-radius: 5px;
+  background: #fafafa;
+}
+
+.print-a4-terms-text {
+  font-size: 7pt;
+  color: #555;
+  white-space: pre-wrap;
+  line-height: 1.5;
+  margin: 4px 0 0;
+}
+
+.print-a4-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 10px;
+  padding-top: 6px;
+  border-top: 1px solid;
+  font-size: 7pt;
+  color: #666;
+}
+
+
+/* ── Argox 80x40 Label Styles ── */
+.print-argox8040 {
+  width: 76mm;
+  height: 38mm;
+  max-width: 76mm;
+  max-height: 38mm;
+  overflow: hidden;
+  box-sizing: border-box;
+  font-family: 'Inter', Arial, sans-serif;
+  color: #111;
+  background: #fff;
+  line-height: 1.12;
+  padding: 1.2mm 0;
+}
+
+.print-argox-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 2mm;
+  border-bottom: 1px solid;
+  padding-bottom: 0.8mm;
+  margin-bottom: 1mm;
+}
+
+.print-argox-tenant {
+  font-size: 7pt;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.print-argox-os {
+  font-size: 9.5pt;
+  font-weight: 900;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.print-argox-body {
+  display: grid;
+  grid-template-columns: 1fr 17mm;
+  gap: 2mm;
+  align-items: start;
+}
+
+.print-argox-info {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.7mm;
+}
+
+.print-argox-row {
+  min-width: 0;
+}
+
+.print-argox-row span {
+  display: block;
+  font-size: 5.5pt;
+  color: #555;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.print-argox-row strong {
+  display: block;
+  font-size: 7.4pt;
+  font-weight: 800;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.print-argox-defect strong {
+  font-size: 6.7pt;
+  white-space: normal;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.print-argox-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1mm;
+  margin-top: 0.4mm;
+  font-size: 6.2pt;
+  font-weight: 700;
+}
+
+.print-argox-status {
+  border: 1px solid;
+  border-radius: 1.2mm;
+  padding: 0.4mm 1mm;
+  text-transform: uppercase;
+  white-space: nowrap;
+  font-size: 5.7pt;
+}
+
+.print-argox-qr-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.7mm;
+  font-size: 5.4pt;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+/* ── Thermal Sheet Styles ── */
+.print-thermal-sheet {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 9pt;
+  color: #000;
+  background: #fff;
+  line-height: 1.5;
+  padding: 2mm 0;
+}
+
+.print-thermal58 { width: 54mm; max-width: 54mm; }
+.print-thermal80 { width: 76mm; max-width: 76mm; }
+
+.print-thermal-center { text-align: center; }
+.print-thermal-bold { font-weight: 700; }
+.print-thermal-sm { font-size: 7.5pt; }
+.print-thermal-lg { font-size: 11pt; }
+.print-thermal-xl { font-size: 14pt; font-weight: 800; letter-spacing: -0.01em; }
+.print-thermal-mono { font-family: 'Courier New', Courier, monospace; font-size: 7pt; }
+
+.print-thermal-sep {
+  font-size: 8pt;
+  color: #333;
+  margin: 3px 0;
+  letter-spacing: -0.02em;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.print-thermal-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 4px;
+  font-size: 8.5pt;
+}
+
+.print-thermal-row span:first-child { color: #444; flex-shrink: 0; }
+.print-thermal-row span:last-child { text-align: right; }
+
+.print-thermal-wrap {
+  font-size: 8.5pt;
+  word-break: break-word;
+  white-space: pre-wrap;
+}
+
+.print-thermal-checklist-item {
+  font-size: 8.5pt;
+  padding: 0.5px 0;
+}
+
+.print-thermal-budget-item {
+  margin-bottom: 3px;
+}
+
+.print-thermal-sig-line {
+  border-bottom: 1px dashed #333;
+  height: 28px;
+  margin: 4px 6px;
+}
+
+.print-thermal-terms {
+  font-size: 6.5pt;
+  color: #333;
+  white-space: pre-wrap;
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+.print-thermal-spacer {
+  height: 10mm;
+}
+
+/* ═══════════════════════════════════════════════════════
+   WARRANTY VOUCHER — Comprovante de Garantia
+   ═══════════════════════════════════════════════════════ */
+
+/* Page setup for warranty print */
+@media print {
+  body.print-mode-warranty {
+    @page { size: A5 landscape; margin: 8mm 10mm; }
+  }
+  body.print-mode-warranty > * { display: none !important; }
+  body.print-mode-warranty > #print-warranty-root { display: block !important; }
+}
+
+/* Outer container */
+.warranty-voucher {
+  font-family: 'Inter', Arial, sans-serif;
+  font-size: 9pt;
+  color: #111;
+  background: #fff;
+  line-height: 1.4;
+}
+
+.warranty-outer-border {
+  border: 3px solid;
+  border-radius: 8px;
+  padding: 4px;
+}
+
+.warranty-inner-border {
+  border: 1px dashed;
+  border-radius: 5px;
+  overflow: hidden;
+}
+
+/* Header */
+.warranty-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px;
+  color: #fff;
+}
+
+.warranty-header-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.warranty-logo {
+  width: 44px;
+  height: 44px;
+  object-fit: contain;
+  border-radius: 5px;
+  background: rgba(255,255,255,0.15);
+}
+
+.warranty-logo-placeholder {
+  width: 44px;
+  height: 44px;
+  border-radius: 5px;
+  background: rgba(255,255,255,0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14pt;
+  font-weight: 700;
+}
+
+.warranty-header-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.warranty-tenant-name {
+  font-size: 12pt;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.warranty-tenant-sub {
+  font-size: 7pt;
+  opacity: 0.85;
+  line-height: 1.3;
+}
+
+.warranty-header-badge {
+  text-align: right;
+}
+
+.warranty-certificate-label {
+  font-size: 7pt;
+  letter-spacing: 0.15em;
+  opacity: 0.85;
+  text-transform: uppercase;
+}
+
+.warranty-certificate-title {
+  font-size: 20pt;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  line-height: 1.1;
+  text-transform: uppercase;
+}
+
+/* Body */
+.warranty-body {
+  display: flex;
+  gap: 0;
+}
+
+.warranty-main {
+  flex: 1;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.warranty-sidebar {
+  width: 130px;
+  flex-shrink: 0;
+  border-left: 1px dashed #ddd;
+  padding: 12px 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  background: #fafafa;
+}
+
+/* Status badge */
+.warranty-status-block {
+  display: flex;
+}
+
+.warranty-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 7.5pt;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}
+
+/* Grid de campos */
+.warranty-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px 12px;
+}
+
+.warranty-field {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.warranty-field-full {
+  grid-column: 1 / -1;
+}
+
+.warranty-field-label {
+  font-size: 6.5pt;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.warranty-field-value {
+  font-size: 9pt;
+  font-weight: 500;
+  color: #111;
+}
+
+.warranty-field-sub {
+  font-size: 7.5pt;
+  color: #555;
+  margin-top: 1px;
+}
+
+.warranty-os-number {
+  font-size: 10pt;
+  font-weight: 700;
+}
+
+/* Datas de vigência */
+.warranty-dates-block {
+  display: flex;
+  align-items: center;
+  border: 1.5px solid;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.warranty-date-item {
+  flex: 1;
+  padding: 5px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.warranty-date-center { text-align: center; }
+.warranty-date-right { text-align: right; }
+
+.warranty-date-label {
+  font-size: 6.5pt;
+  color: #666;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.warranty-date-value {
+  font-size: 10pt;
+  font-weight: 700;
+}
+
+.warranty-date-days {
+  font-size: 13pt;
+  font-weight: 800;
+}
+
+.warranty-date-divider {
+  width: 1px;
+  height: 36px;
+  opacity: 0.3;
+  flex-shrink: 0;
+}
+
+/* Barra de progresso */
+.warranty-progress-block {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.warranty-progress-bar-bg {
+  height: 6px;
+  background: #e5e7eb;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.warranty-progress-bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+.warranty-progress-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 7pt;
+  color: #666;
+}
+
+/* Código de garantia */
+.warranty-code-block {
+  border: 1.5px solid;
+  border-radius: 6px;
+  padding: 6px 10px;
+  text-align: center;
+}
+
+.warranty-code-label {
+  font-size: 6.5pt;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin-bottom: 2px;
+}
+
+.warranty-code-value {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 13pt;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+/* Assinaturas */
+.warranty-signature-block {
+  display: flex;
+  gap: 16px;
+  margin-top: 4px;
+}
+
+.warranty-sig-line {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
+
+.warranty-sig-bar {
+  width: 100%;
+  height: 28px;
+  border-bottom: 1.5px solid;
+}
+
+.warranty-sig-caption {
+  font-size: 7pt;
+  color: #666;
+  text-align: center;
+}
+
+/* QR codes na sidebar */
+.warranty-qr-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  text-align: center;
+}
+
+.warranty-qr-block-secondary {
+  padding-top: 10px;
+  border-top: 1px dashed #ddd;
+  width: 100%;
+}
+
+.warranty-qr-title {
+  font-size: 7pt;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.warranty-qr-sub {
+  font-size: 6.5pt;
+  color: #666;
+  word-break: break-all;
+}
+
+/* Termos */
+.warranty-terms {
+  margin: 0 14px 10px;
+  padding: 6px 8px;
+  border: 1px solid;
+  border-radius: 5px;
+  background: #fafafa;
+  opacity: 0.7;
+}
+
+.warranty-terms-title {
+  font-size: 6.5pt;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-bottom: 3px;
+}
+
+.warranty-terms-text {
+  font-size: 6.5pt;
+  color: #555;
+  white-space: pre-wrap;
+  line-height: 1.4;
+  margin: 0;
+}
+
+/* Footer */
+.warranty-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 5px 14px;
+  color: rgba(255,255,255,0.85);
+  font-size: 6.5pt;
+}
+
+.warranty-footer-url {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 6pt;
+  opacity: 0.8;
+}

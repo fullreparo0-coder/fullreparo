@@ -1,0 +1,1 @@
+ALTER TABLE `customers` ADD `neighborhood` varchar(100);
