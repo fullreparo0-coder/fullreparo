@@ -191,7 +191,7 @@
   /* ── Page setup: usar páginas nomeadas evita que o Chromium ignore @page aninhado e gere folhas extras ── */
   @page print-a4-page { size: A4 portrait; margin: 14mm 12mm 14mm 12mm; }
   @page print-thermal58-page { size: 58mm auto; margin: 1.5mm 2mm; }
-  @page print-thermal80-page { size: 80mm auto; margin: 0; }
+  @page print-thermal80-page { size: 80mm auto; margin: 4mm; }
   @page print-argox8040-page { size: 80mm 40mm; margin: 0; }
 
   body.print-mode-a4 { page: print-a4-page; }
@@ -216,16 +216,24 @@
   }
 
   body.print-mode-argox8040 > #print-root {
-    width: 77.5mm !important;
+    width: 76.8mm !important;
     height: 40mm !important;
-    max-width: 77.5mm !important;
+    max-width: 76.8mm !important;
     max-height: 40mm !important;
-    margin-left: 2.5mm !important;
+    margin-left: 3.2mm !important;
     overflow: hidden !important;
   }
 
   body.print-mode-thermal58 > #print-root { width: 54mm !important; max-width: 54mm !important; }
-  body.print-mode-thermal80 > #print-root { width: 80mm !important; max-width: 80mm !important; }
+  body.print-mode-thermal80 > #print-root {
+    width: 72mm !important;
+    max-width: 72mm !important;
+    min-width: 72mm !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+    padding: 0 !important;
+    box-sizing: border-box !important;
+  }
 }
 
 /* ── A4 Sheet Styles ── */
@@ -504,9 +512,9 @@
 
 /* ── Argox 80x40 Label Styles ── */
 .print-argox8040 {
-  width: 77.5mm;
+  width: 76.8mm;
   height: 40mm;
-  max-width: 77.5mm;
+  max-width: 76.8mm;
   max-height: 40mm;
   overflow: hidden;
   box-sizing: border-box;
@@ -514,7 +522,7 @@
   color: #111;
   background: #fff;
   line-height: 1.12;
-  padding: 0.8mm 1.2mm;
+  padding: 0.75mm 1mm;
   break-after: avoid;
   break-before: avoid;
   break-inside: avoid;
@@ -569,7 +577,7 @@
 
 .print-argox-main-grid {
   display: grid;
-  grid-template-columns: 1fr 25mm;
+  grid-template-columns: 1fr 27mm;
   gap: 2mm;
   align-items: start;
 }
@@ -585,7 +593,7 @@
 
 .print-argox-row strong {
   display: block;
-  font-size: 8.4pt;
+  font-size: 8.8pt;
   font-weight: 900;
   white-space: nowrap;
   overflow: hidden;
@@ -594,7 +602,7 @@
 }
 
 .print-argox-defect strong {
-  font-size: 7.4pt;
+  font-size: 7.8pt;
   line-height: 1.12;
   white-space: normal;
   display: -webkit-box;
@@ -608,7 +616,7 @@
   justify-content: space-between;
   gap: 1mm;
   margin-top: 0.2mm;
-  font-size: 7pt;
+  font-size: 7.3pt;
   font-weight: 800;
 }
 
@@ -648,13 +656,13 @@
 }
 
 .print-thermal80 {
-  font-size: 11pt;
-  line-height: 1.34;
+  font-size: 11.8pt;
+  line-height: 1.32;
   font-weight: 600;
 }
 
 .print-thermal58 { width: 54mm; max-width: 54mm; }
-.print-thermal80 { width: 80mm; max-width: 80mm; min-width: 80mm; box-sizing: border-box; }
+.print-thermal80 { width: 72mm; max-width: 72mm; min-width: 72mm; box-sizing: border-box; margin: 0 auto; }
 
 .print-thermal-center { text-align: center; }
 .print-thermal-bold { font-weight: 700; }
@@ -662,9 +670,9 @@
 .print-thermal-lg { font-size: 11pt; }
 .print-thermal-xl { font-size: 14pt; font-weight: 800; letter-spacing: -0.01em; }
 .print-thermal-mono { font-family: 'Courier New', Courier, monospace; font-size: 7pt; }
-.print-thermal80 .print-thermal-sm { font-size: 9.5pt; }
-.print-thermal80 .print-thermal-lg { font-size: 14pt; }
-.print-thermal80 .print-thermal-mono { font-size: 8.5pt; }
+.print-thermal80 .print-thermal-sm { font-size: 9.8pt; }
+.print-thermal80 .print-thermal-lg { font-size: 14.8pt; }
+.print-thermal80 .print-thermal-mono { font-size: 8.8pt; overflow-wrap: anywhere; word-break: normal; }
 
 .print-thermal-sep {
   font-size: 8pt;
@@ -683,12 +691,14 @@
 }
 
 .print-thermal80 .print-thermal-row {
-  gap: 8px;
-  font-size: 11.5pt;
+  gap: 10px;
+  font-size: 11.8pt;
 }
 
 .print-thermal-row span:first-child { color: #444; flex-shrink: 0; }
-.print-thermal-row span:last-child { text-align: right; }
+.print-thermal-row span:last-child { text-align: right; min-width: 0; overflow-wrap: normal; word-break: normal; }
+.print-thermal80 .print-thermal-row span:first-child { min-width: 14mm; }
+.print-thermal80 .print-thermal-row span:last-child { flex: 1; }
 
 .print-thermal-wrap {
   font-size: 8.5pt;
@@ -697,8 +707,10 @@
 }
 
 .print-thermal80 .print-thermal-wrap {
-  font-size: 11.2pt;
-  line-height: 1.38;
+  font-size: 11.6pt;
+  line-height: 1.34;
+  word-break: normal;
+  overflow-wrap: break-word;
 }
 
 .print-thermal-checklist-item {
@@ -707,7 +719,7 @@
 }
 
 .print-thermal80 .print-thermal-checklist-item {
-  font-size: 11.2pt;
+  font-size: 11.6pt;
   padding: 1px 0;
 }
 
@@ -730,8 +742,8 @@
 }
 
 .print-thermal80 .print-thermal-terms {
-  font-size: 9pt;
-  line-height: 1.35;
+  font-size: 9.4pt;
+  line-height: 1.32;
 }
 
 .print-thermal-spacer {

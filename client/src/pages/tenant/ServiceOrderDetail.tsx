@@ -201,7 +201,7 @@ export default function ServiceOrderDetail() {
     // Aguarda um tick para garantir que os dados da OS já estão renderizados
     const timer = setTimeout(() => {
       if (printParam === "thermal") {
-        handlePrint("thermal58");
+        handlePrint("thermal80");
       } else if (printParam === "a4") {
         handlePrint("a4");
       }
@@ -386,11 +386,11 @@ export default function ServiceOrderDetail() {
               <DropdownMenuItem onClick={() => handlePrint("a4")}>
                 <FileText className="h-3.5 w-3.5 mr-2" /> Folha A4 (completa)
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handlePrint("thermal58")}>
-                <Printer className="h-3.5 w-3.5 mr-2" /> Bobina Térmica 58mm
-              </DropdownMenuItem>
               <DropdownMenuItem onClick={() => handlePrint("thermal80")}>
-                <Printer className="h-3.5 w-3.5 mr-2" /> Bobina Térmica 80mm
+                <Printer className="h-3.5 w-3.5 mr-2" /> Bobina Térmica 80mm padrão
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handlePrint("thermal58")}>
+                <Printer className="h-3.5 w-3.5 mr-2" /> Bobina 58mm legado
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => handlePrint("argox8040")}>
                 <QrCode className="h-3.5 w-3.5 mr-2" /> Etiqueta Argox 80×40mm
