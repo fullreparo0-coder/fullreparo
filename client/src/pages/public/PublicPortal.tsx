@@ -9,7 +9,6 @@ import { useTenantNav } from "@/hooks/useTenantNav";
 import { WhatsAppFAB } from "@/components/WhatsAppFAB";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { parseBusinessHours, formatBusinessHoursText, isOpenNow, nextOpenTime, DAY_NAMES_SHORT } from "@shared/businessHours";
-import { MapView } from "@/components/Map";
 
 /** Retorna '#ffffff' ou '#000000' com base na luminância WCAG */
 function getContrastColor(hex: string): string {
@@ -297,8 +296,14 @@ export default function PublicPortal() {
     .filter(Boolean)
     .join(", ");
 
-  const googleMapsUrl = mapSearchAddress
-    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapSearchAddress)}`
+  const encodedMapSearchAddress = mapSearchAddress ? encodeURIComponent(mapSearchAddress) : "";
+
+  const googleMapsUrl = encodedMapSearchAddress
+    ? `https://www.google.com/maps/search/?api=1&query=${encodedMapSearchAddress}`
+    : null;
+
+  const googleMapsEmbedUrl = encodedMapSearchAddress
+    ? `https://maps.google.com/maps?q=${encodedMapSearchAddress}&z=15&output=embed`
     : null;
 
   const defaultServices = [
@@ -881,37 +886,37 @@ export default function PublicPortal() {
 
         {/* Mapa de localização */}
         {(tenant.address || tenant.city) && (() => {
-              const fullAddress = mapSearchAddress;
+          const displayAddress = mapSearchAddress;
           return (
             <div className="space-y-3">
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide px-1">
                 Onde nos encontrar
               </p>
-              <div className="rounded-2xl border border-border overflow-hidden">
-                <MapView
-                  className="h-52"
-                  initialZoom={15}
-                  onMapReady={(map) => {
-                    const geocoder = new window.google.maps.Geocoder();
-                    geocoder.geocode({ address: fullAddress }, (results, status) => {
-                      if (status === "OK" && results && results[0]) {
-                        const loc = results[0].geometry.location;
-                        map.setCenter(loc);
-                        new window.google.maps.marker.AdvancedMarkerElement({
-                          map,
-                          position: loc,
-                          title: tenant.name,
-                        });
-                      }
-                    });
-                  }}
-                />
+              <div className="rounded-2xl border border-border overflow-hidden bg-card">
+                {googleMapsEmbedUrl ? (
+                  <iframe
+                    title={`Mapa de ${tenant.name}`}
+                    src={googleMapsEmbedUrl}
+                    className="h-52 w-full border-0"
+                    loading="lazy"
+                    referrerPolicy="no-referrer-when-downgrade"
+                    allowFullScreen
+                  />
+                ) : (
+                  <div className="h-52 w-full flex items-center justify-center bg-muted/40 px-6 text-center">
+                    <div className="space-y-2">
+                      <MapPin className="h-8 w-8 mx-auto text-muted-foreground" />
+                      <p className="text-sm font-semibold text-foreground">Localização disponível</p>
+                      <p className="text-xs text-muted-foreground">Use o endereço abaixo para abrir a rota.</p>
+                    </div>
+                  </div>
+                )}
                 {(tenant.address || googleMapsUrl) && (
                   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 px-4 py-3 bg-card border-t border-border">
                     <div className="flex items-center gap-2 min-w-0">
                       <MapPin className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                       <p className="text-xs text-muted-foreground truncate">
-                        {fullAddress || "Localização da assistência"}
+                        {displayAddress || "Localização da assistência"}
                       </p>
                     </div>
                     {googleMapsUrl && (
