@@ -114,3 +114,6 @@ client/public/__manus__/version.json
 
 # Local project/runtime configuration
 .project-config.json
+
+# Local uploaded files fallback
+uploads/

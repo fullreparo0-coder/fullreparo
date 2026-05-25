@@ -1,7 +1,7 @@
 import type { Express, Request, Response } from "express";
 import sharp from "sharp";
 import { getTenantBySlug } from "./db";
-import { storageGetSignedUrl } from "./storage";
+import { storageReadBuffer } from "./storage";
 
 const DEFAULT_APP_NAME = "FullReparo";
 const DEFAULT_PRIMARY_COLOR = "#1e3a5f";
@@ -153,10 +153,8 @@ async function fetchLogoBuffer(logoUrl?: string | null): Promise<Buffer | null> 
 
   if (normalizedLogoUrl.startsWith("/manus-storage/")) {
     const key = decodeURIComponent(normalizedLogoUrl.replace(/^\/manus-storage\//, ""));
-    const signedUrl = await storageGetSignedUrl(key);
-    const upstream = await fetch(signedUrl);
-    if (!upstream.ok) return null;
-    return Buffer.from(await upstream.arrayBuffer());
+    const { buffer } = await storageReadBuffer(key);
+    return buffer;
   }
 
   if (/^https?:\/\//i.test(normalizedLogoUrl)) {

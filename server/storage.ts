@@ -1,8 +1,18 @@
-// Preconfigured storage helpers for Manus WebDev templates
-// Uploads via Forge Server presigned URL to S3 (PUT direct).
-// Downloads return /manus-storage/{key} paths served via 307 redirect.
+// Storage helpers.
+// Preferem o storage externo Forge quando configurado. Quando as variáveis
+// BUILT_IN_FORGE_API_URL/BUILT_IN_FORGE_API_KEY não existem no ambiente de
+// produção, usam armazenamento local no servidor e mantêm a mesma URL pública
+// /manus-storage/{key}, evitando falha no upload de logos e fotos.
 
+import { promises as fs } from "node:fs";
+import path from "node:path";
 import { ENV } from "./_core/env";
+
+const LOCAL_STORAGE_DIR = process.env.LOCAL_STORAGE_DIR || path.join(process.cwd(), "uploads");
+
+function hasForgeConfig() {
+  return Boolean(ENV.forgeApiUrl && ENV.forgeApiKey);
+}
 
 function getForgeConfig() {
   const forgeUrl = ENV.forgeApiUrl;
@@ -17,8 +27,56 @@ function getForgeConfig() {
   return { forgeUrl: forgeUrl.replace(/\/+$/, ""), forgeKey };
 }
 
-function normalizeKey(relKey: string): string {
-  return relKey.replace(/^\/+/, "");
+export function isForgeStorageConfigured(): boolean {
+  return hasForgeConfig();
+}
+
+export function normalizeStorageKey(relKey: string): string {
+  const key = relKey.replace(/^\/+/, "").replace(/\\/g, "/");
+  const parts = key.split("/").filter(Boolean);
+
+  if (parts.length === 0 || parts.some((part) => part === "." || part === "..")) {
+    throw new Error("Invalid storage key");
+  }
+
+  return parts.join("/");
+}
+
+export function getLocalStoragePath(relKey: string): string {
+  const key = normalizeStorageKey(relKey);
+  const fullPath = path.resolve(LOCAL_STORAGE_DIR, key);
+  const storageRoot = path.resolve(LOCAL_STORAGE_DIR);
+
+  if (!fullPath.startsWith(storageRoot + path.sep) && fullPath !== storageRoot) {
+    throw new Error("Invalid storage path");
+  }
+
+  return fullPath;
+}
+
+export function getContentTypeFromKey(relKey: string): string {
+  const ext = path.extname(relKey).toLowerCase();
+  switch (ext) {
+    case ".png":
+      return "image/png";
+    case ".jpg":
+    case ".jpeg":
+      return "image/jpeg";
+    case ".webp":
+      return "image/webp";
+    case ".gif":
+      return "image/gif";
+    case ".svg":
+      return "image/svg+xml; charset=utf-8";
+    case ".pdf":
+      return "application/pdf";
+    case ".json":
+      return "application/json; charset=utf-8";
+    case ".txt":
+      return "text/plain; charset=utf-8";
+    default:
+      return "application/octet-stream";
+  }
 }
 
 function appendHashSuffix(relKey: string): string {
@@ -28,13 +86,31 @@ function appendHashSuffix(relKey: string): string {
   return `${relKey.slice(0, lastDot)}_${hash}${relKey.slice(lastDot)}`;
 }
 
+async function putLocalStorage(
+  relKey: string,
+  data: Buffer | Uint8Array | string,
+): Promise<{ key: string; url: string }> {
+  const key = appendHashSuffix(normalizeStorageKey(relKey));
+  const fullPath = getLocalStoragePath(key);
+  const buffer = typeof data === "string" ? Buffer.from(data) : Buffer.from(data);
+
+  await fs.mkdir(path.dirname(fullPath), { recursive: true });
+  await fs.writeFile(fullPath, buffer);
+
+  return { key, url: `/manus-storage/${key}` };
+}
+
 export async function storagePut(
   relKey: string,
   data: Buffer | Uint8Array | string,
   contentType = "application/octet-stream",
 ): Promise<{ key: string; url: string }> {
+  if (!hasForgeConfig()) {
+    return putLocalStorage(relKey, data);
+  }
+
   const { forgeUrl, forgeKey } = getForgeConfig();
-  const key = appendHashSuffix(normalizeKey(relKey));
+  const key = appendHashSuffix(normalizeStorageKey(relKey));
 
   // 1. Get presigned PUT URL from Forge
   const presignUrl = new URL("v1/storage/presign/put", forgeUrl + "/");
@@ -72,13 +148,13 @@ export async function storagePut(
 }
 
 export async function storageGet(relKey: string): Promise<{ key: string; url: string }> {
-  const key = normalizeKey(relKey);
+  const key = normalizeStorageKey(relKey);
   return { key, url: `/manus-storage/${key}` };
 }
 
 export async function storageGetSignedUrl(relKey: string): Promise<string> {
   const { forgeUrl, forgeKey } = getForgeConfig();
-  const key = normalizeKey(relKey);
+  const key = normalizeStorageKey(relKey);
 
   const getUrl = new URL("v1/storage/presign/get", forgeUrl + "/");
   getUrl.searchParams.set("path", key);
@@ -94,4 +170,23 @@ export async function storageGetSignedUrl(relKey: string): Promise<string> {
 
   const { url } = (await resp.json()) as { url: string };
   return url;
+}
+
+export async function storageReadBuffer(relKey: string): Promise<{ key: string; buffer: Buffer; contentType: string }> {
+  const key = normalizeStorageKey(relKey);
+
+  if (!hasForgeConfig()) {
+    const fullPath = getLocalStoragePath(key);
+    const buffer = await fs.readFile(fullPath);
+    return { key, buffer, contentType: getContentTypeFromKey(key) };
+  }
+
+  const signedUrl = await storageGetSignedUrl(key);
+  const upstream = await fetch(signedUrl);
+  if (!upstream.ok) {
+    throw new Error(`Storage download failed (${upstream.status})`);
+  }
+
+  const contentType = upstream.headers.get("content-type") || getContentTypeFromKey(key);
+  return { key, buffer: Buffer.from(await upstream.arrayBuffer()), contentType };
 }
