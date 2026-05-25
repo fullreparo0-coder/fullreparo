@@ -508,7 +508,6 @@ export function PrintSheetThermal({ os, tenant, budgets, warranty, checklist, mo
 // ─── Argox 80x40 Label Layout ────────────────────────────────────────────────
 
 export function PrintSheetArgox({ os, tenant }: Omit<PrintSheetProps, "mode">) {
-  const trackingUrl = `${window.location.origin}/rastrear/${os.publicToken}`;
   const primary = tenant.primaryColor ?? "#1e3a5f";
   const deviceLabel = [os.deviceBrand, os.deviceModel].filter(Boolean).join(" ") || "Aparelho não informado";
   const statusLabel = STATUS_LABELS[os.status as keyof typeof STATUS_LABELS] ?? os.status;
@@ -525,22 +524,22 @@ export function PrintSheetArgox({ os, tenant }: Omit<PrintSheetProps, "mode">) {
           <div className="print-argox-main-grid">
             <div className="print-argox-row">
               <span>Cliente</span>
-              <strong>{truncateText(os.customer?.name, 34)}</strong>
+              <strong>{truncateText(os.customer?.name, 42)}</strong>
             </div>
             <div className="print-argox-row print-argox-phone">
               <span>Telefone</span>
-              <strong>{truncateText(os.customer?.phone, 18)}</strong>
+              <strong>{truncateText(os.customer?.phone, 22)}</strong>
             </div>
           </div>
 
           <div className="print-argox-row">
             <span>Aparelho</span>
-            <strong>{truncateText(deviceLabel, 38)}</strong>
+            <strong>{truncateText(deviceLabel, 58)}</strong>
           </div>
 
           <div className="print-argox-row print-argox-defect">
             <span>Defeito relatado</span>
-            <strong>{truncateText(os.reportedDefect, 72)}</strong>
+            <strong>{truncateText(os.reportedDefect, 96)}</strong>
           </div>
 
           <div className="print-argox-meta">
@@ -549,10 +548,6 @@ export function PrintSheetArgox({ os, tenant }: Omit<PrintSheetProps, "mode">) {
           </div>
         </div>
 
-        <div className="print-argox-qr-block">
-          <QRCodeSVG value={trackingUrl} size={68} level="M" marginSize={0} />
-          <div>Rastrear OS</div>
-        </div>
       </div>
     </div>
   );

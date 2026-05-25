@@ -552,17 +552,15 @@
 }
 
 .print-argox-body {
-  display: grid;
-  grid-template-columns: 1fr 18.5mm;
-  gap: 1.5mm;
-  align-items: start;
+  display: block;
+  width: 100%;
 }
 
 .print-argox-info {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.75mm;
+  gap: 1mm;
 }
 
 .print-argox-row {
@@ -571,8 +569,8 @@
 
 .print-argox-main-grid {
   display: grid;
-  grid-template-columns: 1fr 23mm;
-  gap: 1.4mm;
+  grid-template-columns: 1fr 25mm;
+  gap: 2mm;
   align-items: start;
 }
 
@@ -587,7 +585,7 @@
 
 .print-argox-row strong {
   display: block;
-  font-size: 7.8pt;
+  font-size: 8.4pt;
   font-weight: 900;
   white-space: nowrap;
   overflow: hidden;
@@ -596,7 +594,7 @@
 }
 
 .print-argox-defect strong {
-  font-size: 6.8pt;
+  font-size: 7.4pt;
   line-height: 1.12;
   white-space: normal;
   display: -webkit-box;
@@ -609,8 +607,8 @@
   align-items: center;
   justify-content: space-between;
   gap: 1mm;
-  margin-top: 0.1mm;
-  font-size: 6.4pt;
+  margin-top: 0.2mm;
+  font-size: 7pt;
   font-weight: 800;
 }
 
