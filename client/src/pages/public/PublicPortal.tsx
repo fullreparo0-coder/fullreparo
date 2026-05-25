@@ -511,32 +511,6 @@ export default function PublicPortal() {
                 </span>
               </div>
 
-              {/* Logo + Nome — step 2 */}
-              <div className="flex items-center gap-3" style={heroItemStyle(2)}>
-                <div
-                  className="h-14 w-14 rounded-2xl overflow-hidden shrink-0 flex items-center justify-center shadow-lg"
-                  style={{ backgroundColor: "rgba(255,255,255,0.2)", backdropFilter: "blur(8px)" }}
-                >
-                  {tenant.logoUrl ? (
-                    <img src={tenant.logoUrl} alt={tenant.name} className="h-full w-full object-contain" />
-                  ) : (
-                    <span className="text-xl font-bold" style={{ color: contrastColor }}>
-                      {initials}
-                    </span>
-                  )}
-                </div>
-                <div>
-                  <h1 className="font-display text-2xl font-bold leading-tight" style={{ color: contrastColor }}>
-                    {tenant.name}
-                  </h1>
-                  {(tenant.city || tenant.state) && (
-                    <p className="text-xs flex items-center gap-1 mt-0.5" style={{ color: contrastColor, opacity: 0.75 }}>
-                      <MapPin className="h-3 w-3 shrink-0" />
-                      {[tenant.city, tenant.state].filter(Boolean).join(", ")}
-                    </p>
-                  )}
-                </div>
-              </div>
 
               {/* Texto de boas-vindas — step 3 */}
               <p className="text-sm leading-relaxed" style={{ ...heroItemStyle(3), color: contrastColor, opacity: heroStep >= 3 ? 0.88 : 0 }}>
