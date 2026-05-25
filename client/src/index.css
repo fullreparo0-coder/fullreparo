@@ -703,6 +703,49 @@
 .print-thermal80 .print-thermal-lg { font-size: 15.4pt; }
 .print-thermal80 .print-thermal-mono { font-size: 8.8pt; overflow-wrap: anywhere; word-break: normal; }
 
+.print-thermal-order-number {
+  font-size: 15px;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  margin: 2px 0;
+}
+
+.print-thermal80 .print-thermal-order-number {
+  font-size: 24px;
+  letter-spacing: 0.06em;
+  margin: 2px 0;
+}
+
+.print-thermal-compact-block {
+  font-size: 70%;
+  line-height: 1.18;
+}
+
+.print-thermal80 .print-thermal-compact-block {
+  font-size: 70%;
+  line-height: 1.18;
+}
+
+.print-thermal80 .print-thermal-compact-block .print-thermal-row {
+  font-size: 8.6pt;
+  line-height: 1.2;
+  gap: 4px;
+}
+
+.print-thermal80 .print-thermal-compact-block .print-thermal-sm {
+  font-size: 7.3pt;
+  line-height: 1.15;
+}
+
+.print-thermal80 .print-thermal-compact-block .print-thermal-wrap {
+  font-size: 8.4pt;
+  line-height: 1.22;
+}
+
+.print-thermal80 .print-thermal-compact-block .print-thermal-row span:first-child {
+  min-width: 9mm;
+}
+
 .print-thermal-sep {
   font-size: 8pt;
   color: #333;

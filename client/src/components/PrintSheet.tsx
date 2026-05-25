@@ -365,58 +365,47 @@ export function PrintSheetThermal({ os, tenant, budgets, warranty, checklist, mo
       <div className="print-thermal-sep">{sep}</div>
 
       {/* Número da OS */}
-      <div className="print-thermal-center print-thermal-bold" style={{ letterSpacing: "0.05em" }}>ORDEM DE SERVICO</div>
-      <div className="print-thermal-center" style={{ fontSize: mode === "thermal58" ? "22px" : "34px", fontWeight: 900, letterSpacing: mode === "thermal58" ? "0.1em" : "0.06em", margin: "4px 0" }}>
-        #{os.osNumber}
-      </div>
-      <div className="print-thermal-center print-thermal-sm">
-        Abertura: {fmt(os.createdAt)}
-      </div>
-      <div className="print-thermal-center print-thermal-sm print-thermal-bold">
-        Status: {STATUS_LABELS[os.status as keyof typeof STATUS_LABELS] ?? os.status}
+      <div className="print-thermal-compact-block print-thermal-order-block">
+        <div className="print-thermal-center print-thermal-bold" style={{ letterSpacing: "0.05em" }}>ORDEM DE SERVICO</div>
+        <div className="print-thermal-center print-thermal-order-number">
+          #{os.osNumber}
+        </div>
+        <div className="print-thermal-center print-thermal-sm">
+          Abertura: {fmt(os.createdAt)}
+        </div>
+        <div className="print-thermal-center print-thermal-sm print-thermal-bold">
+          Status: {STATUS_LABELS[os.status as keyof typeof STATUS_LABELS] ?? os.status}
+        </div>
       </div>
 
       <div className="print-thermal-sep">{sep}</div>
 
       {/* Cliente */}
-      <div className="print-thermal-bold">CLIENTE</div>
-      <div className="print-thermal-row"><span>Nome:</span><span>{os.customer?.name ?? "—"}</span></div>
-      <div className="print-thermal-row"><span>Tel:</span><span>{os.customer?.phone ?? "—"}</span></div>
-      {(os.customer?.city || os.customer?.address) && (
-        <div className="print-thermal-row"><span>End:</span><span>{[os.customer.address, os.customer.addressNumber ? `nº ${os.customer.addressNumber}` : null, os.customer.city].filter(Boolean).join(", ")}</span></div>
-      )}
+      <div className="print-thermal-compact-block print-thermal-client-block">
+        <div className="print-thermal-bold">CLIENTE</div>
+        <div className="print-thermal-row"><span>Nome:</span><span>{os.customer?.name ?? "—"}</span></div>
+        <div className="print-thermal-row"><span>Tel:</span><span>{os.customer?.phone ?? "—"}</span></div>
+        {(os.customer?.city || os.customer?.address) && (
+          <div className="print-thermal-row"><span>End:</span><span>{[os.customer.address, os.customer.addressNumber ? `nº ${os.customer.addressNumber}` : null, os.customer.city].filter(Boolean).join(", ")}</span></div>
+        )}
+      </div>
 
       <div className="print-thermal-sep">{sep}</div>
 
       {/* Aparelho */}
       <div className="print-thermal-bold">APARELHO</div>
-      {(os.deviceBrand || os.deviceModel) && (
-        <div className="print-thermal-row"><span>Modelo:</span><span>{[os.deviceBrand, os.deviceModel].filter(Boolean).join(" ")}</span></div>
-      )}
-      {os.physicalCondition && <div className="print-thermal-row"><span>Estado:</span><span>{os.physicalCondition}</span></div>}
-      {os.accessories && <div className="print-thermal-row"><span>Acess.:</span><span>{os.accessories}</span></div>}
+      {os.deviceBrand && <div className="print-thermal-row"><span>Marca:</span><span>{os.deviceBrand}</span></div>}
+      {os.deviceModel && <div className="print-thermal-row"><span>Modelo:</span><span>{os.deviceModel}</span></div>}
       {os.devicePassword && <div className="print-thermal-row"><span>Senha:</span><span>{os.devicePassword}</span></div>}
 
       <div className="print-thermal-sep">{sep}</div>
 
       {/* Defeito */}
-      <div className="print-thermal-bold">DEFEITO RELATADO</div>
-      <div className="print-thermal-wrap">{os.reportedDefect}</div>
+      <div className="print-thermal-compact-block print-thermal-defect-block">
+        <div className="print-thermal-bold">DEFEITO RELATADO</div>
+        <div className="print-thermal-wrap">{os.reportedDefect}</div>
+      </div>
 
-      {/* Checklist — apenas itens presentes */}
-      {checklist && checklist.filter((c) => c.checked).length > 0 && (
-        <>
-          <div className="print-thermal-sep">{sep}</div>
-          <div className="print-thermal-bold">ACESSORIOS RECEBIDOS</div>
-          {checklist
-            .filter((c) => c.checked)
-            .map((item, i) => (
-              <div key={i} className="print-thermal-checklist-item">
-                [X] {item.item}
-              </div>
-            ))}
-        </>
-      )}
 
       {/* Orçamento */}
       {(allBudgetItems.length > 0 || totalLabor > 0) && (
