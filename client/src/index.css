@@ -209,19 +209,37 @@
 
   body.print-mode-argox8040 {
     width: 80mm !important;
-    height: 40mm !important;
+    min-width: 80mm !important;
     max-width: 80mm !important;
+    height: 40mm !important;
+    min-height: 0 !important;
     max-height: 40mm !important;
+    margin: 0 !important;
+    padding: 0 !important;
     overflow: hidden !important;
   }
 
   body.print-mode-argox8040 > #print-root {
+    display: block !important;
+    position: fixed !important;
+    left: 3.2mm !important;
+    top: 0 !important;
     width: 76.8mm !important;
-    height: 40mm !important;
+    height: 39.2mm !important;
     max-width: 76.8mm !important;
-    max-height: 40mm !important;
-    margin-left: 3.2mm !important;
+    max-height: 39.2mm !important;
+    margin: 0 !important;
+    padding: 0 !important;
     overflow: hidden !important;
+    box-sizing: border-box !important;
+    contain: size layout paint !important;
+  }
+
+  body.print-mode-argox8040 .print-argox8040 {
+    height: 39.2mm !important;
+    max-height: 39.2mm !important;
+    break-after: auto !important;
+    page-break-after: auto !important;
   }
 
   body.print-mode-thermal58 > #print-root { width: 54mm !important; max-width: 54mm !important; }
