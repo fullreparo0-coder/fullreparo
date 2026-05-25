@@ -1308,6 +1308,8 @@ export default function ServiceOrderDetail() {
             publicToken: os.publicToken ?? "",
             deviceBrand: (os as any).deviceBrand ?? null,
             deviceModel: (os as any).deviceModel ?? null,
+            deviceImei: (os as any).deviceImei ?? null,
+            deviceSerialNumber: (os as any).deviceSerialNumber ?? null,
             customer: {
               name: (os as any).customerName ?? null,
               phone: (os as any).customerPhone ?? null,

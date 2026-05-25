@@ -31,6 +31,8 @@ interface OsData {
   technician?: { name?: string | null } | null;
   deviceBrand?: string | null;
   deviceModel?: string | null;
+  deviceImei?: string | null;
+  deviceSerialNumber?: string | null;
 }
 
 interface BudgetItem {
@@ -114,6 +116,12 @@ function calcBudgetTotal(budgets: Budget[] | null | undefined): number {
 function truncateText(value: string | null | undefined, maxLength: number): string {
   const normalized = (value ?? "—").trim() || "—";
   return normalized.length > maxLength ? `${normalized.slice(0, Math.max(0, maxLength - 1))}…` : normalized;
+}
+
+function receiptLine(label: string, value: string | number | null | undefined): string {
+  const cleanLabel = label.replace(/:/g, "").trim().toUpperCase();
+  const cleanValue = String(value ?? "—").trim() || "—";
+  return `${cleanLabel.padEnd(12, ".")}: ${cleanValue}`;
 }
 
 // ─── A4 Layout ───────────────────────────────────────────────────────────────
@@ -344,164 +352,130 @@ export function PrintSheetThermal({ os, tenant, budgets, warranty, checklist, mo
   const allBudgetItems = budgets?.flatMap((b) => b.items ?? []) ?? [];
   const totalLabor = budgets?.reduce((s, b) => s + Number(b.laborCost ?? 0), 0) ?? 0;
   const width = mode === "thermal58" ? "print-thermal58" : "print-thermal80";
-  const sep = mode === "thermal58"
-    ? "--------------------------------"
-    : "--------------------------------------------------------";
+  const sep = mode === "thermal58" ? "--------------------------------" : "------------------------------------------------";
+  const qrSize = mode === "thermal58" ? 76 : 120;
+  const statusLabel = STATUS_LABELS[os.status as keyof typeof STATUS_LABELS] ?? os.status;
+  const checkedAccessories = checklist?.filter((c) => c.checked).map((c) => c.item).join(", ");
 
   return (
     <div className={`print-thermal-sheet ${width}`}>
-      {/* Cabeçalho */}
-      <div className="print-thermal-center print-thermal-bold print-thermal-lg">
+      <div className="print-thermal-center print-thermal-bold print-thermal-title">
         {tenant.name.toUpperCase()}
       </div>
-      {tenant.address && <div className="print-thermal-center print-thermal-sm">{tenant.address}</div>}
+      {tenant.cnpj && <div className="print-thermal-center">CNPJ: {tenant.cnpj}</div>}
+      {tenant.address && <div className="print-thermal-center print-thermal-wrap">{tenant.address}</div>}
       {(tenant.phone || tenant.whatsappNumber) && (
-        <div className="print-thermal-center print-thermal-sm">
+        <div className="print-thermal-center">
           {[tenant.phone, tenant.whatsappNumber].filter(Boolean).join(" / ")}
         </div>
       )}
-      {tenant.cnpj && <div className="print-thermal-center print-thermal-sm">CNPJ: {tenant.cnpj}</div>}
 
       <div className="print-thermal-sep">{sep}</div>
-
-      {/* Número da OS */}
-      <div className="print-thermal-compact-block print-thermal-order-block">
-        <div className="print-thermal-center print-thermal-bold" style={{ letterSpacing: "0.05em" }}>ORDEM DE SERVICO</div>
-        <div className="print-thermal-center print-thermal-order-number">
-          #{os.osNumber}
-        </div>
-        <div className="print-thermal-center print-thermal-sm">
-          Abertura: {fmt(os.createdAt)}
-        </div>
-        <div className="print-thermal-center print-thermal-sm print-thermal-bold">
-          Status: {STATUS_LABELS[os.status as keyof typeof STATUS_LABELS] ?? os.status}
-        </div>
-      </div>
+      <div className="print-thermal-center print-thermal-bold">ORDEM DE SERVICO</div>
+      <div className="print-thermal-center print-thermal-order-number">OS {os.osNumber}</div>
+      <pre className="print-thermal-lines">
+        {[receiptLine("Data", fmtDateTime(os.createdAt)), receiptLine("Status", statusLabel), receiptLine("Origem", os.origin)].join("\n")}
+      </pre>
 
       <div className="print-thermal-sep">{sep}</div>
-
-      {/* Cliente */}
-      <div className="print-thermal-compact-block print-thermal-client-block">
-        <div className="print-thermal-bold">CLIENTE</div>
-        <div className="print-thermal-row"><span>Nome:</span><span>{os.customer?.name ?? "—"}</span></div>
-        <div className="print-thermal-row"><span>Tel:</span><span>{os.customer?.phone ?? "—"}</span></div>
-        {(os.customer?.city || os.customer?.address) && (
-          <div className="print-thermal-row"><span>End:</span><span>{[os.customer.address, os.customer.addressNumber ? `nº ${os.customer.addressNumber}` : null, os.customer.city].filter(Boolean).join(", ")}</span></div>
-        )}
-      </div>
+      <div className="print-thermal-bold">CLIENTE</div>
+      <pre className="print-thermal-lines">
+        {[
+          receiptLine("Nome", os.customer?.name),
+          receiptLine("Telefone", os.customer?.phone),
+          (os.customer?.address || os.customer?.city) ? receiptLine("Endereco", [os.customer?.address, os.customer?.addressNumber ? `n ${os.customer.addressNumber}` : null, os.customer?.neighborhood, os.customer?.city].filter(Boolean).join(", ")) : null,
+        ].filter(Boolean).join("\n")}
+      </pre>
 
       <div className="print-thermal-sep">{sep}</div>
-
-      {/* Aparelho */}
       <div className="print-thermal-bold">APARELHO</div>
-      {os.deviceBrand && <div className="print-thermal-row"><span>Marca:</span><span>{os.deviceBrand}</span></div>}
-      {os.deviceModel && <div className="print-thermal-row"><span>Modelo:</span><span>{os.deviceModel}</span></div>}
-      {os.devicePassword && <div className="print-thermal-row"><span>Senha:</span><span>{os.devicePassword}</span></div>}
+      <pre className="print-thermal-lines">
+        {[
+          receiptLine("Marca", os.deviceBrand),
+          receiptLine("Modelo", os.deviceModel),
+          os.deviceImei ? receiptLine("IMEI", os.deviceImei) : null,
+          os.deviceSerialNumber ? receiptLine("Serial", os.deviceSerialNumber) : null,
+          os.devicePassword ? receiptLine("Senha", os.devicePassword) : null,
+          checkedAccessories ? receiptLine("Acessorios", checkedAccessories) : null,
+        ].filter(Boolean).join("\n")}
+      </pre>
 
       <div className="print-thermal-sep">{sep}</div>
+      <div className="print-thermal-bold">DEFEITO</div>
+      <div className="print-thermal-wrap">{os.reportedDefect || "—"}</div>
 
-      {/* Defeito */}
-      <div className="print-thermal-compact-block print-thermal-defect-block">
-        <div className="print-thermal-bold">DEFEITO RELATADO</div>
-        <div className="print-thermal-wrap">{os.reportedDefect}</div>
-      </div>
-
-
-      {/* Orçamento */}
-      {(allBudgetItems.length > 0 || totalLabor > 0) && (
+      {os.internalNotes && (
         <>
           <div className="print-thermal-sep">{sep}</div>
-          <div className="print-thermal-bold">ORCAMENTO</div>
-          {allBudgetItems.map((item, i) => (
-            <div key={i} className="print-thermal-budget-item">
-              <div className="print-thermal-wrap">{item.description}</div>
-              <div className="print-thermal-row">
-                <span>{item.quantity}x {fmtMoney(item.unitPrice)}</span>
-                <span>{fmtMoney(Number(item.unitPrice) * Number(item.quantity))}</span>
-              </div>
-            </div>
-          ))}
-          {totalLabor > 0 && (
-            <div className="print-thermal-row">
-              <span>Mao de obra</span>
-              <span>{fmtMoney(totalLabor)}</span>
-            </div>
-          )}
-          <div className="print-thermal-sep">{sep}</div>
-          <div className="print-thermal-row print-thermal-bold">
-            <span>TOTAL</span>
-            <span>{fmtMoney(total)}</span>
-          </div>
+          <div className="print-thermal-bold">OBSERVACOES</div>
+          <div className="print-thermal-wrap">{os.internalNotes}</div>
         </>
       )}
 
-      {/* Garantia */}
+      {(allBudgetItems.length > 0 || totalLabor > 0) && (
+        <>
+          <div className="print-thermal-sep">{sep}</div>
+          <div className="print-thermal-bold">VALORES</div>
+          {allBudgetItems.map((item, i) => (
+            <div key={i} className="print-thermal-budget-item">
+              <div className="print-thermal-wrap">{item.description}</div>
+              <pre className="print-thermal-lines">{receiptLine(`${item.quantity}x`, `${fmtMoney(item.unitPrice)} = ${fmtMoney(Number(item.unitPrice) * Number(item.quantity))}`)}</pre>
+            </div>
+          ))}
+          {totalLabor > 0 && <pre className="print-thermal-lines">{receiptLine("Mao obra", fmtMoney(totalLabor))}</pre>}
+          <div className="print-thermal-sep">{sep}</div>
+          <pre className="print-thermal-lines print-thermal-bold">{receiptLine("TOTAL", fmtMoney(total))}</pre>
+        </>
+      )}
+
+      {os.estimatedDelivery && (
+        <>
+          <div className="print-thermal-sep">{sep}</div>
+          <pre className="print-thermal-lines">{receiptLine("Entrega", fmt(os.estimatedDelivery))}</pre>
+        </>
+      )}
+      {os.technician?.name && <pre className="print-thermal-lines">{receiptLine("Tecnico", os.technician.name)}</pre>}
+
       {warranty?.warrantyCode && (
         <>
           <div className="print-thermal-sep">{sep}</div>
           <div className="print-thermal-bold">GARANTIA DIGITAL</div>
-          {warranty.warrantyDays != null && (
-            <div className="print-thermal-row"><span>Prazo:</span><span>{warranty.warrantyDays} dias</span></div>
-          )}
-          {warranty.expiresAt && (
-            <div className="print-thermal-row"><span>Validade:</span><span>{fmt(warranty.expiresAt)}</span></div>
-          )}
-          <div className="print-thermal-sm print-thermal-mono">{warranty.warrantyCode}</div>
+          <pre className="print-thermal-lines">
+            {[
+              warranty.warrantyDays != null ? receiptLine("Prazo", `${warranty.warrantyDays} dias`) : null,
+              warranty.expiresAt ? receiptLine("Validade", fmt(warranty.expiresAt)) : null,
+              receiptLine("Codigo", warranty.warrantyCode),
+            ].filter(Boolean).join("\n")}
+          </pre>
         </>
-      )}
-
-      {/* Entrega prevista */}
-      {os.estimatedDelivery && (
-        <>
-          <div className="print-thermal-sep">{sep}</div>
-          <div className="print-thermal-row">
-            <span>Entrega prevista:</span>
-            <span>{fmt(os.estimatedDelivery)}</span>
-          </div>
-        </>
-      )}
-
-      {/* Técnico */}
-      {os.technician?.name && (
-        <div className="print-thermal-row">
-          <span>Tecnico:</span>
-          <span>{os.technician.name}</span>
-        </div>
       )}
 
       <div className="print-thermal-sep">{sep}</div>
-
-      {/* QR Code */}
-      <div className="print-thermal-center">
-        <QRCodeSVG value={trackingUrl} size={mode === "thermal58" ? 45 : 69} level="M" />
+      <div className="print-thermal-center print-thermal-qr">
+        <QRCodeSVG value={trackingUrl} size={qrSize} level="M" />
       </div>
-      <div className="print-thermal-center print-thermal-sm">Rastreie sua OS</div>
-      <div className="print-thermal-center print-thermal-sm print-thermal-mono">{trackingUrl}</div>
+      <div className="print-thermal-center">RASTREIE SUA OS</div>
+      <div className="print-thermal-center print-thermal-url">{trackingUrl}</div>
 
-      {/* Assinatura */}
       <div className="print-thermal-sep">{sep}</div>
-      <div className="print-thermal-center print-thermal-sm">Assinatura do Cliente</div>
+      <div>ASSINATURA DO CLIENTE</div>
       <div className="print-thermal-sig-line" />
-      <div className="print-thermal-center print-thermal-sm">Data: ___/___/______</div>
+      <pre className="print-thermal-lines">{receiptLine("Data", "___/___/______")}</pre>
 
-      {/* Termos resumidos — usa warrantyTerms se disponível, senão serviceTerms */}
       {(tenant.warrantyTerms || tenant.serviceTerms) && (
         <>
           <div className="print-thermal-sep">{sep}</div>
-          <div className="print-thermal-bold print-thermal-sm">TERMOS DE SERVICO</div>
+          <div className="print-thermal-bold">TERMOS</div>
           <div className="print-thermal-terms">{tenant.warrantyTerms ?? tenant.serviceTerms}</div>
         </>
       )}
 
       <div className="print-thermal-sep">{sep}</div>
-      <div className="print-thermal-center print-thermal-sm">
-        Emitido em {new Date().toLocaleString("pt-BR")}
-      </div>
+      <div className="print-thermal-center">Emitido em {new Date().toLocaleString("pt-BR")}</div>
       <div className="print-thermal-spacer" />
     </div>
   );
 }
-
 
 // ─── Argox 80x40 Label Layout ────────────────────────────────────────────────
 

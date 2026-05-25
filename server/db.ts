@@ -325,6 +325,8 @@ export async function getServiceOrderById(tenantId: number, id: number) {
     customerZipCode: cust?.zipCode ?? null,
     deviceBrand: dev?.brand ?? null,
     deviceModel: dev?.model ?? null,
+    deviceImei: dev?.imei ?? null,
+    deviceSerialNumber: dev?.serialNumber ?? null,
   };
 }
 
