@@ -221,9 +221,7 @@
 
   body.print-mode-argox8040 > #print-root {
     display: block !important;
-    position: fixed !important;
-    left: 0 !important;
-    top: 0 !important;
+    position: static !important;
     width: 80mm !important;
     height: 40mm !important;
     max-width: 80mm !important;
@@ -236,10 +234,14 @@
   }
 
   body.print-mode-argox8040 .print-argox8040 {
-    height: 40mm !important;
-    max-height: 40mm !important;
-    break-after: auto !important;
-    page-break-after: auto !important;
+    height: 39.6mm !important;
+    max-height: 39.6mm !important;
+    break-before: avoid !important;
+    break-after: avoid !important;
+    break-inside: avoid !important;
+    page-break-before: avoid !important;
+    page-break-after: avoid !important;
+    page-break-inside: avoid !important;
   }
 
   body.print-mode-thermal58 > #print-root { width: 54mm !important; max-width: 54mm !important; }
