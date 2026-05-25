@@ -86,6 +86,17 @@ function fmt(d: Date | string | null | undefined): string {
   return new Date(d).toLocaleDateString("pt-BR");
 }
 
+function fmtDateTime(d: Date | string | null | undefined): string {
+  if (!d) return "—";
+  return new Date(d).toLocaleString("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 function fmtMoney(v: number | string | null | undefined): string {
   if (v == null) return "R$ 0,00";
   return Number(v).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -543,7 +554,7 @@ export function PrintSheetArgox({ os, tenant }: Omit<PrintSheetProps, "mode">) {
           </div>
 
           <div className="print-argox-meta">
-            <span>Entrada: {fmt(os.createdAt)}</span>
+            <span>Entrada: {fmtDateTime(os.createdAt)}</span>
             <span className="print-argox-status" style={{ borderColor: primary }}>{truncateText(statusLabel, 20)}</span>
           </div>
         </div>
