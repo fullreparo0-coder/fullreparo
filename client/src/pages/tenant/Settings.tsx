@@ -56,6 +56,65 @@ function isValidDomain(d: string): boolean {
   return /^(?!-)[a-z0-9-]{1,63}(?<!-)(?:\.(?!-)[a-z0-9-]{1,63}(?<!-))+$/i.test(d.trim());
 }
 
+const LOGO_MAX_DIMENSION = 512;
+const LOGO_MAX_DATA_URL_LENGTH = 2_800_000;
+
+type SupportedLogoMimeType = "image/png" | "image/jpeg" | "image/webp";
+
+function loadImageFromDataUrl(dataUrl: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error("Não foi possível ler a imagem selecionada."));
+    image.src = dataUrl;
+  });
+}
+
+function readFileAsDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result ?? ""));
+    reader.onerror = () => reject(new Error("Não foi possível carregar o arquivo selecionado."));
+    reader.readAsDataURL(file);
+  });
+}
+
+async function normalizeLogoForUpload(file: File): Promise<string> {
+  const originalDataUrl = await readFileAsDataUrl(file);
+  const image = await loadImageFromDataUrl(originalDataUrl);
+  const ratio = Math.min(1, LOGO_MAX_DIMENSION / Math.max(image.naturalWidth, image.naturalHeight));
+  const width = Math.max(1, Math.round(image.naturalWidth * ratio));
+  const height = Math.max(1, Math.round(image.naturalHeight * ratio));
+
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+
+  const ctx = canvas.getContext("2d");
+  if (!ctx) {
+    throw new Error("Não foi possível preparar o logo no navegador.");
+  }
+
+  ctx.clearRect(0, 0, width, height);
+  ctx.drawImage(image, 0, 0, width, height);
+
+  const preferredMimeType: SupportedLogoMimeType = file.type === "image/jpeg" ? "image/jpeg" : "image/webp";
+  let dataUrl = canvas.toDataURL(preferredMimeType, 0.9);
+  if (!dataUrl.startsWith(`data:${preferredMimeType};`)) {
+    dataUrl = canvas.toDataURL("image/png");
+  }
+
+  if (dataUrl.length > LOGO_MAX_DATA_URL_LENGTH) {
+    dataUrl = canvas.toDataURL("image/jpeg", 0.82);
+  }
+
+  if (dataUrl.length > LOGO_MAX_DATA_URL_LENGTH) {
+    throw new Error("O logo continua muito grande. Tente uma imagem menor ou com menos detalhes.");
+  }
+
+  return dataUrl;
+}
+
 export default function TenantSettings() {
   const utils = trpc.useUtils();
   const { data: tenant, isLoading } = trpc.tenants.getMine.useQuery();
@@ -266,6 +325,7 @@ export default function TenantSettings() {
   // Logo upload state
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [isLogoProcessing, setIsLogoProcessing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const uploadLogo = trpc.tenants.uploadLogo.useMutation({
@@ -290,29 +350,35 @@ export default function TenantSettings() {
     onError: () => toast.error("Erro ao remover logo"),
   });
 
-  const processLogoFile = useCallback((file: File) => {
-    const allowed = ["image/png", "image/jpeg", "image/webp", "image/gif"];
+  const processLogoFile = useCallback(async (file: File) => {
+    const allowed = ["image/png", "image/jpeg", "image/webp"];
     if (!allowed.includes(file.type)) {
       toast.error("Formato inválido. Use PNG, JPG ou WebP.");
       return;
     }
-    if (file.size > 2 * 1024 * 1024) {
-      toast.error("Imagem muito grande. Máximo 2 MB.");
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const dataUrl = e.target?.result as string;
+
+    setIsLogoProcessing(true);
+    try {
+      const dataUrl = await normalizeLogoForUpload(file);
       setLogoPreview(dataUrl);
-    };
-    reader.readAsDataURL(file);
+      toast.success("Logo preparado para envio");
+    } catch (error) {
+      console.error("[TenantSettings] Falha ao processar logo:", error);
+      toast.error(error instanceof Error ? error.message : "Erro ao preparar o logo");
+    } finally {
+      setIsLogoProcessing(false);
+    }
   }, []);
 
   const handleLogoUpload = () => {
     if (!logoPreview) return;
     const mimeMatch = logoPreview.match(/^data:([^;]+);/);
-    const mimeType = mimeMatch?.[1] as any;
-    uploadLogo.mutate({ dataUrl: logoPreview, mimeType });
+    const mimeType = mimeMatch?.[1];
+    if (!mimeType || !["image/png", "image/jpeg", "image/webp"].includes(mimeType)) {
+      toast.error("Formato inválido. Selecione novamente o logo em PNG, JPG ou WebP.");
+      return;
+    }
+    uploadLogo.mutate({ dataUrl: logoPreview, mimeType: mimeType as "image/png" | "image/jpeg" | "image/webp" });
   };
 
   const handleDrop = useCallback((e: React.DragEvent) => {
@@ -513,8 +579,8 @@ export default function TenantSettings() {
                 <div className="flex gap-2 mt-2">
                   {logoPreview ? (
                     <>
-                      <Button size="sm" onClick={handleLogoUpload} disabled={uploadLogo.isPending}>
-                        {uploadLogo.isPending ? "Enviando..." : "Enviar logo"}
+                      <Button size="sm" onClick={handleLogoUpload} disabled={uploadLogo.isPending || isLogoProcessing}>
+                        {uploadLogo.isPending ? "Enviando..." : isLogoProcessing ? "Preparando..." : "Enviar logo"}
                       </Button>
                       <Button size="sm" variant="outline" onClick={() => setLogoPreview(null)}>
                         Cancelar
@@ -522,8 +588,8 @@ export default function TenantSettings() {
                     </>
                   ) : (
                     <>
-                      <Button size="sm" variant="outline" onClick={() => fileInputRef.current?.click()}>
-                        <UploadCloud className="h-3.5 w-3.5 mr-1.5" /> Selecionar arquivo
+                      <Button size="sm" variant="outline" onClick={() => fileInputRef.current?.click()} disabled={isLogoProcessing}>
+                        <UploadCloud className="h-3.5 w-3.5 mr-1.5" /> {isLogoProcessing ? "Preparando..." : "Selecionar arquivo"}
                       </Button>
                       {tenant?.logoUrl && (
                         <AlertDialog>
@@ -574,13 +640,13 @@ export default function TenantSettings() {
               <p className="text-sm text-muted-foreground text-center">
                 <span className="font-medium text-foreground">Clique ou arraste</span> uma imagem aqui
               </p>
-              <p className="text-xs text-muted-foreground">PNG, JPG, WebP • Máx. 2 MB</p>
+              <p className="text-xs text-muted-foreground">PNG, JPG, WebP • compressão automática para upload</p>
             </div>
 
             <input
               ref={fileInputRef}
               type="file"
-              accept="image/png,image/jpeg,image/webp,image/gif"
+              accept="image/png,image/jpeg,image/webp"
               className="hidden"
               onChange={(e) => {
                 const file = e.target.files?.[0];
