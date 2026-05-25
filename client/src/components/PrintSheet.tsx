@@ -382,8 +382,6 @@ export function PrintSheetThermal({ os, tenant, budgets, warranty, checklist, mo
       <div className="print-thermal-bold">CLIENTE</div>
       <div className="print-thermal-row"><span>Nome:</span><span>{os.customer?.name ?? "—"}</span></div>
       <div className="print-thermal-row"><span>Tel:</span><span>{os.customer?.phone ?? "—"}</span></div>
-      {os.customer?.email && <div className="print-thermal-row"><span>Email:</span><span>{os.customer.email}</span></div>}
-      {os.customer?.document && <div className="print-thermal-row"><span>CPF/CNPJ:</span><span>{os.customer.document}</span></div>}
       {(os.customer?.city || os.customer?.address) && (
         <div className="print-thermal-row"><span>End:</span><span>{[os.customer.address, os.customer.addressNumber ? `nº ${os.customer.addressNumber}` : null, os.customer.city].filter(Boolean).join(", ")}</span></div>
       )}
