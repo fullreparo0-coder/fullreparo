@@ -11,6 +11,7 @@ import { serveStatic, setupVite } from "./vite";
 import { tenantResolverMiddleware } from "./tenantResolver";
 import { registerExportRoutes } from "../export";
 import { registerPagarmeWebhook } from "../pagarmeWebhook";
+import { registerPwaRoutes } from "../pwa";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -41,6 +42,7 @@ async function startServer() {
   // Resolve o tenant pelo hostname antes de qualquer rota autenticada
   app.use(tenantResolverMiddleware);
   registerStorageProxy(app);
+  registerPwaRoutes(app);
   registerOAuthRoutes(app);
   registerExportRoutes(app);
   // tRPC API

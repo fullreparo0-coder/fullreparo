@@ -114,36 +114,12 @@ function upsertLink(id: string, rel: string, href: string, type?: string) {
   }
 }
 
-function buildManifest(
-  tenant: TenantHostInfo | null,
-  isTestMode: boolean,
-  iconHref: string,
-  themeColor: string,
-) {
-  const name = tenant?.name?.trim() || DEFAULT_APP_NAME;
-  const shortName = name.length > 24 ? name.slice(0, 21).trimEnd() + "..." : name;
-  const startUrl = tenant && isTestMode ? `/?tenant=${encodeURIComponent(tenant.slug)}` : "/";
-
-  return {
-    name,
-    short_name: shortName,
-    description: tenant
-      ? `Portal de atendimento da ${name} no FullReparo.`
-      : "Plataforma FullReparo para assistências técnicas.",
-    start_url: startUrl,
-    scope: "/",
-    display: "standalone",
-    background_color: "#ffffff",
-    theme_color: themeColor,
-    icons: [
-      {
-        src: iconHref,
-        sizes: "512x512",
-        type: iconHref.startsWith("data:image/svg+xml") ? "image/svg+xml" : undefined,
-        purpose: "any maskable",
-      },
-    ].map((icon) => Object.fromEntries(Object.entries(icon).filter(([, value]) => value !== undefined))),
-  };
+function buildPwaAssetHref(path: string, tenant: TenantHostInfo | null, isTestMode: boolean, logoUrl?: string | null): string {
+  const params = new URLSearchParams();
+  if (tenant && isTestMode) params.set("tenant", tenant.slug);
+  if (logoUrl) params.set("v", logoUrl);
+  const query = params.toString();
+  return query ? `${path}?${query}` : path;
 }
 
 function useTenantBranding(value: TenantHostContextValue) {
@@ -151,33 +127,33 @@ function useTenantBranding(value: TenantHostContextValue) {
   const tenantName = tenant?.name?.trim() || DEFAULT_APP_NAME;
   const themeColor = normalizeHexColor(tenant?.primaryColor);
   const logoUrl = tenant?.logoUrl?.trim();
-  const iconHref = logoUrl || createInitialsIconDataUrl(tenantName, themeColor);
+  const fallbackIconHref = createInitialsIconDataUrl(tenantName, themeColor);
+  const iconHref = tenant
+    ? buildPwaAssetHref("/pwa-icon.png", tenant, value.isTestMode, logoUrl)
+    : fallbackIconHref;
+  const appleIconHref = tenant
+    ? buildPwaAssetHref("/apple-touch-icon.png", tenant, value.isTestMode, logoUrl)
+    : fallbackIconHref;
+  const manifestHref = buildPwaAssetHref("/manifest.webmanifest", tenant, value.isTestMode, logoUrl);
 
   useEffect(() => {
     document.title = tenant ? `${tenantName} | ${DEFAULT_APP_NAME}` : DEFAULT_APP_NAME;
     upsertMeta("application-name", tenantName);
     upsertMeta("apple-mobile-web-app-title", tenantName);
+    upsertMeta("apple-mobile-web-app-capable", "yes");
+    upsertMeta("mobile-web-app-capable", "yes");
+    upsertMeta("apple-mobile-web-app-status-bar-style", "default");
     upsertMeta("theme-color", themeColor);
 
     upsertLink(
       "fullreparo-dynamic-favicon",
       "icon",
       iconHref,
-      logoUrl ? undefined : "image/svg+xml",
+      tenant ? "image/png" : "image/svg+xml",
     );
-    upsertLink("fullreparo-dynamic-apple-touch-icon", "apple-touch-icon", iconHref);
-
-    const manifestBlob = new Blob(
-      [JSON.stringify(buildManifest(tenant, value.isTestMode, iconHref, themeColor))],
-      { type: "application/manifest+json" },
-    );
-    const manifestUrl = URL.createObjectURL(manifestBlob);
-    upsertLink("fullreparo-dynamic-manifest", "manifest", manifestUrl, "application/manifest+json");
-
-    return () => {
-      URL.revokeObjectURL(manifestUrl);
-    };
-  }, [iconHref, logoUrl, tenant, tenantName, themeColor, value.isTestMode]);
+    upsertLink("fullreparo-dynamic-apple-touch-icon", "apple-touch-icon", appleIconHref, tenant ? "image/png" : "image/svg+xml");
+    upsertLink("fullreparo-dynamic-manifest", "manifest", manifestHref, "application/manifest+json");
+  }, [appleIconHref, iconHref, manifestHref, tenant, tenantName, themeColor]);
 }
 
 export function TenantHostProvider({ children }: { children: React.ReactNode }) {

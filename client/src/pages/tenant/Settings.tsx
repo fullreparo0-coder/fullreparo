@@ -82,30 +82,30 @@ function readFileAsDataUrl(file: File): Promise<string> {
 async function normalizeLogoForUpload(file: File): Promise<string> {
   const originalDataUrl = await readFileAsDataUrl(file);
   const image = await loadImageFromDataUrl(originalDataUrl);
-  const ratio = Math.min(1, LOGO_MAX_DIMENSION / Math.max(image.naturalWidth, image.naturalHeight));
+  const ratio = Math.min(LOGO_MAX_DIMENSION / image.naturalWidth, LOGO_MAX_DIMENSION / image.naturalHeight);
   const width = Math.max(1, Math.round(image.naturalWidth * ratio));
   const height = Math.max(1, Math.round(image.naturalHeight * ratio));
+  const x = Math.round((LOGO_MAX_DIMENSION - width) / 2);
+  const y = Math.round((LOGO_MAX_DIMENSION - height) / 2);
 
   const canvas = document.createElement("canvas");
-  canvas.width = width;
-  canvas.height = height;
+  canvas.width = LOGO_MAX_DIMENSION;
+  canvas.height = LOGO_MAX_DIMENSION;
 
   const ctx = canvas.getContext("2d");
   if (!ctx) {
     throw new Error("Não foi possível preparar o logo no navegador.");
   }
 
-  ctx.clearRect(0, 0, width, height);
-  ctx.drawImage(image, 0, 0, width, height);
+  ctx.clearRect(0, 0, LOGO_MAX_DIMENSION, LOGO_MAX_DIMENSION);
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(image, x, y, width, height);
 
-  const preferredMimeType: SupportedLogoMimeType = file.type === "image/jpeg" ? "image/jpeg" : "image/webp";
-  let dataUrl = canvas.toDataURL(preferredMimeType, 0.9);
-  if (!dataUrl.startsWith(`data:${preferredMimeType};`)) {
-    dataUrl = canvas.toDataURL("image/png");
-  }
+  let dataUrl = canvas.toDataURL("image/png");
 
   if (dataUrl.length > LOGO_MAX_DATA_URL_LENGTH) {
-    dataUrl = canvas.toDataURL("image/jpeg", 0.82);
+    dataUrl = canvas.toDataURL("image/jpeg", 0.9);
   }
 
   if (dataUrl.length > LOGO_MAX_DATA_URL_LENGTH) {
@@ -378,7 +378,7 @@ export default function TenantSettings() {
       toast.error("Formato inválido. Selecione novamente o logo em PNG, JPG ou WebP.");
       return;
     }
-    uploadLogo.mutate({ dataUrl: logoPreview, mimeType: mimeType as "image/png" | "image/jpeg" | "image/webp" });
+    uploadLogo.mutate({ dataUrl: logoPreview, mimeType: mimeType as SupportedLogoMimeType });
   };
 
   const handleDrop = useCallback((e: React.DragEvent) => {
