@@ -346,7 +346,7 @@ export function PrintSheetThermal({ os, tenant, budgets, warranty, checklist, mo
   const width = mode === "thermal58" ? "print-thermal58" : "print-thermal80";
   const sep = mode === "thermal58"
     ? "--------------------------------"
-    : "------------------------------------------------";
+    : "--------------------------------------------------------";
 
   return (
     <div className={`print-thermal-sheet ${width}`}>
@@ -366,7 +366,7 @@ export function PrintSheetThermal({ os, tenant, budgets, warranty, checklist, mo
 
       {/* Número da OS */}
       <div className="print-thermal-center print-thermal-bold" style={{ letterSpacing: "0.05em" }}>ORDEM DE SERVICO</div>
-      <div className="print-thermal-center" style={{ fontSize: mode === "thermal58" ? "22px" : "30px", fontWeight: 900, letterSpacing: mode === "thermal58" ? "0.1em" : "0.08em", margin: "4px 0" }}>
+      <div className="print-thermal-center" style={{ fontSize: mode === "thermal58" ? "22px" : "34px", fontWeight: 900, letterSpacing: mode === "thermal58" ? "0.1em" : "0.06em", margin: "4px 0" }}>
         #{os.osNumber}
       </div>
       <div className="print-thermal-center print-thermal-sm">
@@ -484,7 +484,7 @@ export function PrintSheetThermal({ os, tenant, budgets, warranty, checklist, mo
 
       {/* QR Code */}
       <div className="print-thermal-center">
-        <QRCodeSVG value={trackingUrl} size={mode === "thermal58" ? 90 : 118} level="M" />
+        <QRCodeSVG value={trackingUrl} size={mode === "thermal58" ? 90 : 138} level="M" />
       </div>
       <div className="print-thermal-center print-thermal-sm">Rastreie sua OS</div>
       <div className="print-thermal-center print-thermal-sm print-thermal-mono">{trackingUrl}</div>
