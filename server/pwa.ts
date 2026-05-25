@@ -1,9 +1,12 @@
 import type { Express, Request, Response } from "express";
+import sharp from "sharp";
 import { getTenantBySlug } from "./db";
 import { storageGetSignedUrl } from "./storage";
 
 const DEFAULT_APP_NAME = "FullReparo";
 const DEFAULT_PRIMARY_COLOR = "#1e3a5f";
+const SUPPORTED_ICON_SIZES = [180, 192, 256, 384, 512] as const;
+const DEFAULT_ICON_SIZE = 192;
 
 type TenantLike = {
   id: number;
@@ -42,13 +45,20 @@ function xmlEscape(value: string): string {
     .replace(/'/g, "&apos;");
 }
 
-function buildInitialsSvg(name: string, color: string): string {
+function buildInitialsSvg(name: string, color: string, size: number): string {
   const initials = xmlEscape(getTenantInitials(name));
+  const radius = Math.round(size * 0.22);
+  const accentCenter = Math.round(size * 0.746);
+  const accentTop = Math.round(size * 0.23);
+  const accentRadius = Math.round(size * 0.145);
+  const fontSize = Math.round(size * 0.348);
+  const textY = Math.round(size * 0.574);
+
   return `
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-      <rect width="512" height="512" rx="112" fill="${xmlEscape(color)}" />
-      <circle cx="382" cy="118" r="74" fill="#d4a017" opacity="0.92" />
-      <text x="256" y="294" text-anchor="middle" dominant-baseline="middle" font-family="Arial, sans-serif" font-size="178" font-weight="800" fill="#ffffff">${initials}</text>
+    <svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
+      <rect width="${size}" height="${size}" rx="${radius}" fill="${xmlEscape(color)}" />
+      <circle cx="${accentCenter}" cy="${accentTop}" r="${accentRadius}" fill="#d4a017" opacity="0.92" />
+      <text x="${size / 2}" y="${textY}" text-anchor="middle" dominant-baseline="middle" font-family="Arial, sans-serif" font-size="${fontSize}" font-weight="800" fill="#ffffff">${initials}</text>
     </svg>
   `.trim();
 }
@@ -70,16 +80,31 @@ async function resolveTenant(req: Request): Promise<TenantLike | null> {
   return tenant;
 }
 
-function getAbsoluteUrl(req: Request, path: string): string {
-  const protocol = req.get("x-forwarded-proto")?.split(",")[0]?.trim() || req.protocol || "https";
-  const host = req.get("x-forwarded-host")?.split(",")[0]?.trim() || req.get("host") || "";
-  return `${protocol}://${host}${path}`;
+function buildTenantQuery(req: Request, tenant: TenantLike | null): string {
+  return tenant && !req.resolvedTenant ? `?tenant=${encodeURIComponent(tenant.slug)}` : "";
+}
+
+function buildIconPath(size: number, tenantQuery: string): string {
+  return `/pwa-icon-${size}.png${tenantQuery}`;
 }
 
 function buildManifest(req: Request, tenant: TenantLike | null) {
   const appName = tenant?.name?.trim() || DEFAULT_APP_NAME;
-  const tenantQuery = tenant && !req.resolvedTenant ? `?tenant=${encodeURIComponent(tenant.slug)}` : "";
-  const iconPath = `/pwa-icon.png${tenantQuery}`;
+  const tenantQuery = buildTenantQuery(req, tenant);
+  const icons = SUPPORTED_ICON_SIZES.flatMap((size) => [
+    {
+      src: buildIconPath(size, tenantQuery),
+      sizes: `${size}x${size}`,
+      type: "image/png",
+      purpose: "any",
+    },
+    {
+      src: buildIconPath(size, tenantQuery),
+      sizes: `${size}x${size}`,
+      type: "image/png",
+      purpose: "maskable",
+    },
+  ]);
 
   return {
     id: tenant ? `/${tenant.slug}` : "/",
@@ -95,74 +120,95 @@ function buildManifest(req: Request, tenant: TenantLike | null) {
     orientation: "portrait-primary",
     background_color: "#ffffff",
     theme_color: normalizeHexColor(tenant?.primaryColor),
-    icons: [
-      {
-        src: iconPath,
-        sizes: "512x512",
-        type: "image/png",
-        purpose: "any",
-      },
-      {
-        src: iconPath,
-        sizes: "512x512",
-        type: "image/png",
-        purpose: "maskable",
-      },
-    ],
+    icons,
     shortcuts: tenant
       ? [
           {
             name: "Acompanhar OS",
             short_name: "OS",
             url: `/acompanhar${tenantQuery}`,
-            icons: [{ src: iconPath, sizes: "512x512", type: "image/png" }],
+            icons: [{ src: buildIconPath(192, tenantQuery), sizes: "192x192", type: "image/png" }],
           },
         ]
       : [],
   };
 }
 
-async function proxyLogoOrSendFallback(req: Request, res: Response, tenant: TenantLike | null) {
+function resolveRequestedIconSize(req: Request): number {
+  const fromPath = req.path.match(/(?:pwa-icon|apple-touch-icon)-(\d+)(?:x\d+)?\.png$/i)?.[1];
+  const fromQuery = typeof req.query.size === "string" ? req.query.size : null;
+  const parsed = Number.parseInt(fromPath || fromQuery || "", 10);
+
+  if (SUPPORTED_ICON_SIZES.includes(parsed as (typeof SUPPORTED_ICON_SIZES)[number])) {
+    return parsed;
+  }
+
+  if (req.path.includes("apple-touch-icon")) return 192;
+  return DEFAULT_ICON_SIZE;
+}
+
+async function fetchLogoBuffer(logoUrl?: string | null): Promise<Buffer | null> {
+  const normalizedLogoUrl = logoUrl?.trim();
+  if (!normalizedLogoUrl) return null;
+
+  if (normalizedLogoUrl.startsWith("/manus-storage/")) {
+    const key = decodeURIComponent(normalizedLogoUrl.replace(/^\/manus-storage\//, ""));
+    const signedUrl = await storageGetSignedUrl(key);
+    const upstream = await fetch(signedUrl);
+    if (!upstream.ok) return null;
+    return Buffer.from(await upstream.arrayBuffer());
+  }
+
+  if (/^https?:\/\//i.test(normalizedLogoUrl)) {
+    const upstream = await fetch(normalizedLogoUrl);
+    if (!upstream.ok) return null;
+    return Buffer.from(await upstream.arrayBuffer());
+  }
+
+  return null;
+}
+
+async function createPngIconFromBuffer(input: Buffer, size: number): Promise<Buffer> {
+  return sharp(input, { animated: false })
+    .rotate()
+    .resize(size, size, {
+      fit: "contain",
+      background: { r: 0, g: 0, b: 0, alpha: 0 },
+      withoutEnlargement: false,
+    })
+    .png({ compressionLevel: 9, adaptiveFiltering: true })
+    .toBuffer();
+}
+
+async function createFallbackPngIcon(appName: string, themeColor: string, size: number): Promise<Buffer> {
+  return sharp(Buffer.from(buildInitialsSvg(appName, themeColor, size))).png().toBuffer();
+}
+
+async function sendPwaIcon(req: Request, res: Response, tenant: TenantLike | null) {
+  const size = resolveRequestedIconSize(req);
   const appName = tenant?.name?.trim() || DEFAULT_APP_NAME;
   const themeColor = normalizeHexColor(tenant?.primaryColor);
   const logoUrl = tenant?.logoUrl?.trim();
+  const cacheBust = encodeURIComponent(`${tenant?.id ?? "default"}:${logoUrl ?? "fallback"}:${size}`);
 
-  if (logoUrl?.startsWith("/manus-storage/")) {
-    try {
-      const key = decodeURIComponent(logoUrl.replace(/^\/manus-storage\//, ""));
-      const signedUrl = await storageGetSignedUrl(key);
-      const upstream = await fetch(signedUrl);
-      if (upstream.ok && upstream.body) {
-        const contentType = upstream.headers.get("content-type") || "image/png";
-        const cacheBust = encodeURIComponent(`${tenant?.id ?? "default"}:${logoUrl}`);
-        res.setHeader("Content-Type", contentType);
-        res.setHeader("Cache-Control", "public, max-age=300, must-revalidate");
-        res.setHeader("ETag", `W/\"${cacheBust}\"`);
-        res.send(Buffer.from(await upstream.arrayBuffer()));
-        return;
-      }
-    } catch (error) {
-      console.warn("[pwa] Falha ao carregar logo do storage para ícone PWA", error);
-    }
+  try {
+    const logoBuffer = await fetchLogoBuffer(logoUrl);
+    const icon = logoBuffer
+      ? await createPngIconFromBuffer(logoBuffer, size)
+      : await createFallbackPngIcon(appName, themeColor, size);
+
+    res.setHeader("Content-Type", "image/png");
+    res.setHeader("Cache-Control", "public, max-age=300, must-revalidate");
+    res.setHeader("ETag", `W/\"${cacheBust}\"`);
+    res.send(icon);
+  } catch (error) {
+    console.warn("[pwa] Falha ao gerar ícone PWA; usando fallback", error);
+    const fallback = await createFallbackPngIcon(appName, themeColor, size);
+    res.setHeader("Content-Type", "image/png");
+    res.setHeader("Cache-Control", "public, max-age=300, must-revalidate");
+    res.setHeader("ETag", `W/\"${cacheBust}:fallback\"`);
+    res.send(fallback);
   }
-
-  if (logoUrl && /^https?:\/\//i.test(logoUrl)) {
-    try {
-      const upstream = await fetch(logoUrl);
-      if (upstream.ok && upstream.body) {
-        res.setHeader("Content-Type", upstream.headers.get("content-type") || "image/png");
-        res.setHeader("Cache-Control", "public, max-age=300, must-revalidate");
-        res.send(Buffer.from(await upstream.arrayBuffer()));
-        return;
-      }
-    } catch (error) {
-      console.warn("[pwa] Falha ao carregar logo remoto para ícone PWA", error);
-    }
-  }
-
-  res.setHeader("Content-Type", "image/svg+xml; charset=utf-8");
-  res.setHeader("Cache-Control", "public, max-age=300, must-revalidate");
-  res.send(buildInitialsSvg(appName, themeColor));
 }
 
 export function registerPwaRoutes(app: Express) {
@@ -177,12 +223,25 @@ export function registerPwaRoutes(app: Express) {
     }
   });
 
-  app.get(["/pwa-icon.png", "/apple-touch-icon.png"], async (req, res, next) => {
-    try {
-      const tenant = await resolveTenant(req);
-      await proxyLogoOrSendFallback(req, res, tenant);
-    } catch (error) {
-      next(error);
-    }
-  });
+  app.get(
+    [
+      "/pwa-icon.png",
+      "/pwa-icon-180.png",
+      "/pwa-icon-192.png",
+      "/pwa-icon-256.png",
+      "/pwa-icon-384.png",
+      "/pwa-icon-512.png",
+      "/apple-touch-icon.png",
+      "/apple-touch-icon-180x180.png",
+      "/apple-touch-icon-192x192.png",
+    ],
+    async (req, res, next) => {
+      try {
+        const tenant = await resolveTenant(req);
+        await sendPwaIcon(req, res, tenant);
+      } catch (error) {
+        next(error);
+      }
+    },
+  );
 }

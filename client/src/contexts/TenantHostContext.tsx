@@ -98,7 +98,7 @@ function upsertMeta(name: string, content: string) {
   meta.setAttribute("content", content);
 }
 
-function upsertLink(id: string, rel: string, href: string, type?: string) {
+function upsertLink(id: string, rel: string, href: string, type?: string, sizes?: string) {
   let link = document.getElementById(id) as HTMLLinkElement | null;
   if (!link) {
     link = document.createElement("link");
@@ -111,6 +111,11 @@ function upsertLink(id: string, rel: string, href: string, type?: string) {
     link.type = type;
   } else {
     link.removeAttribute("type");
+  }
+  if (sizes) {
+    link.setAttribute("sizes", sizes);
+  } else {
+    link.removeAttribute("sizes");
   }
 }
 
@@ -129,10 +134,10 @@ function useTenantBranding(value: TenantHostContextValue) {
   const logoUrl = tenant?.logoUrl?.trim();
   const fallbackIconHref = createInitialsIconDataUrl(tenantName, themeColor);
   const iconHref = tenant
-    ? buildPwaAssetHref("/pwa-icon.png", tenant, value.isTestMode, logoUrl)
+    ? buildPwaAssetHref("/pwa-icon-192.png", tenant, value.isTestMode, logoUrl)
     : fallbackIconHref;
   const appleIconHref = tenant
-    ? buildPwaAssetHref("/apple-touch-icon.png", tenant, value.isTestMode, logoUrl)
+    ? buildPwaAssetHref("/apple-touch-icon-192x192.png", tenant, value.isTestMode, logoUrl)
     : fallbackIconHref;
   const manifestHref = buildPwaAssetHref("/manifest.webmanifest", tenant, value.isTestMode, logoUrl);
 
@@ -150,8 +155,9 @@ function useTenantBranding(value: TenantHostContextValue) {
       "icon",
       iconHref,
       tenant ? "image/png" : "image/svg+xml",
+      tenant ? "192x192" : undefined,
     );
-    upsertLink("fullreparo-dynamic-apple-touch-icon", "apple-touch-icon", appleIconHref, tenant ? "image/png" : "image/svg+xml");
+    upsertLink("fullreparo-dynamic-apple-touch-icon", "apple-touch-icon", appleIconHref, tenant ? "image/png" : "image/svg+xml", tenant ? "192x192" : undefined);
     upsertLink("fullreparo-dynamic-manifest", "manifest", manifestHref, "application/manifest+json");
   }, [appleIconHref, iconHref, manifestHref, tenant, tenantName, themeColor]);
 }
