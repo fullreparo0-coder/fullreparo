@@ -39,6 +39,12 @@ function maskTokenPreview(token?: string | null): string | null {
   return `••••${token.slice(-4)}`;
 }
 
+function normalizeTemplateButtonPath(publicUrl?: string | null): string | null {
+  if (!publicUrl) return null;
+  const withoutOrigin = publicUrl.replace(/^https?:\/\/[^/]+\/?/i, "");
+  return withoutOrigin.replace(/^\/+/, "");
+}
+
 function buildTemplateComponents(params: {
   event: WhatsappTransactionalEvent;
   tenantName: string;
@@ -47,6 +53,7 @@ function buildTemplateComponents(params: {
   publicUrl?: string | null;
 }) {
   const serviceLabel = params.event === "budget_available" ? "orçamento" : "serviço";
+  const buttonPath = normalizeTemplateButtonPath(params.publicUrl);
   return [
     {
       type: "body",
@@ -57,13 +64,13 @@ function buildTemplateComponents(params: {
         { type: "text", text: serviceLabel },
       ],
     },
-    ...(params.publicUrl
+    ...(buttonPath
       ? [
           {
             type: "button",
             sub_type: "url",
             index: "0",
-            parameters: [{ type: "text", text: params.publicUrl }],
+            parameters: [{ type: "text", text: buttonPath }],
           },
         ]
       : []),
