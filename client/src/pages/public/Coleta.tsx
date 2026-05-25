@@ -54,16 +54,34 @@ const SHIFTS = [
 
 type ShiftId = typeof SHIFTS[number]["id"];
 
-/** Retorna os próximos N dias úteis a partir de amanhã (pula domingos). */
+function formatLocalDateISO(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+/** Retorna os próximos N dias úteis a partir de hoje (pula domingos). */
 function getAvailableDates(count = 7): { value: string; label: string }[] {
   const dates: { value: string; label: string }[] = [];
-  const d = new Date();
-  d.setDate(d.getDate() + 1);
+  const today = new Date();
+  const d = new Date(today);
   while (dates.length < count) {
     if (d.getDay() !== 0) {
-      const iso = d.toISOString().slice(0, 10);
-      const label = d.toLocaleDateString("pt-BR", { weekday: "short", day: "2-digit", month: "2-digit" });
-      dates.push({ value: iso, label: label.charAt(0).toUpperCase() + label.slice(1) });
+      const iso = formatLocalDateISO(d);
+      const dayDiff = Math.floor(
+        (new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime() -
+          new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime()) /
+          86_400_000,
+      );
+      const dateLabel = d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
+      const weekdayLabel = d.toLocaleDateString("pt-BR", { weekday: "short" });
+      const label = dayDiff === 0
+        ? `Hoje ${dateLabel}`
+        : dayDiff === 1
+        ? `Amanhã ${dateLabel}`
+        : `${weekdayLabel.charAt(0).toUpperCase() + weekdayLabel.slice(1)} ${dateLabel}`;
+      dates.push({ value: iso, label });
     }
     d.setDate(d.getDate() + 1);
   }
