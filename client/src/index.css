@@ -668,11 +668,15 @@
 
 /* ── Thermal Sheet Styles ── */
 .print-thermal-sheet {
-  font-family: "Courier New", Courier, monospace;
-  font-size: 11px;
+  font-family: "Lucida Console", "DejaVu Sans Mono", "Liberation Mono", Consolas, monospace;
+  font-size: 11.6px;
   color: #000;
   background: #fff;
-  line-height: 1.2;
+  line-height: 1.22;
+  font-weight: 700;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+  text-rendering: geometricPrecision;
   padding: 2mm;
   margin: 0;
   box-sizing: border-box;
@@ -685,9 +689,9 @@
   max-width: 80mm;
   min-width: 80mm;
   margin: 0;
-  font-size: 11px;
-  line-height: 1.2;
-  font-weight: 400;
+  font-size: 11.6px;
+  line-height: 1.22;
+  font-weight: 700;
 }
 
 .print-thermal58 {
@@ -697,24 +701,25 @@
 }
 
 .print-thermal-center { text-align: center; }
-.print-thermal-bold { font-weight: 700; }
-.print-thermal-title { font-size: 12px; line-height: 1.15; }
+.print-thermal-bold { font-weight: 900; }
+.print-thermal-title { font-size: 12.6px; line-height: 1.16; }
 .print-thermal-sm, .print-thermal-lg, .print-thermal-xl, .print-thermal-mono {
-  font-size: 11px;
-  line-height: 1.2;
-  font-family: "Courier New", Courier, monospace;
+  font-size: 11.6px;
+  line-height: 1.22;
+  font-family: "Lucida Console", "DejaVu Sans Mono", "Liberation Mono", Consolas, monospace;
+  font-weight: 700;
 }
 
 .print-thermal-order-number {
-  font-size: 14px;
+  font-size: 14.7px;
   font-weight: 900;
   letter-spacing: 0.02em;
   margin: 1px 0;
 }
 
 .print-thermal-sep {
-  font-size: 11px;
-  line-height: 1;
+  font-size: 11.6px;
+  line-height: 1.02;
   color: #000;
   margin: 3px 0 2px;
   letter-spacing: 0;
@@ -727,9 +732,10 @@
   width: 100%;
   margin: 1px 0;
   padding: 0;
-  font-family: "Courier New", Courier, monospace;
-  font-size: 11px;
-  line-height: 1.2;
+  font-family: "Lucida Console", "DejaVu Sans Mono", "Liberation Mono", Consolas, monospace;
+  font-size: 11.6px;
+  line-height: 1.22;
+  font-weight: 700;
   white-space: pre-wrap;
   word-break: normal;
   overflow-wrap: break-word;
@@ -740,16 +746,18 @@
   display: flex;
   justify-content: space-between;
   gap: 4px;
-  font-size: 11px;
-  line-height: 1.2;
+  font-size: 11.6px;
+  line-height: 1.22;
+  font-weight: 700;
 }
 
 .print-thermal-row span:first-child { color: #000; flex-shrink: 0; }
 .print-thermal-row span:last-child { text-align: right; min-width: 0; overflow-wrap: break-word; word-break: normal; }
 
 .print-thermal-wrap {
-  font-size: 11px;
-  line-height: 1.2;
+  font-size: 11.6px;
+  line-height: 1.22;
+  font-weight: 700;
   word-break: normal;
   overflow-wrap: break-word;
   white-space: pre-wrap;
@@ -758,8 +766,9 @@
 
 .print-thermal-checklist-item,
 .print-thermal-budget-item {
-  font-size: 11px;
-  line-height: 1.2;
+  font-size: 11.6px;
+  line-height: 1.22;
+  font-weight: 700;
   margin: 1px 0;
   padding: 0;
 }
@@ -769,13 +778,14 @@
 }
 
 .print-thermal-qr svg {
-  width: 120px !important;
-  height: 120px !important;
+  width: 126px !important;
+  height: 126px !important;
 }
 
 .print-thermal-url {
-  font-size: 9px;
-  line-height: 1.15;
+  font-size: 9.5px;
+  line-height: 1.16;
+  font-weight: 700;
   overflow-wrap: anywhere;
   word-break: normal;
 }
@@ -787,10 +797,11 @@
 }
 
 .print-thermal-terms {
-  font-size: 9px;
+  font-size: 9.5px;
   color: #000;
   white-space: pre-wrap;
-  line-height: 1.15;
+  line-height: 1.16;
+  font-weight: 700;
   word-break: normal;
   overflow-wrap: break-word;
 }

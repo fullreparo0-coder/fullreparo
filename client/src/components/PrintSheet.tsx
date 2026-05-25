@@ -353,9 +353,8 @@ export function PrintSheetThermal({ os, tenant, budgets, warranty, checklist, mo
   const totalLabor = budgets?.reduce((s, b) => s + Number(b.laborCost ?? 0), 0) ?? 0;
   const width = mode === "thermal58" ? "print-thermal58" : "print-thermal80";
   const sep = mode === "thermal58" ? "--------------------------------" : "------------------------------------------------";
-  const qrSize = mode === "thermal58" ? 76 : 120;
+  const qrSize = mode === "thermal58" ? 80 : 126;
   const statusLabel = STATUS_LABELS[os.status as keyof typeof STATUS_LABELS] ?? os.status;
-  const checkedAccessories = checklist?.filter((c) => c.checked).map((c) => c.item).join(", ");
 
   return (
     <div className={`print-thermal-sheet ${width}`}>
@@ -396,7 +395,6 @@ export function PrintSheetThermal({ os, tenant, budgets, warranty, checklist, mo
           os.deviceImei ? receiptLine("IMEI", os.deviceImei) : null,
           os.deviceSerialNumber ? receiptLine("Serial", os.deviceSerialNumber) : null,
           os.devicePassword ? receiptLine("Senha", os.devicePassword) : null,
-          checkedAccessories ? receiptLine("Acessorios", checkedAccessories) : null,
         ].filter(Boolean).join("\n")}
       </pre>
 
