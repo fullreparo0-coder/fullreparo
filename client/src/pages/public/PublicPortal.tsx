@@ -4,11 +4,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useTenantHost } from "@/contexts/TenantHostContext";
-import { Truck, Search, Shield, Phone, MessageCircle, MapPin, ArrowRight, Clock, LogIn, User, LogOut, UserPlus, Wrench, Zap, Star, Smartphone, Laptop, Tablet, Watch, Printer, Gamepad2, Camera, Headphones, Speaker, Wifi, Tv, Monitor, Mouse, Wind, Package, CheckCircle2 } from "lucide-react";
+import { Truck, Search, Shield, Phone, MessageCircle, MapPin, Clock, LogIn, User, LogOut, UserPlus, Wrench, Zap, Star, Smartphone, Laptop, Tablet, Watch, Printer, Gamepad2, Camera, Headphones, Speaker, Wifi, Tv, Monitor, Mouse, Wind, Package } from "lucide-react";
 import { useTenantNav } from "@/hooks/useTenantNav";
 import { WhatsAppFAB } from "@/components/WhatsAppFAB";
 import { useAuth } from "@/_core/hooks/useAuth";
-import { getLoginUrl } from "@/const";
 import { parseBusinessHours, formatBusinessHoursText, isOpenNow, nextOpenTime, DAY_NAMES_SHORT } from "@shared/businessHours";
 import { MapView } from "@/components/Map";
 
@@ -309,69 +308,11 @@ export default function PublicPortal() {
     { icon: Shield, title: "Garantia digital", description: "Serviços com registro, acompanhamento e consulta de garantia online." },
   ];
 
-  const quickActions = [
-    {
-      icon: Truck,
-      label: "Solicitar coleta",
-      description: "Peça leva e traz",
-      onClick: () => tenantNavigate("/coleta"),
-      highlight: true,
-    },
-    {
-      icon: Search,
-      label: "Rastrear OS",
-      description: "Acompanhe o reparo",
-      onClick: () => tenantNavigate("/rastrear"),
-      highlight: false,
-    },
-    {
-      icon: Shield,
-      label: "Consultar garantia",
-      description: "Verifique pelo código",
-      onClick: () => tenantNavigate("/garantia"),
-      highlight: false,
-    },
-    {
-      icon: MessageCircle,
-      label: "WhatsApp",
-      description: "Fale com a loja",
-      onClick: () => whatsappUrl && window.open(whatsappUrl, "_blank", "noopener,noreferrer"),
-      highlight: false,
-      disabled: !whatsappUrl,
-    },
-  ];
-
   const serviceFlow = [
     { icon: MessageCircle, title: "Você chama ou solicita coleta", description: "Entre em contato, peça uma coleta ou leve o aparelho até a assistência." },
     { icon: Wrench, title: "A equipe avalia o aparelho", description: "O diagnóstico e o orçamento ficam registrados para acompanhamento." },
     { icon: Search, title: "Acompanhe tudo online", description: "Consulte a OS, aprove orçamento e veja cada etapa do atendimento." },
     { icon: Shield, title: "Receba com garantia", description: "Ao finalizar, sua garantia digital fica disponível para consulta." },
-  ];
-
-  const trustBadges = ["Ordem de serviço rastreável", "Garantia digital", "Atendimento organizado", "Histórico do cliente"]; 
-
-  const actions = [
-    {
-      icon: Truck,
-      label: "Solicitar Coleta",
-      description: "Agendamos a busca do seu aparelho",
-      path: "/coleta",
-      primary: true,
-    },
-    {
-      icon: Search,
-      label: "Rastrear Minha OS",
-      description: "Acompanhe o status do seu reparo",
-      path: "/rastrear",
-      primary: false,
-    },
-    {
-      icon: Shield,
-      label: "Verificar Garantia",
-      description: "Consulte a garantia do seu serviço",
-      path: "/garantia",
-      primary: false,
-    },
   ];
 
   // Status de funcionamento para o badge do hero
@@ -622,6 +563,19 @@ export default function PublicPortal() {
                   <Search className="h-4 w-4" />
                   Rastrear OS
                 </button>
+                <button
+                  onClick={() => tenantNavigate("/garantia")}
+                  className="inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all duration-150 active:scale-[0.97]"
+                  style={{
+                    backgroundColor: "rgba(255,255,255,0.12)",
+                    color: contrastColor,
+                    border: `1px solid rgba(255,255,255,0.25)`,
+                    backdropFilter: "blur(4px)",
+                  }}
+                >
+                  <Shield className="h-4 w-4" />
+                  Consultar garantia
+                </button>
               </div>
             </div>
 
@@ -704,42 +658,6 @@ export default function PublicPortal() {
 
       <main className="flex-1 max-w-6xl mx-auto w-full px-4 py-8 md:py-10 space-y-10">
 
-        {/* Acesso rápido — ações principais do portal */}
-        <section className="space-y-4 -mt-12 relative z-[1]">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-            {quickActions.map(({ icon: Icon, label, description, onClick, highlight, disabled }) => (
-              <button
-                key={label}
-                type="button"
-                onClick={disabled ? undefined : onClick}
-                disabled={disabled}
-                className="group rounded-2xl border bg-card p-4 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-50"
-                style={{
-                  borderColor: highlight ? `${secondaryColor}55` : `${primaryColor}18`,
-                  boxShadow: highlight ? `0 14px 35px ${secondaryColor}18` : undefined,
-                }}
-              >
-                <div className="flex items-start gap-3">
-                  <div
-                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl transition-transform group-hover:scale-105"
-                    style={{
-                      backgroundColor: highlight ? secondaryColor : `${primaryColor}12`,
-                      color: highlight ? secondaryContrastColor : primaryColor,
-                    }}
-                  >
-                    <Icon className="h-5 w-5" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-bold text-foreground">{label}</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">{description}</p>
-                  </div>
-                  <ArrowRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
-                </div>
-              </button>
-            ))}
-          </div>
-        </section>
-
         {/* CTA de cadastro — visível apenas para visitantes não logados */}
         {!user && (
           <div
@@ -771,19 +689,9 @@ export default function PublicPortal() {
 
         {/* Serviços principais */}
         <section className="space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-2">
-            <div>
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Serviços</p>
-              <h2 className="font-display text-2xl font-bold text-foreground mt-1">Como podemos ajudar?</h2>
-            </div>
-            <Button
-              variant="outline"
-              className="w-fit gap-2"
-              onClick={() => tenantNavigate("/coleta")}
-            >
-              Solicitar atendimento
-              <ArrowRight className="h-4 w-4" />
-            </Button>
+          <div>
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Serviços</p>
+            <h2 className="font-display text-2xl font-bold text-foreground mt-1">Como podemos ajudar?</h2>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             {defaultServices.map(({ icon: Icon, title, description }) => (
@@ -970,58 +878,6 @@ export default function PublicPortal() {
             </div>
           );
         })()}
-
-        {/* Bloco de confiança e autosserviço */}
-        <section
-          className="rounded-3xl p-6 md:p-8 overflow-hidden relative"
-          style={{ background: `linear-gradient(135deg, ${primaryColor}12 0%, ${secondaryColor}10 100%)`, border: `1px solid ${primaryColor}18` }}
-        >
-          <div className="grid grid-cols-1 lg:grid-cols-[1.2fr_0.8fr] gap-6 items-center">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: primaryColor }}>
-                Portal do cliente
-              </p>
-              <h2 className="font-display text-2xl md:text-3xl font-bold text-foreground mt-2">
-                Menos espera, mais transparência no seu atendimento
-              </h2>
-              <p className="text-sm text-muted-foreground mt-3 leading-relaxed">
-                Use o portal para solicitar coleta, acompanhar sua ordem de serviço, consultar garantia e falar com a assistência sem depender de ligações repetidas.
-              </p>
-              <div className="flex flex-wrap gap-2 mt-5">
-                {trustBadges.map((badge) => (
-                  <span key={badge} className="inline-flex items-center gap-1.5 rounded-full bg-background px-3 py-1.5 text-xs font-medium text-foreground shadow-sm">
-                    <CheckCircle2 className="h-3.5 w-3.5" style={{ color: primaryColor }} />
-                    {badge}
-                  </span>
-                ))}
-              </div>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-1 gap-3">
-              {actions.map(({ icon: Icon, label, description, path, primary }) => (
-                <button
-                  key={path}
-                  type="button"
-                  className="rounded-2xl bg-background p-4 text-left shadow-sm border border-border hover:shadow-md transition-all"
-                  onClick={() => tenantNavigate(path)}
-                >
-                  <div className="flex items-center gap-3">
-                    <div
-                      className="flex h-10 w-10 items-center justify-center rounded-xl shrink-0"
-                      style={{ backgroundColor: primary ? primaryColor : `${primaryColor}15`, color: primary ? contrastColor : primaryColor }}
-                    >
-                      <Icon className="h-4 w-4" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-bold text-foreground">{label}</p>
-                      <p className="text-xs text-muted-foreground">{description}</p>
-                    </div>
-                    <ArrowRight className="h-4 w-4 text-muted-foreground" />
-                  </div>
-                </button>
-              ))}
-            </div>
-          </div>
-        </section>
 
         {/* Mapa de localização */}
         {(tenant.address || tenant.city) && (() => {
