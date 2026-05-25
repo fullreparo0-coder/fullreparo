@@ -353,7 +353,7 @@ export function PrintSheetThermal({ os, tenant, budgets, warranty, checklist, mo
   const totalLabor = budgets?.reduce((s, b) => s + Number(b.laborCost ?? 0), 0) ?? 0;
   const width = mode === "thermal58" ? "print-thermal58" : "print-thermal80";
   const sep = mode === "thermal58" ? "--------------------------------" : "------------------------------------------------";
-  const qrSize = mode === "thermal58" ? 80 : 126;
+  const qrSize = mode === "thermal58" ? 80 : 72;
   const statusLabel = STATUS_LABELS[os.status as keyof typeof STATUS_LABELS] ?? os.status;
 
   return (

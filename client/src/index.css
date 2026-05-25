@@ -778,8 +778,8 @@
 }
 
 .print-thermal-qr svg {
-  width: 126px !important;
-  height: 126px !important;
+  width: 72px !important;
+  height: 72px !important;
 }
 
 .print-thermal-url {
