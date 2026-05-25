@@ -475,7 +475,7 @@ export function PrintSheetThermal({ os, tenant, budgets, warranty, checklist, mo
 
       {/* QR Code */}
       <div className="print-thermal-center">
-        <QRCodeSVG value={trackingUrl} size={mode === "thermal58" ? 90 : 138} level="M" />
+        <QRCodeSVG value={trackingUrl} size={mode === "thermal58" ? 90 : 118} level="M" />
       </div>
       <div className="print-thermal-center print-thermal-sm">Rastreie sua OS</div>
       <div className="print-thermal-center print-thermal-sm print-thermal-mono">{trackingUrl}</div>
