@@ -522,27 +522,36 @@ export function PrintSheetArgox({ os, tenant }: Omit<PrintSheetProps, "mode">) {
 
       <div className="print-argox-body">
         <div className="print-argox-info">
-          <div className="print-argox-row">
-            <span>Cliente</span>
-            <strong>{truncateText(os.customer?.name, 32)}</strong>
+          <div className="print-argox-main-grid">
+            <div className="print-argox-row">
+              <span>Cliente</span>
+              <strong>{truncateText(os.customer?.name, 34)}</strong>
+            </div>
+            <div className="print-argox-row print-argox-phone">
+              <span>Telefone</span>
+              <strong>{truncateText(os.customer?.phone, 18)}</strong>
+            </div>
           </div>
+
           <div className="print-argox-row">
             <span>Aparelho</span>
-            <strong>{truncateText(deviceLabel, 32)}</strong>
+            <strong>{truncateText(deviceLabel, 38)}</strong>
           </div>
+
           <div className="print-argox-row print-argox-defect">
-            <span>Defeito</span>
-            <strong>{truncateText(os.reportedDefect, 50)}</strong>
+            <span>Defeito relatado</span>
+            <strong>{truncateText(os.reportedDefect, 72)}</strong>
           </div>
+
           <div className="print-argox-meta">
-            <span>{fmt(os.createdAt)}</span>
-            <span className="print-argox-status" style={{ borderColor: primary }}>{truncateText(statusLabel, 18)}</span>
+            <span>Entrada: {fmt(os.createdAt)}</span>
+            <span className="print-argox-status" style={{ borderColor: primary }}>{truncateText(statusLabel, 20)}</span>
           </div>
         </div>
 
         <div className="print-argox-qr-block">
-          <QRCodeSVG value={trackingUrl} size={58} level="M" marginSize={0} />
-          <div>Rastrear</div>
+          <QRCodeSVG value={trackingUrl} size={68} level="M" marginSize={0} />
+          <div>Rastrear OS</div>
         </div>
       </div>
     </div>
