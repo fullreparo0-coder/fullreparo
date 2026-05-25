@@ -137,6 +137,11 @@ export default function CustomerLogin() {
 
   const staffLoginMutation = trpc.auth.login.useMutation({
     onSuccess: async (data) => {
+      if (!data.user) {
+        setErrorMsg("Não foi possível validar a sessão da equipe. Tente novamente.");
+        return;
+      }
+
       toast.success(`Bem-vindo, ${data.user.name ?? "equipe"}!`);
       await refreshAuth();
       redirectByRole(data.user.role);
