@@ -99,6 +99,16 @@ function fmtDateTime(d: Date | string | null | undefined): string {
   });
 }
 
+function fmtLabelDateTime(d: Date | string | null | undefined): string {
+  if (!d) return "—";
+  return new Date(d).toLocaleString("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 function fmtMoney(v: number | string | null | undefined): string {
   if (v == null) return "R$ 0,00";
   return Number(v).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -478,46 +488,31 @@ export function PrintSheetThermal({ os, tenant, budgets, warranty, checklist, mo
 // ─── Argox 80x40 Label Layout ────────────────────────────────────────────────
 
 export function PrintSheetArgox({ os, tenant }: Omit<PrintSheetProps, "mode">) {
-  const primary = tenant.primaryColor ?? "#1e3a5f";
+  const trackingUrl = `${window.location.origin}/rastrear/${os.publicToken}`;
   const deviceLabel = [os.deviceBrand, os.deviceModel].filter(Boolean).join(" ") || "Aparelho não informado";
   const statusLabel = STATUS_LABELS[os.status as keyof typeof STATUS_LABELS] ?? os.status;
 
   return (
     <div className="print-argox8040">
-      <div className="print-argox-header" style={{ borderColor: primary }}>
-        <div className="print-argox-tenant">{truncateText(tenant.name, 28)}</div>
-        <div className="print-argox-os" style={{ color: primary }}>OS {os.osNumber}</div>
+      <div className="print-argox-header">
+        <div className="print-argox-tenant">{truncateText(tenant.name, 18)}</div>
+        <div className="print-argox-os">OS {os.osNumber}</div>
       </div>
 
       <div className="print-argox-body">
-        <div className="print-argox-info">
-          <div className="print-argox-main-grid">
-            <div className="print-argox-row">
-              <span>Cliente</span>
-              <strong>{truncateText(os.customer?.name, 42)}</strong>
-            </div>
-            <div className="print-argox-row print-argox-phone">
-              <span>Telefone</span>
-              <strong>{truncateText(os.customer?.phone, 22)}</strong>
-            </div>
-          </div>
-
-          <div className="print-argox-row">
-            <span>Aparelho</span>
-            <strong>{truncateText(deviceLabel, 58)}</strong>
-          </div>
-
-          <div className="print-argox-row print-argox-defect">
-            <span>Defeito relatado</span>
-            <strong>{truncateText(os.reportedDefect, 96)}</strong>
-          </div>
-
-          <div className="print-argox-meta">
-            <span>Entrada: {fmtDateTime(os.createdAt)}</span>
-            <span className="print-argox-status" style={{ borderColor: primary }}>{truncateText(statusLabel, 20)}</span>
-          </div>
+        <div className="print-argox-left">
+          <div className="print-argox-customer">{truncateText(os.customer?.name, 32)}</div>
+          <div className="print-argox-device">{truncateText(deviceLabel, 34)}</div>
+          <div className="print-argox-defect">{truncateText(os.reportedDefect, 42)}</div>
+          <div className="print-argox-date">{fmtLabelDateTime(os.createdAt)}</div>
         </div>
 
+        <div className="print-argox-right">
+          <div className="print-argox-status">{truncateText(statusLabel, 18)}</div>
+          <div className="print-argox-qr-block">
+            <QRCodeSVG value={trackingUrl} size={64} level="M" />
+          </div>
+        </div>
       </div>
     </div>
   );
