@@ -24,6 +24,9 @@ export type SessionPayload = {
   name: string;
 };
 
+const LOCAL_SESSION_APP_ID = "fullreparo-local";
+const DEFAULT_SESSION_NAME = "Usuário FullReparo";
+
 const EXCHANGE_TOKEN_PATH = `/webdev.v1.WebDevAuthPublicService/ExchangeToken`;
 const GET_USER_INFO_PATH = `/webdev.v1.WebDevAuthPublicService/GetUserInfo`;
 const GET_USER_INFO_WITH_JWT_PATH = `/webdev.v1.WebDevAuthPublicService/GetUserInfoWithJwt`;
@@ -171,8 +174,8 @@ class SDKServer {
     return this.signSession(
       {
         openId,
-        appId: ENV.appId,
-        name: options.name || "",
+        appId: ENV.appId || LOCAL_SESSION_APP_ID,
+        name: options.name?.trim() || DEFAULT_SESSION_NAME,
       },
       options
     );
