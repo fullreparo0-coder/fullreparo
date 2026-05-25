@@ -188,29 +188,36 @@
     padding: 0 !important;
   }
 
-  /* ── A4 page setup ── */
-  body.print-mode-a4 {
-    @page { size: A4 portrait; margin: 14mm 12mm 14mm 12mm; }
-  }
+  /* ── Page setup: usar páginas nomeadas evita que o Chromium ignore @page aninhado e gere folhas extras ── */
+  @page print-a4-page { size: A4 portrait; margin: 14mm 12mm 14mm 12mm; }
+  @page print-thermal58-page { size: 58mm auto; margin: 1.5mm 2mm; }
+  @page print-thermal80-page { size: 80mm auto; margin: 1.5mm 2mm; }
+  @page print-argox8040-page { size: 80mm 40mm; margin: 0; }
 
-  /* ── Thermal 58mm page setup ── */
-  body.print-mode-thermal58 {
-    @page { size: 58mm auto; margin: 2mm 2mm; }
-  }
-
-  /* ── Thermal 80mm page setup ── */
-  body.print-mode-thermal80 {
-    @page { size: 80mm auto; margin: 2mm 3mm; }
-  }
-
-  /* ── Argox 80x40mm label page setup ── */
-  body.print-mode-argox8040 {
-    @page { size: 80mm 40mm; margin: 1mm 2mm; }
-  }
+  body.print-mode-a4 { page: print-a4-page; }
+  body.print-mode-thermal58 { page: print-thermal58-page; }
+  body.print-mode-thermal80 { page: print-thermal80-page; }
+  body.print-mode-argox8040 { page: print-argox8040-page; }
 
   /* Hide everything except the print sheet */
   body > * { display: none !important; }
-  body > #print-root { display: block !important; }
+  body > #print-root {
+    display: block !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  body.print-mode-argox8040,
+  body.print-mode-argox8040 > #print-root {
+    width: 80mm !important;
+    height: 40mm !important;
+    max-width: 80mm !important;
+    max-height: 40mm !important;
+    overflow: hidden !important;
+  }
+
+  body.print-mode-thermal58 > #print-root { width: 54mm !important; max-width: 54mm !important; }
+  body.print-mode-thermal80 > #print-root { width: 76mm !important; max-width: 76mm !important; }
 }
 
 /* ── A4 Sheet Styles ── */
@@ -489,27 +496,33 @@
 
 /* ── Argox 80x40 Label Styles ── */
 .print-argox8040 {
-  width: 76mm;
-  height: 38mm;
-  max-width: 76mm;
-  max-height: 38mm;
+  width: 80mm;
+  height: 40mm;
+  max-width: 80mm;
+  max-height: 40mm;
   overflow: hidden;
   box-sizing: border-box;
   font-family: 'Inter', Arial, sans-serif;
   color: #111;
   background: #fff;
-  line-height: 1.15;
-  padding: 1mm 0;
+  line-height: 1.12;
+  padding: 1mm 2mm;
+  break-after: avoid;
+  break-before: avoid;
+  break-inside: avoid;
+  page-break-after: avoid;
+  page-break-before: avoid;
+  page-break-inside: avoid;
 }
 
 .print-argox-header {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 2mm;
-  border-bottom: 1.2px solid;
-  padding-bottom: 0.9mm;
-  margin-bottom: 1.1mm;
+  gap: 1.5mm;
+  border-bottom: 1px solid;
+  padding-bottom: 0.7mm;
+  margin-bottom: 0.8mm;
 }
 
 .print-argox-tenant {
@@ -532,8 +545,8 @@
 
 .print-argox-body {
   display: grid;
-  grid-template-columns: 1fr 20mm;
-  gap: 2.2mm;
+  grid-template-columns: 1fr 18.5mm;
+  gap: 1.5mm;
   align-items: start;
 }
 
@@ -621,13 +634,16 @@
   font-size: 9pt;
   color: #000;
   background: #fff;
-  line-height: 1.5;
-  padding: 2mm 0;
+  line-height: 1.38;
+  padding: 0;
+  margin: 0;
+  break-after: avoid;
+  page-break-after: avoid;
 }
 
 .print-thermal80 {
-  font-size: 11pt;
-  line-height: 1.45;
+  font-size: 10.2pt;
+  line-height: 1.32;
   font-weight: 600;
 }
 
@@ -713,7 +729,7 @@
 }
 
 .print-thermal-spacer {
-  height: 10mm;
+  height: 2mm;
 }
 
 /* ═══════════════════════════════════════════════════════
