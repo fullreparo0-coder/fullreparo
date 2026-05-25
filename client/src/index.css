@@ -191,7 +191,7 @@
   /* ── Page setup: usar páginas nomeadas evita que o Chromium ignore @page aninhado e gere folhas extras ── */
   @page print-a4-page { size: A4 portrait; margin: 14mm 12mm 14mm 12mm; }
   @page print-thermal58-page { size: 58mm auto; margin: 1.5mm 2mm; }
-  @page print-thermal80-page { size: 80mm auto; margin: 1mm; }
+  @page print-thermal80-page { size: 80mm auto; margin: 0; }
   @page print-argox8040-page { size: 80mm 40mm; margin: 0; }
 
   body.print-mode-a4 { page: print-a4-page; }
@@ -207,8 +207,7 @@
     padding: 0 !important;
   }
 
-  body.print-mode-argox8040,
-  body.print-mode-argox8040 > #print-root {
+  body.print-mode-argox8040 {
     width: 80mm !important;
     height: 40mm !important;
     max-width: 80mm !important;
@@ -216,8 +215,17 @@
     overflow: hidden !important;
   }
 
+  body.print-mode-argox8040 > #print-root {
+    width: 77.5mm !important;
+    height: 40mm !important;
+    max-width: 77.5mm !important;
+    max-height: 40mm !important;
+    margin-left: 2.5mm !important;
+    overflow: hidden !important;
+  }
+
   body.print-mode-thermal58 > #print-root { width: 54mm !important; max-width: 54mm !important; }
-  body.print-mode-thermal80 > #print-root { width: 78mm !important; max-width: 78mm !important; }
+  body.print-mode-thermal80 > #print-root { width: 80mm !important; max-width: 80mm !important; }
 }
 
 /* ── A4 Sheet Styles ── */
@@ -496,9 +504,9 @@
 
 /* ── Argox 80x40 Label Styles ── */
 .print-argox8040 {
-  width: 80mm;
+  width: 77.5mm;
   height: 40mm;
-  max-width: 80mm;
+  max-width: 77.5mm;
   max-height: 40mm;
   overflow: hidden;
   box-sizing: border-box;
@@ -506,7 +514,7 @@
   color: #111;
   background: #fff;
   line-height: 1.12;
-  padding: 0.8mm 1.5mm;
+  padding: 0.8mm 1.2mm;
   break-after: avoid;
   break-before: avoid;
   break-inside: avoid;
@@ -648,7 +656,7 @@
 }
 
 .print-thermal58 { width: 54mm; max-width: 54mm; }
-.print-thermal80 { width: 78mm; max-width: 78mm; }
+.print-thermal80 { width: 80mm; max-width: 80mm; min-width: 80mm; box-sizing: border-box; }
 
 .print-thermal-center { text-align: center; }
 .print-thermal-bold { font-weight: 700; }
