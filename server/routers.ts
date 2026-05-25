@@ -26,10 +26,16 @@ import { notificationsRouter } from "./routers/notifications";
 import { customerAuthRouter } from "./routers/customerAuth";
 import { whatsappRouter } from "./routers/whatsapp";
 
+function sanitizeAuthUser<T extends { passwordHash?: unknown } | null | undefined>(user: T) {
+  if (!user) return null;
+  const { passwordHash: _passwordHash, ...safeUser } = user;
+  return safeUser;
+}
+
 export const appRouter = router({
   system: systemRouter,
   auth: router({
-    me: publicProcedure.query((opts) => opts.ctx.user),
+    me: publicProcedure.query((opts) => sanitizeAuthUser(opts.ctx.user)),
     login: publicProcedure
       .input(
         z.object({
@@ -96,7 +102,7 @@ export const appRouter = router({
           .set({ lastSignedIn: new Date() })
           .where(eq(users.id, user.id));
 
-        return { success: true, user };
+        return { success: true, user: sanitizeAuthUser(user) };
       }),
     logout: publicProcedure.mutation(({ ctx }) => {
       const cookieOptions = getSessionCookieOptions(ctx.req);
