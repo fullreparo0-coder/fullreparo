@@ -1294,6 +1294,7 @@ export default function ServiceOrderDetail() {
         <PrintSheet
           mode={printMode}
           os={{
+            id: os.id,
             osNumber: os.osNumber,
             status: os.status,
             origin: os.origin ?? "balcao",

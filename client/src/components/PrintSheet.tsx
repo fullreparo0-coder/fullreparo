@@ -4,6 +4,7 @@ import { STATUS_LABELS } from "@/components/StatusBadge";
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface OsData {
+  id: number | string;
   osNumber: string;
   status: string;
   origin: string;
@@ -488,7 +489,7 @@ export function PrintSheetThermal({ os, tenant, budgets, warranty, checklist, mo
 // ─── Argox 80x40 Label Layout ────────────────────────────────────────────────
 
 export function PrintSheetArgox({ os, tenant }: Omit<PrintSheetProps, "mode">) {
-  const trackingUrl = `${window.location.origin}/rastrear/${os.publicToken}`;
+  const internalOsUrl = `${window.location.origin}/painel/os/${os.id}`;
   const deviceLabel = [os.deviceBrand, os.deviceModel].filter(Boolean).join(" ") || "Aparelho não informado";
   const statusLabel = STATUS_LABELS[os.status as keyof typeof STATUS_LABELS] ?? os.status;
 
@@ -510,7 +511,7 @@ export function PrintSheetArgox({ os, tenant }: Omit<PrintSheetProps, "mode">) {
         <div className="print-argox-right">
           <div className="print-argox-status">{truncateText(statusLabel, 18)}</div>
           <div className="print-argox-qr-block">
-            <QRCodeSVG value={trackingUrl} size={64} level="M" />
+            <QRCodeSVG value={internalOsUrl} size={64} level="M" />
           </div>
         </div>
       </div>
