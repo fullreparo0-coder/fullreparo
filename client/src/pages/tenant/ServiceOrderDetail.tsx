@@ -23,7 +23,7 @@ import {
   ArrowLeft, QrCode, Printer, MessageSquare, Clock,
   Wrench, User, Smartphone, FileText, DollarSign, Shield,
   Plus, ExternalLink, Copy, CheckSquare, Square, Send, ChevronDown,
-  Phone, Mail, MapPin, Truck, CalendarDays, PackageCheck
+  Phone, Mail, MapPin, Truck, CalendarDays, PackageCheck, Pencil
 } from "lucide-react";
 
 const STATUS_OPTIONS = Object.entries(STATUS_LABELS);
@@ -49,6 +49,20 @@ export default function ServiceOrderDetail() {
   const [pickupDate, setPickupDate] = useState("");
   const [pickupShift, setPickupShift] = useState<"manha" | "tarde" | "noite" | "">("manha");
   const [pickupNotes, setPickupNotes] = useState("");
+  // Modal de edição das informações principais da OS e do aparelho
+  const [editInfoOpen, setEditInfoOpen] = useState(false);
+  const [editBrand, setEditBrand] = useState("");
+  const [editModel, setEditModel] = useState("");
+  const [editType, setEditType] = useState("");
+  const [editImei, setEditImei] = useState("");
+  const [editSerialNumber, setEditSerialNumber] = useState("");
+  const [editColor, setEditColor] = useState("");
+  const [editDeviceNotes, setEditDeviceNotes] = useState("");
+  const [editDefect, setEditDefect] = useState("");
+  const [editPhysical, setEditPhysical] = useState("");
+  const [editAccessories, setEditAccessories] = useState("");
+  const [editInternalNotes, setEditInternalNotes] = useState("");
+  const [editPassword, setEditPassword] = useState("");
 
   const handlePrintWarranty = () => {
     setPrintWarranty(true);
@@ -108,6 +122,15 @@ export default function ServiceOrderDetail() {
       }
     },
     onError: () => toast.error("Erro ao atualizar status"),
+  });
+
+  const updateInfo = trpc.serviceOrders.updateInfo.useMutation({
+    onSuccess: () => {
+      toast.success("Informações da OS atualizadas");
+      setEditInfoOpen(false);
+      utils.serviceOrders.getById.invalidate({ id: osId });
+    },
+    onError: (error) => toast.error(error.message || "Erro ao atualizar informações da OS"),
   });
 
   // Handler para confirmar agendamento de coleta
@@ -186,6 +209,47 @@ export default function ServiceOrderDetail() {
       status: "finalizado",
       notes: closeNotes || undefined,
       warrantyDays: closeWarrantyDays,
+    });
+  };
+
+  const handleOpenEditInfo = () => {
+    if (!os) return;
+    setEditBrand((os as any).deviceBrand ?? "");
+    setEditModel((os as any).deviceModel ?? "");
+    setEditType((os as any).deviceType ?? "");
+    setEditImei((os as any).deviceImei ?? "");
+    setEditSerialNumber((os as any).deviceSerialNumber ?? "");
+    setEditColor((os as any).deviceColor ?? "");
+    setEditDeviceNotes((os as any).deviceNotes ?? "");
+    setEditDefect(os.reportedDefect ?? "");
+    setEditPhysical(os.physicalCondition ?? "");
+    setEditAccessories(os.accessories ?? "");
+    setEditInternalNotes(os.internalNotes ?? "");
+    setEditPassword(os.devicePassword ?? "");
+    setEditInfoOpen(true);
+  };
+
+  const handleSaveEditInfo = () => {
+    const trimmedDefect = editDefect.trim();
+    if (trimmedDefect.length < 3) {
+      toast.error("Informe o defeito relatado com pelo menos 3 caracteres.");
+      return;
+    }
+
+    updateInfo.mutate({
+      id: osId,
+      brand: editBrand,
+      model: editModel,
+      type: editType,
+      imei: editImei,
+      serialNumber: editSerialNumber,
+      color: editColor,
+      deviceNotes: editDeviceNotes,
+      reportedDefect: trimmedDefect,
+      physicalCondition: editPhysical,
+      accessories: editAccessories,
+      internalNotes: editInternalNotes,
+      devicePassword: editPassword,
     });
   };
 
@@ -465,20 +529,30 @@ export default function ServiceOrderDetail() {
                   <CardTitle className="text-sm font-semibold flex items-center gap-2">
                     <FileText className="h-4 w-4 text-muted-foreground" /> Informações da OS
                   </CardTitle>
-                  {os.status !== "finalizado" && os.status !== "cancelado" && (
+                  <div className="flex items-center gap-2">
                     <Button
                       size="sm"
-                      className="h-7 text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
-                      onClick={() => {
-                        setNewStatus("finalizado");
-                        setCloseWarrantyDays(os.warrantyDays ?? 90);
-                        setCloseNotes("");
-                        setCloseModal(true);
-                      }}
+                      variant="outline"
+                      className="h-7 text-xs"
+                      onClick={handleOpenEditInfo}
                     >
-                      <Shield className="h-3 w-3 mr-1" /> Encerrar OS
+                      <Pencil className="h-3 w-3 mr-1" /> Editar
                     </Button>
-                  )}
+                    {os.status !== "finalizado" && os.status !== "cancelado" && (
+                      <Button
+                        size="sm"
+                        className="h-7 text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
+                        onClick={() => {
+                          setNewStatus("finalizado");
+                          setCloseWarrantyDays(os.warrantyDays ?? 90);
+                          setCloseNotes("");
+                          setCloseModal(true);
+                        }}
+                      >
+                        <Shield className="h-3 w-3 mr-1" /> Encerrar OS
+                      </Button>
+                    )}
+                  </div>
                 </div>
               </CardHeader>
               <CardContent className="space-y-3 text-sm">
@@ -505,6 +579,36 @@ export default function ServiceOrderDetail() {
                       {[(os as any).deviceBrand, (os as any).deviceModel].filter(Boolean).join(" ") || "Aparelho não informado"}
                     </p>
                   </div>
+                  {(os as any).deviceType && (
+                    <div>
+                      <p className="text-xs text-muted-foreground">Tipo</p>
+                      <p>{(os as any).deviceType}</p>
+                    </div>
+                  )}
+                  {(os as any).deviceColor && (
+                    <div>
+                      <p className="text-xs text-muted-foreground">Cor</p>
+                      <p>{(os as any).deviceColor}</p>
+                    </div>
+                  )}
+                  {(os as any).deviceImei && (
+                    <div>
+                      <p className="text-xs text-muted-foreground">IMEI</p>
+                      <p>{(os as any).deviceImei}</p>
+                    </div>
+                  )}
+                  {(os as any).deviceSerialNumber && (
+                    <div>
+                      <p className="text-xs text-muted-foreground">Nº de série</p>
+                      <p>{(os as any).deviceSerialNumber}</p>
+                    </div>
+                  )}
+                  {(os as any).deviceNotes && (
+                    <div className="col-span-2">
+                      <p className="text-xs text-muted-foreground">Observações do aparelho</p>
+                      <p>{(os as any).deviceNotes}</p>
+                    </div>
+                  )}
                   <div className="col-span-2">
                     <p className="text-xs text-muted-foreground">Defeito relatado</p>
                     <p className="font-medium">{os.reportedDefect}</p>
@@ -1011,6 +1115,114 @@ export default function ServiceOrderDetail() {
           </div>
         </div>
       </div>
+      {/* Modal de Edição de Informações da OS */}
+      <Dialog open={editInfoOpen} onOpenChange={setEditInfoOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Pencil className="h-5 w-5 text-primary" />
+              Editar Informações da OS
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-5">
+            <div className="rounded-lg border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+              Use esta edição para corrigir erros de digitação nos dados registrados na abertura da OS. As alterações afetam o aparelho vinculado e as informações exibidas na OS.
+            </div>
+
+            <div className="space-y-3">
+              <h3 className="text-sm font-semibold flex items-center gap-2">
+                <Smartphone className="h-4 w-4 text-muted-foreground" /> Dados do aparelho
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="edit-brand">Marca</Label>
+                  <Input id="edit-brand" value={editBrand} onChange={(e) => setEditBrand(e.target.value)} placeholder="Ex: Samsung" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="edit-model">Modelo</Label>
+                  <Input id="edit-model" value={editModel} onChange={(e) => setEditModel(e.target.value)} placeholder="Ex: Galaxy A12" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="edit-type">Tipo</Label>
+                  <Input id="edit-type" value={editType} onChange={(e) => setEditType(e.target.value)} placeholder="Ex: Celular, notebook, tablet" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="edit-color">Cor</Label>
+                  <Input id="edit-color" value={editColor} onChange={(e) => setEditColor(e.target.value)} placeholder="Ex: Preto" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="edit-imei">IMEI</Label>
+                  <Input id="edit-imei" value={editImei} onChange={(e) => setEditImei(e.target.value)} placeholder="IMEI do aparelho" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="edit-serial">Nº de série</Label>
+                  <Input id="edit-serial" value={editSerialNumber} onChange={(e) => setEditSerialNumber(e.target.value)} placeholder="Número de série" />
+                </div>
+                <div className="md:col-span-2 space-y-1.5">
+                  <Label htmlFor="edit-device-notes">Observações do aparelho</Label>
+                  <Textarea
+                    id="edit-device-notes"
+                    value={editDeviceNotes}
+                    onChange={(e) => setEditDeviceNotes(e.target.value)}
+                    rows={2}
+                    placeholder="Detalhes específicos do aparelho"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <Separator />
+
+            <div className="space-y-3">
+              <h3 className="text-sm font-semibold flex items-center gap-2">
+                <FileText className="h-4 w-4 text-muted-foreground" /> Dados da OS
+              </h3>
+              <div className="space-y-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="edit-defect">Defeito relatado <span className="text-destructive">*</span></Label>
+                  <Textarea
+                    id="edit-defect"
+                    value={editDefect}
+                    onChange={(e) => setEditDefect(e.target.value)}
+                    rows={3}
+                    placeholder="Descreva o defeito informado pelo cliente"
+                  />
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="edit-physical">Estado físico</Label>
+                    <Textarea id="edit-physical" value={editPhysical} onChange={(e) => setEditPhysical(e.target.value)} rows={2} placeholder="Ex: Tela trincada, tampa riscada" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="edit-accessories">Acessórios</Label>
+                    <Textarea id="edit-accessories" value={editAccessories} onChange={(e) => setEditAccessories(e.target.value)} rows={2} placeholder="Ex: Carregador, capa, chip" />
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="edit-password">Senha do aparelho</Label>
+                    <Input id="edit-password" value={editPassword} onChange={(e) => setEditPassword(e.target.value)} placeholder="Senha, padrão ou PIN informado" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="edit-internal-notes">Observações internas</Label>
+                    <Textarea id="edit-internal-notes" value={editInternalNotes} onChange={(e) => setEditInternalNotes(e.target.value)} rows={2} placeholder="Observações internas da assistência" />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 pt-2">
+              <Button variant="outline" onClick={() => setEditInfoOpen(false)} disabled={updateInfo.isPending}>
+                Cancelar
+              </Button>
+              <Button onClick={handleSaveEditInfo} disabled={updateInfo.isPending}>
+                {updateInfo.isPending ? "Salvando..." : "Salvar alterações"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Modal de Encerramento de OS */}
       <Dialog open={closeModal} onOpenChange={(open) => { if (!open) { setCloseModal(false); setNewStatus(""); } }}>
         <DialogContent className="max-w-lg p-0 overflow-hidden">

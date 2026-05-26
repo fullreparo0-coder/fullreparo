@@ -792,6 +792,106 @@ export const serviceOrdersRouter = router({
       return { success: true };
     }),
 
+  // Atualizar informações principais da OS e do aparelho vinculado
+  updateInfo: tenantProcedure
+    .input(
+      z.object({
+        id: z.number(),
+        brand: z.string().optional(),
+        model: z.string().optional(),
+        type: z.string().optional().nullable(),
+        imei: z.string().optional().nullable(),
+        serialNumber: z.string().optional().nullable(),
+        color: z.string().optional().nullable(),
+        deviceNotes: z.string().optional().nullable(),
+        reportedDefect: z.string().min(3),
+        physicalCondition: z.string().optional().nullable(),
+        accessories: z.string().optional().nullable(),
+        internalNotes: z.string().optional().nullable(),
+        devicePassword: z.string().optional().nullable(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+
+      const [os] = await db
+        .select({
+          id: serviceOrders.id,
+          tenantId: serviceOrders.tenantId,
+          customerId: serviceOrders.customerId,
+          deviceId: serviceOrders.deviceId,
+        })
+        .from(serviceOrders)
+        .where(and(eq(serviceOrders.id, input.id), eq(serviceOrders.tenantId, ctx.user.tenantId!)))
+        .limit(1);
+
+      if (!os) throw new TRPCError({ code: "NOT_FOUND", message: "OS não encontrada" });
+
+      const normalized = (value: string | null | undefined) => {
+        const trimmed = value?.trim();
+        return trimmed ? trimmed : null;
+      };
+
+      const brand = normalized(input.brand);
+      const model = normalized(input.model);
+      const type = normalized(input.type);
+      const imei = normalized(input.imei);
+      const serialNumber = normalized(input.serialNumber);
+      const color = normalized(input.color);
+      const deviceNotes = normalized(input.deviceNotes);
+
+      let resolvedDeviceId = os.deviceId;
+      const hasDeviceData = Boolean(brand || model || type || imei || serialNumber || color || deviceNotes);
+
+      if (resolvedDeviceId) {
+        await db
+          .update(devices)
+          .set({
+            brand: brand ?? "Não informada",
+            model: model ?? "Não informado",
+            type,
+            imei,
+            serialNumber,
+            color,
+            notes: deviceNotes,
+          })
+          .where(and(
+            eq(devices.id, resolvedDeviceId),
+            eq(devices.tenantId, ctx.user.tenantId!),
+            eq(devices.customerId, os.customerId)
+          ));
+      } else if (hasDeviceData) {
+        const insertResult = await db.insert(devices).values({
+          tenantId: ctx.user.tenantId!,
+          customerId: os.customerId,
+          brand: brand ?? type ?? "Não informada",
+          model: model ?? "Não informado",
+          type,
+          imei,
+          serialNumber,
+          color,
+          notes: deviceNotes,
+        } as any);
+
+        resolvedDeviceId = Number((insertResult as any).insertId ?? (insertResult as any)[0]?.insertId ?? 0) || null;
+      }
+
+      await db
+        .update(serviceOrders)
+        .set({
+          deviceId: resolvedDeviceId ?? undefined,
+          reportedDefect: input.reportedDefect.trim(),
+          physicalCondition: normalized(input.physicalCondition),
+          accessories: normalized(input.accessories),
+          internalNotes: normalized(input.internalNotes),
+          devicePassword: normalized(input.devicePassword),
+        })
+        .where(and(eq(serviceOrders.id, input.id), eq(serviceOrders.tenantId, ctx.user.tenantId!)));
+
+      return { success: true };
+    }),
+
   // Upload de foto
   addPhoto: tenantProcedure
     .input(
