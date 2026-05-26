@@ -42,6 +42,12 @@ export default function ServiceOrderDetail() {
   const [budgetOpen, setBudgetOpen] = useState(false);
   const [budgetItems, setBudgetItems] = useState<{ description: string; quantity: number; unitPrice: number; type: "service" | "part" }[]>([{ description: "", quantity: 1, unitPrice: 0, type: "service" }]);
   const [laborCost, setLaborCost] = useState(0);
+  const [editBudgetOpen, setEditBudgetOpen] = useState(false);
+  const [editingBudgetId, setEditingBudgetId] = useState<number | null>(null);
+  const [editBudgetDescription, setEditBudgetDescription] = useState("");
+  const [editBudgetLaborCost, setEditBudgetLaborCost] = useState(0);
+  const [editBudgetValidDays, setEditBudgetValidDays] = useState("");
+  const [editBudgetItems, setEditBudgetItems] = useState<{ description: string; quantity: number; unitPrice: number; type: "service" | "part" }[]>([]);
   const [printMode, setPrintMode] = useState<PrintMode | null>(null);
   const [printWarranty, setPrintWarranty] = useState(false);
   // Modal de agendamento de coleta
@@ -176,6 +182,17 @@ export default function ServiceOrderDetail() {
     onError: () => toast.error("Erro ao criar orçamento"),
   });
 
+  const updateBudget = trpc.budgets.update.useMutation({
+    onSuccess: () => {
+      toast.success("Orçamento atualizado");
+      setEditBudgetOpen(false);
+      setEditingBudgetId(null);
+      utils.budgets.getByOs.invalidate({ serviceOrderId: osId });
+      utils.serviceOrders.getById.invalidate({ id: osId });
+    },
+    onError: (error) => toast.error(error.message || "Erro ao editar orçamento"),
+  });
+
   const registerPayment = trpc.payments.register.useMutation({
     onSuccess: () => {
       toast.success("Pagamento registrado");
@@ -293,6 +310,48 @@ export default function ServiceOrderDetail() {
       serviceOrderId: osId,
       laborCost,
       items: budgetItems.filter((i) => i.description),
+    });
+  };
+
+  const handleOpenEditBudget = (budget: any) => {
+    if (budget.status !== "pending") {
+      toast.error("Somente orçamentos pendentes podem ser editados.");
+      return;
+    }
+
+    const currentItems = Array.isArray(budget.items)
+      ? budget.items.map((item: any) => ({
+          description: item.description ?? "",
+          quantity: Number(item.quantity) || 1,
+          unitPrice: Number(item.unitPrice) || 0,
+          type: (item.type === "service" ? "service" : "part") as "service" | "part",
+        }))
+      : [];
+
+    setEditingBudgetId(Number(budget.id));
+    setEditBudgetDescription(budget.description ?? "");
+    setEditBudgetLaborCost(Number(budget.laborCost) || 0);
+    setEditBudgetItems(currentItems.length > 0 ? currentItems : []);
+    setEditBudgetValidDays("");
+    setEditBudgetOpen(true);
+  };
+
+  const handleBudgetUpdateSubmit = () => {
+    if (!editingBudgetId) return;
+    const validItems = editBudgetItems.filter((item) => item.description.trim().length > 0);
+    const total = editBudgetLaborCost + validItems.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
+
+    if (total <= 0) {
+      toast.error("Informe um valor maior que zero para o orçamento.");
+      return;
+    }
+
+    updateBudget.mutate({
+      budgetId: editingBudgetId,
+      description: editBudgetDescription.trim() || undefined,
+      laborCost: editBudgetLaborCost,
+      validDays: editBudgetValidDays ? Number(editBudgetValidDays) : undefined,
+      items: validItems,
     });
   };
 
@@ -1017,6 +1076,113 @@ export default function ServiceOrderDetail() {
                       </div>
                     </DialogContent>
                   </Dialog>
+                  <Dialog open={editBudgetOpen} onOpenChange={setEditBudgetOpen}>
+                    <DialogContent className="max-w-lg">
+                      <DialogHeader>
+                        <DialogTitle>Editar Orçamento</DialogTitle>
+                      </DialogHeader>
+                      <div className="space-y-4">
+                        <div>
+                          <Label>Descrição</Label>
+                          <Textarea
+                            className="mt-1.5 min-h-[70px]"
+                            placeholder="Resumo do orçamento para o cliente"
+                            value={editBudgetDescription}
+                            onChange={(e) => setEditBudgetDescription(e.target.value)}
+                          />
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div>
+                            <Label>Mão de obra (R$)</Label>
+                            <Input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              className="mt-1.5"
+                              value={editBudgetLaborCost}
+                              onChange={(e) => setEditBudgetLaborCost(Number(e.target.value))}
+                            />
+                          </div>
+                          <div>
+                            <Label>Nova validade em dias</Label>
+                            <Input
+                              type="number"
+                              min="1"
+                              className="mt-1.5"
+                              placeholder="Manter validade atual"
+                              value={editBudgetValidDays}
+                              onChange={(e) => setEditBudgetValidDays(e.target.value)}
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <Label className="mb-2 block">Itens / Peças</Label>
+                          {editBudgetItems.length === 0 && (
+                            <p className="text-xs text-muted-foreground mb-2">Nenhum item adicional. Use mão de obra para orçamento simples.</p>
+                          )}
+                          {editBudgetItems.map((item, idx) => (
+                            <div key={idx} className="grid grid-cols-[2fr_1fr_1fr_auto] gap-2 mb-2">
+                              <Input
+                                placeholder="Descrição"
+                                value={item.description}
+                                onChange={(e) => {
+                                  const updated = [...editBudgetItems];
+                                  updated[idx].description = e.target.value;
+                                  setEditBudgetItems(updated);
+                                }}
+                              />
+                              <Input
+                                type="number"
+                                min="1"
+                                placeholder="Qtd"
+                                value={item.quantity}
+                                onChange={(e) => {
+                                  const updated = [...editBudgetItems];
+                                  updated[idx].quantity = Number(e.target.value);
+                                  setEditBudgetItems(updated);
+                                }}
+                              />
+                              <Input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                placeholder="R$"
+                                value={item.unitPrice}
+                                onChange={(e) => {
+                                  const updated = [...editBudgetItems];
+                                  updated[idx].unitPrice = Number(e.target.value);
+                                  setEditBudgetItems(updated);
+                                }}
+                              />
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="px-2 text-muted-foreground hover:text-destructive"
+                                onClick={() => setEditBudgetItems(editBudgetItems.filter((_, itemIndex) => itemIndex !== idx))}
+                              >
+                                Remover
+                              </Button>
+                            </div>
+                          ))}
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setEditBudgetItems([...editBudgetItems, { description: "", quantity: 1, unitPrice: 0, type: "part" as const }])}
+                          >
+                            <Plus className="h-3.5 w-3.5 mr-1" /> Adicionar item
+                          </Button>
+                        </div>
+                        <div className="flex justify-between font-semibold text-sm border-t pt-3">
+                          <span>Total corrigido:</span>
+                          <span>R$ {(editBudgetLaborCost + editBudgetItems.reduce((s, i) => s + i.unitPrice * i.quantity, 0)).toFixed(2)}</span>
+                        </div>
+                        <Button className="w-full" onClick={handleBudgetUpdateSubmit} disabled={updateBudget.isPending}>
+                          {updateBudget.isPending ? "Salvando..." : "Salvar alteração do orçamento"}
+                        </Button>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
                 </div>
               </CardHeader>
               <CardContent>
@@ -1024,11 +1190,26 @@ export default function ServiceOrderDetail() {
                   <div className="space-y-2">
                     {budgets.map((b) => (
                       <div key={b.id} className="p-3 rounded-lg bg-muted/50 text-sm">
-                        <div className="flex justify-between items-center mb-1">
-                          <span className="font-semibold">R$ {Number(b.totalCost).toFixed(2)}</span>
-                          <Badge variant={b.status === "approved" ? "default" : b.status === "rejected" ? "destructive" : "secondary"}>
-                            {b.status === "approved" ? "Aprovado" : b.status === "rejected" ? "Recusado" : "Pendente"}
-                          </Badge>
+                        <div className="flex justify-between items-start gap-2 mb-1">
+                          <div>
+                            <span className="font-semibold">R$ {Number(b.totalCost).toFixed(2)}</span>
+                            {b.description && <p className="text-xs text-muted-foreground mt-0.5">{b.description}</p>}
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <Badge variant={b.status === "approved" ? "default" : b.status === "rejected" ? "destructive" : "secondary"}>
+                              {b.status === "approved" ? "Aprovado" : b.status === "rejected" ? "Recusado" : "Pendente"}
+                            </Badge>
+                            {b.status === "pending" && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-7 px-2 text-xs"
+                                onClick={() => handleOpenEditBudget(b)}
+                              >
+                                <Pencil className="h-3 w-3 mr-1" /> Editar
+                              </Button>
+                            )}
+                          </div>
                         </div>
                         {b.validUntil && (
                           <p className="text-xs text-muted-foreground">

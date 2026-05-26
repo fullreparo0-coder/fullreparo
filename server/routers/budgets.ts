@@ -106,6 +106,92 @@ export const budgetsRouter = router({
       return { id: budgetId, totalCost, success: true };
     }),
 
+  update: tenantProcedure
+    .input(
+      z.object({
+        budgetId: z.number().int().positive(),
+        description: z.string().optional(),
+        laborCost: z.number().min(0).default(0),
+        validDays: z.number().int().positive().optional(),
+        items: z.array(
+          z.object({
+            description: z.string().min(1),
+            quantity: z.number().int().positive().default(1),
+            unitPrice: z.number().min(0),
+            type: z.enum(["service", "part"]).default("part"),
+          })
+        ).default([]),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+
+      const [currentBudget] = await db
+        .select()
+        .from(budgets)
+        .where(and(eq(budgets.id, input.budgetId), eq(budgets.tenantId, ctx.user.tenantId!)))
+        .limit(1);
+
+      if (!currentBudget) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Orçamento não encontrado" });
+      }
+
+      if (currentBudget.status !== "pending") {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Somente orçamentos pendentes podem ser editados" });
+      }
+
+      const partsCost = input.items.reduce((sum, i) => sum + i.unitPrice * i.quantity, 0);
+      const totalCost = input.laborCost + partsCost;
+      const updateData: Partial<typeof budgets.$inferInsert> = {
+        description: input.description,
+        laborCost: totalCost > 0 ? String(input.laborCost) : "0.00",
+        partsCost: String(partsCost),
+        totalCost: String(totalCost),
+      };
+
+      if (typeof input.validDays === "number") {
+        const validUntil = new Date();
+        validUntil.setDate(validUntil.getDate() + input.validDays);
+        updateData.validUntil = validUntil;
+      }
+
+      await db
+        .update(budgets)
+        .set(updateData)
+        .where(and(eq(budgets.id, input.budgetId), eq(budgets.tenantId, ctx.user.tenantId!)));
+
+      await db
+        .delete(budgetItems)
+        .where(and(eq(budgetItems.budgetId, input.budgetId), eq(budgetItems.tenantId, ctx.user.tenantId!)));
+
+      const normalizedItems = input.items.filter((item) => item.description.trim().length > 0);
+      if (normalizedItems.length > 0) {
+        await db.insert(budgetItems).values(
+          normalizedItems.map((item) => ({
+            tenantId: ctx.user.tenantId!,
+            budgetId: input.budgetId,
+            description: item.description.trim(),
+            quantity: item.quantity,
+            unitPrice: String(item.unitPrice),
+            totalPrice: String(item.unitPrice * item.quantity),
+            type: item.type,
+          }))
+        );
+      }
+
+      await db.insert(osStatusHistory).values({
+        tenantId: ctx.user.tenantId!,
+        serviceOrderId: currentBudget.serviceOrderId,
+        status: "aguardando_aprovacao",
+        notes: `Orçamento editado antes da aprovação: R$ ${totalCost.toFixed(2)}`,
+        changedById: ctx.user.id,
+        changedByName: ctx.user.name ?? "Atendente",
+      });
+
+      return { success: true, totalCost };
+    }),
+
   // Aprovar/recusar orçamento pelo cliente autenticado no portal público — ISOLADO por tenant
   // Segurança:
   //   1. tenantId resolvido pelo middleware de host (não pode ser forjado)
