@@ -110,14 +110,14 @@ export const budgetsRouter = router({
     .input(
       z.object({
         budgetId: z.number().int().positive(),
-        description: z.string().optional(),
-        laborCost: z.number().min(0).default(0),
+        description: z.string().nullable().optional(),
+        laborCost: z.number().finite().min(0).default(0),
         validDays: z.number().int().positive().optional(),
         items: z.array(
           z.object({
             description: z.string().min(1),
             quantity: z.number().int().positive().default(1),
-            unitPrice: z.number().min(0),
+            unitPrice: z.number().finite().min(0),
             type: z.enum(["service", "part"]).default("part"),
           })
         ).default([]),
@@ -141,14 +141,24 @@ export const budgetsRouter = router({
         throw new TRPCError({ code: "BAD_REQUEST", message: "Somente orçamentos pendentes podem ser editados" });
       }
 
-      const partsCost = input.items.reduce((sum, i) => sum + i.unitPrice * i.quantity, 0);
-      const totalCost = input.laborCost + partsCost;
+      const normalizedItems = input.items
+        .map((item) => ({
+          ...item,
+          description: item.description.trim(),
+        }))
+        .filter((item) => item.description.length > 0);
+      const normalizedLaborCost = Number.isFinite(input.laborCost) ? input.laborCost : 0;
+      const partsCost = normalizedItems.reduce((sum, i) => sum + i.unitPrice * i.quantity, 0);
+      const totalCost = normalizedLaborCost + partsCost;
       const updateData: Partial<typeof budgets.$inferInsert> = {
-        description: input.description,
-        laborCost: totalCost > 0 ? String(input.laborCost) : "0.00",
+        laborCost: String(normalizedLaborCost),
         partsCost: String(partsCost),
         totalCost: String(totalCost),
       };
+
+      if (input.description !== undefined) {
+        updateData.description = input.description?.trim() || null;
+      }
 
       if (typeof input.validDays === "number") {
         const validUntil = new Date();
@@ -165,7 +175,6 @@ export const budgetsRouter = router({
         .delete(budgetItems)
         .where(and(eq(budgetItems.budgetId, input.budgetId), eq(budgetItems.tenantId, ctx.user.tenantId!)));
 
-      const normalizedItems = input.items.filter((item) => item.description.trim().length > 0);
       if (normalizedItems.length > 0) {
         await db.insert(budgetItems).values(
           normalizedItems.map((item) => ({

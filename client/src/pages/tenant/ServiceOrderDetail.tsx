@@ -348,10 +348,14 @@ export default function ServiceOrderDetail() {
 
     updateBudget.mutate({
       budgetId: editingBudgetId,
-      description: editBudgetDescription.trim() || undefined,
-      laborCost: editBudgetLaborCost,
+      description: editBudgetDescription.trim() || null,
+      laborCost: Number.isFinite(editBudgetLaborCost) ? editBudgetLaborCost : 0,
       validDays: editBudgetValidDays ? Number(editBudgetValidDays) : undefined,
-      items: validItems,
+      items: validItems.map((item) => ({
+        ...item,
+        quantity: Number.isFinite(item.quantity) && item.quantity > 0 ? item.quantity : 1,
+        unitPrice: Number.isFinite(item.unitPrice) && item.unitPrice >= 0 ? item.unitPrice : 0,
+      })),
     });
   };
 
