@@ -511,7 +511,7 @@ export function PrintSheetArgox({ os, tenant }: Omit<PrintSheetProps, "mode">) {
         <div className="print-argox-right">
           <div className="print-argox-status">{truncateText(statusLabel, 18)}</div>
           <div className="print-argox-qr-block">
-            <QRCodeSVG value={internalOsUrl} size={64} level="M" />
+            <QRCodeSVG value={internalOsUrl} size={70} level="M" />
           </div>
         </div>
       </div>
