@@ -393,7 +393,7 @@ export default function ServiceOrderDetail() {
                 <Printer className="h-3.5 w-3.5 mr-2" /> Bobina 58mm legado
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => handlePrint("argox8040")}>
-                <QrCode className="h-3.5 w-3.5 mr-2" /> Etiqueta Argox 80×40mm
+                <QrCode className="h-3.5 w-3.5 mr-2" /> Etiqueta Argox 78×38mm
               </DropdownMenuItem>
               {warranty && (
                 <>
