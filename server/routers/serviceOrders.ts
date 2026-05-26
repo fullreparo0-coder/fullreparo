@@ -286,9 +286,46 @@ export const serviceOrdersRouter = router({
       }
       const osNumber = await generateOsNumber(ctx.user.tenantId!);
       const publicToken = nanoid(32);
-      const { checklist, brand, model, imei, serialNumber, deviceType, ...osData } = input;
+      const { checklist, brand, model, imei, serialNumber, deviceType, deviceId, ...osData } = input;
+
+      let resolvedDeviceId = deviceId ?? null;
+      if (resolvedDeviceId) {
+        const [existingDevice] = await db
+          .select({ id: devices.id })
+          .from(devices)
+          .where(and(
+            eq(devices.id, resolvedDeviceId),
+            eq(devices.tenantId, ctx.user.tenantId!),
+            eq(devices.customerId, input.customerId)
+          ))
+          .limit(1);
+        if (!existingDevice) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "Aparelho selecionado não encontrado para este cliente." });
+        }
+      } else {
+        const deviceBrand = brand?.trim();
+        const deviceModel = model?.trim();
+        const normalizedType = deviceType?.trim() || "Smartphone";
+        const normalizedImei = imei?.trim() || undefined;
+        const normalizedSerialNumber = serialNumber?.trim() || undefined;
+
+        if (deviceBrand || deviceModel || normalizedImei || normalizedSerialNumber) {
+          const deviceResult = await db.insert(devices).values({
+            tenantId: ctx.user.tenantId!,
+            customerId: input.customerId,
+            brand: deviceBrand || normalizedType,
+            model: deviceModel || "Não informado",
+            type: normalizedType,
+            imei: normalizedImei,
+            serialNumber: normalizedSerialNumber,
+          });
+          resolvedDeviceId = Number((deviceResult as any)[0]?.insertId ?? (deviceResult as any).insertId);
+        }
+      }
+
       const result = await db.insert(serviceOrders).values({
         ...osData,
+        deviceId: resolvedDeviceId ?? undefined,
         tenantId: ctx.user.tenantId!,
         osNumber,
         publicToken,
