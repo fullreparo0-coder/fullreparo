@@ -491,6 +491,20 @@ export default function ServiceOrderDetail() {
                     <p className="text-xs text-muted-foreground">Abertura</p>
                     <p>{new Date(os.createdAt).toLocaleString("pt-BR")}</p>
                   </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Marca</p>
+                    <p className="font-semibold">{(os as any).deviceBrand || "Não informada"}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Modelo</p>
+                    <p className="font-semibold">{(os as any).deviceModel || "Não informado"}</p>
+                  </div>
+                  <div className="col-span-2">
+                    <p className="text-xs text-muted-foreground">Aparelho</p>
+                    <p className="font-semibold text-foreground">
+                      {[(os as any).deviceBrand, (os as any).deviceModel].filter(Boolean).join(" ") || "Aparelho não informado"}
+                    </p>
+                  </div>
                   <div className="col-span-2">
                     <p className="text-xs text-muted-foreground">Defeito relatado</p>
                     <p className="font-medium">{os.reportedDefect}</p>
