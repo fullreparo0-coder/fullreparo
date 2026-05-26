@@ -16,6 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { WhatsAppFAB } from "@/components/WhatsAppFAB";
 import { OsDetailSheet } from "@/components/OsDetailSheet";
+import { PushNotificationButton } from "@/components/PushNotificationButton";
 import { useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
 
@@ -676,7 +677,8 @@ export default function MinhaContaPortal() {
           </TabsContent>
 
           {/* ── Aba Perfil ──────────────────────────────────────────────────── */}
-          <TabsContent value="perfil" className="mt-4">
+          <TabsContent value="perfil" className="mt-4 space-y-4">
+            {tenant?.id && <PushNotificationButton target="customer" tenantId={tenant.id} variant="banner" />}
             <Card>
               <CardContent className="p-5 space-y-4">
                 <div className="flex items-center justify-between">

@@ -14,6 +14,7 @@ import { getTenantPortalUrl } from "../../shared/tenantUrl";
 import { sendTenantEmail, buildNewOsEmailHtml } from "../email";
 import { resolveCustomerPortalAccess } from "../_core/customerPortalAuth";
 import { assertTenantOperational, getTenantSubscriptionSnapshot } from "../_core/subscription";
+import { sendPushToCustomers, sendPushToTenantUsers } from "../_core/push";
 
 const tenantProcedure = protectedProcedure.use(({ ctx, next }) => {
   if (!ctx.user.tenantId) throw new TRPCError({ code: "FORBIDDEN" });
@@ -35,6 +36,16 @@ type SmartActionContext = {
 
 const FINAL_STATUSES = new Set(["finalizado", "cancelado", "entregue"]);
 const HIGH_TOUCH_STATUSES = new Set(["aguardando_aprovacao", "pronto", "aguardando_entrega", "aguardando_peca"]);
+const CUSTOMER_PUSH_STATUSES = new Set([
+  "aguardando_aprovacao",
+  "coleta_agendada",
+  "coletado",
+  "pronto",
+  "aguardando_entrega",
+  "saiu_para_entrega",
+  "entregue",
+  "finalizado",
+]);
 
 const SLA_LIMIT_HOURS: Record<string, number> = {
   solicitado: 4,
@@ -547,6 +558,12 @@ export const serviceOrdersRouter = router({
           text: `Nova OS ${osNumber} recebida pelo portal público.\nCliente: ${input.customerName} | ${normalizedPhone}\nAparelho: ${[deviceBrand, deviceModel, input.deviceType].filter(Boolean).join(" ")}\nDefeito: ${input.reportedDefect}\nVer no painel: ${panelUrl}`,
         }).catch(() => { /* e-mail não bloqueia a OS */ });
       }
+      sendPushToTenantUsers(input.tenantId, {
+        title: "Nova solicitação de coleta",
+        body: `${input.customerName} solicitou coleta para ${[deviceBrand, deviceModel].filter(Boolean).join(" ")}.`,
+        url: "/painel/os",
+        tag: `pickup-request-${osId}`,
+      }).catch((err) => console.warn("[push-pwa] Falha ao enviar push de nova coleta:", err));
       return { id: osId, osNumber, publicToken, success: true };
     }),
 
@@ -639,6 +656,15 @@ export const serviceOrdersRouter = router({
               notes: input.notes,
             },
           });
+          if (os.status !== input.status && CUSTOMER_PUSH_STATUSES.has(input.status)) {
+            const trackingUrl = os.publicToken ? `${trackingBaseUrl.replace(/\/$/, "")}/rastrear/${os.publicToken}` : "/minha-conta";
+            sendPushToCustomers(ctx.user.tenantId!, [customerRow.id], {
+              title: `Atualização da OS ${os.osNumber ?? `#${input.id}`}`,
+              body: input.notes?.trim() || whatsappNotification?.message || `Status atualizado para ${input.status.replace(/_/g, " ")}.`,
+              url: trackingUrl,
+              tag: `os-status-${input.id}-${input.status}`,
+            }).catch((err) => console.warn("[push-pwa] Falha ao enviar push de status ao cliente:", err));
+          }
         }
       } catch (err) {
         console.warn("[updateStatus] Erro ao preparar notificação:", err);

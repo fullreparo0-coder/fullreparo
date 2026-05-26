@@ -8,6 +8,7 @@ import { notifyOwner } from "../_core/notification";
 import { triggerAutoCommunication } from "../_core/autoCommunication";
 import { triggerWhatsappTransactional } from "../_core/whatsapp";
 import { resolveCustomerPortalAccess } from "../_core/customerPortalAuth";
+import { sendPushToTenantUsers } from "../_core/push";
 
 const tenantProcedure = protectedProcedure.use(({ ctx, next }) => {
   if (!ctx.user.tenantId) throw new TRPCError({ code: "FORBIDDEN" });
@@ -199,6 +200,12 @@ export const budgetsRouter = router({
             `**Data:** ${now.toLocaleString("pt-BR")}\n\n` +
             `O reparo pode ser iniciado.`,
         }).catch((err) => console.warn("[Notification] Falha ao notificar aprovação:", err));
+        sendPushToTenantUsers(access.tenantId, {
+          title: "Orçamento aprovado",
+          body: `${clientName} aprovou ${osRef}. Valor: ${totalFormatted}.`,
+          url: "/painel/os",
+          tag: `budget-approved-${os.id}`,
+        }).catch((err) => console.warn("[push-pwa] Falha ao enviar push de aprovação:", err));
       } else {
         await db
           .update(budgets)
@@ -232,6 +239,12 @@ export const budgetsRouter = router({
             `**Data:** ${now.toLocaleString("pt-BR")}\n\n` +
             `Entre em contato com o cliente para negociar.`,
         }).catch((err) => console.warn("[Notification] Falha ao notificar recusa:", err));
+        sendPushToTenantUsers(access.tenantId, {
+          title: "Orçamento recusado",
+          body: `${clientName} recusou ${osRef}. Motivo: ${input.rejectionReason?.trim() || "não informado"}.`,
+          url: "/painel/os",
+          tag: `budget-rejected-${os.id}`,
+        }).catch((err) => console.warn("[push-pwa] Falha ao enviar push de recusa:", err));
       }
 
       return { success: true, action: input.action };
@@ -303,6 +316,12 @@ export const budgetsRouter = router({
             `**Data:** ${now.toLocaleString("pt-BR")}\n\n` +
             `O reparo pode ser iniciado.`,
         }).catch((err) => console.warn("[Notification] Falha ao notificar aprovação pública:", err));
+        sendPushToTenantUsers(os[0].tenantId, {
+          title: "Orçamento aprovado",
+          body: `${osRef} foi aprovado pelo cliente. Valor: ${totalFormatted}.`,
+          url: "/painel/os",
+          tag: `budget-approved-${os[0].id}`,
+        }).catch((err) => console.warn("[push-pwa] Falha ao enviar push de aprovação pública:", err));
       } else {
         await db
           .update(budgets)
@@ -336,6 +355,12 @@ export const budgetsRouter = router({
             `**Data:** ${now.toLocaleString("pt-BR")}\n\n` +
             `Entre em contato com o cliente para negociar.`,
         }).catch((err) => console.warn("[Notification] Falha ao notificar recusa pública:", err));
+        sendPushToTenantUsers(os[0].tenantId, {
+          title: "Orçamento recusado",
+          body: `${osRef} foi recusado pelo cliente. Motivo: ${input.rejectionReason?.trim() || "não informado"}.`,
+          url: "/painel/os",
+          tag: `budget-rejected-${os[0].id}`,
+        }).catch((err) => console.warn("[push-pwa] Falha ao enviar push de recusa pública:", err));
       }
       return { success: true };
     }),

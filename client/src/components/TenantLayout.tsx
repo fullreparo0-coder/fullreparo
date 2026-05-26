@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { PwaInstallButton } from "@/components/PwaInstallButton";
+import { PushNotificationButton } from "@/components/PushNotificationButton";
 
 interface NavItem {
   href: string;
@@ -213,6 +214,7 @@ export function TenantLayout({ children, title }: TenantLayoutProps) {
       {/* User */}
       <div className="border-t border-sidebar-border p-3 space-y-2">
         <PwaInstallButton variant="sidebar" />
+        {user?.tenantId && <PushNotificationButton target="tenant_user" variant="sidebar" />}
         <div className="flex items-center gap-2.5 p-2 rounded-lg hover:bg-sidebar-accent transition-colors">
           <Avatar className="h-7 w-7">
             <AvatarFallback className="bg-sidebar-primary text-sidebar-primary-foreground text-xs font-bold">

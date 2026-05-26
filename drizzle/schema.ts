@@ -399,6 +399,24 @@ export const osNotifications = mysqlTable("os_notifications", {
   sentAt: timestamp("sentAt").defaultNow().notNull(),
 });
 
+// ─── PUSH PWA SUBSCRIPTIONS (assinaturas Web Push por tenant/cliente) ─────────
+export const pushSubscriptions = mysqlTable("push_subscriptions", {
+  id: int("id").autoincrement().primaryKey(),
+  tenantId: int("tenantId").notNull(),
+  targetType: mysqlEnum("targetType", ["tenant_user", "customer"]).notNull(),
+  userId: int("userId"),
+  customerId: int("customerId"),
+  endpoint: text("endpoint").notNull(),
+  endpointHash: varchar("endpointHash", { length: 64 }).notNull().unique(),
+  p256dh: text("p256dh").notNull(),
+  auth: text("auth").notNull(),
+  userAgent: text("userAgent"),
+  lastUsedAt: timestamp("lastUsedAt"),
+  revokedAt: timestamp("revokedAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
 // ─── WHATSAPP META CLOUD API (configuração isolada por tenant) ────────────────
 export const whatsappIntegrations = mysqlTable("whatsapp_integrations", {
   id: int("id").autoincrement().primaryKey(),

@@ -1,13 +1,45 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { getDb, getPickupsByDeliverer, getPendingPickups } from "../db";
-import { pickups, serviceOrders, osStatusHistory } from "../../drizzle/schema";
+import { pickups, serviceOrders, osStatusHistory, customers, tenants } from "../../drizzle/schema";
 import { protectedProcedure, publicProcedure, router } from "../_core/trpc";
 import { and, eq } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { storagePut } from "../storage";
 import { notifyTenantStatusChange } from "../_core/statusNotification";
 import { resolveCustomerPortalAccess } from "../_core/customerPortalAuth";
+import { sendPushToCustomers } from "../_core/push";
+import { getTenantPortalUrl } from "../../shared/tenantUrl";
+
+async function sendPickupCustomerPush(db: NonNullable<Awaited<ReturnType<typeof getDb>>>, params: {
+  tenantId: number;
+  serviceOrderId: number;
+  status: string;
+  title: string;
+  body: string;
+}) {
+  const [os] = await db
+    .select({ customerId: serviceOrders.customerId, osNumber: serviceOrders.osNumber, publicToken: serviceOrders.publicToken })
+    .from(serviceOrders)
+    .where(and(eq(serviceOrders.id, params.serviceOrderId), eq(serviceOrders.tenantId, params.tenantId)))
+    .limit(1);
+  if (!os?.customerId) return;
+
+  const [tenant] = await db
+    .select({ slug: tenants.slug, customDomain: tenants.customDomain })
+    .from(tenants)
+    .where(eq(tenants.id, params.tenantId))
+    .limit(1);
+  const baseUrl = tenant ? getTenantPortalUrl(tenant.slug, tenant.customDomain ?? null) : "";
+  const url = os.publicToken ? `${baseUrl.replace(/\/$/, "")}/rastrear/${os.publicToken}` : "/minha-conta";
+
+  sendPushToCustomers(params.tenantId, [os.customerId], {
+    title: params.title,
+    body: params.body,
+    url,
+    tag: `pickup-status-${params.serviceOrderId}-${params.status}`,
+  }).catch((err) => console.warn("[push-pwa] Falha ao enviar push de coleta ao cliente:", err));
+}
 
 const tenantProcedure = protectedProcedure.use(({ ctx, next }) => {
   if (!ctx.user.tenantId) throw new TRPCError({ code: "FORBIDDEN" });
@@ -96,6 +128,15 @@ export const pickupsRouter = router({
         changedById: ctx.user.id,
         changedByName: ctx.user.name ?? "Atendente",
       });
+      if (input.type === "coleta") {
+        sendPickupCustomerPush(db, {
+          tenantId: ctx.user.tenantId!,
+          serviceOrderId: input.serviceOrderId,
+          status: newStatus,
+          title: "Coleta agendada",
+          body: input.scheduledAt ? `Sua coleta foi agendada para ${new Date(input.scheduledAt).toLocaleString("pt-BR")}.` : "Sua coleta foi agendada pela assistência.",
+        }).catch((err) => console.warn("[pickups.create] Falha ao preparar push ao cliente:", err));
+      }
       // Notifica o dono do tenant sobre agendamento — fire-and-forget
       try {
         const { tenants: tenantsTable } = await import("../../drizzle/schema");
@@ -171,6 +212,13 @@ export const pickupsRouter = router({
         changedById: ctx.user.id,
         changedByName: ctx.user.name ?? "Entregador",
       });
+      sendPickupCustomerPush(db, {
+        tenantId: ctx.user.tenantId!,
+        serviceOrderId: pickup[0].serviceOrderId,
+        status: newStatus,
+        title: pickup[0].type === "coleta" ? "Aparelho coletado" : "Aparelho entregue",
+        body: pickup[0].type === "coleta" ? "Seu aparelho foi coletado e seguirá para atendimento." : "A entrega do seu aparelho foi confirmada.",
+      }).catch((err) => console.warn("[pickups.complete] Falha ao preparar push ao cliente:", err));
       // Notifica o dono do tenant sobre confirmação de coleta/entrega — fire-and-forget
       try {
         const { tenants: tenantsTable } = await import("../../drizzle/schema");

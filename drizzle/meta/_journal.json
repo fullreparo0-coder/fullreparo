@@ -176,6 +176,13 @@
       "when": 1779607200000,
       "tag": "0025_uber_direct_logistics",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "5",
+      "when": 1779868800000,
+      "tag": "0026_push_pwa_subscriptions",
+      "breakpoints": true
     }
   ]
 }
