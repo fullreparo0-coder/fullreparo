@@ -347,9 +347,8 @@ export default function ServiceOrderNew() {
 
   const completeDocumentNotFoundMessage =
     isIdentifyCompleteDocument && !identifyDocumentError
-      ? `${identifyDocumentTypeLabel} inválido ou não cadastrado. Confira os dígitos antes de continuar.`
+      ? `${identifyDocumentTypeLabel} não cadastrado. Confira os dígitos ou continue com preenchimento manual.`
       : null;
-  const shouldBlockDocumentContinuation = !!identifyDocumentError || !!completeDocumentNotFoundMessage;
 
   const quickDocumentError = useMemo(
     () => getDocumentValidationMessage(quickForm.document),
@@ -501,6 +500,8 @@ export default function ServiceOrderNew() {
 
   // ── Pular identificação ───────────────────────────────────────────────────
   const handleSkipIdentify = () => {
+    setFoundCustomer(null);
+    setSearchState("idle");
     setStep("customer");
   };
 
@@ -843,8 +844,17 @@ export default function ServiceOrderNew() {
                     <span className="text-sm font-medium text-red-800">CPF/CNPJ inválido</span>
                   </div>
                   <p className="text-sm text-red-700">
-                    {identifyDocumentError} Corrija o documento antes de buscar ou continuar o atendimento.
+                    {identifyDocumentError} Você pode corrigir para buscar um cadastro existente ou seguir sem CPF/CNPJ e preencher os dados manualmente.
                   </p>
+                  <Button
+                    type="button"
+                    className="w-full"
+                    variant="outline"
+                    onClick={handleSkipIdentify}
+                  >
+                    Preencher cliente manualmente sem CPF/CNPJ
+                    <ChevronRight className="h-4 w-4 ml-1" />
+                  </Button>
                 </div>
               )}
 
@@ -854,11 +864,20 @@ export default function ServiceOrderNew() {
                   <div className="rounded-lg border border-red-200 bg-red-50 p-4 space-y-3">
                     <div className="flex items-center gap-2">
                       <AlertCircle className="h-4 w-4 text-red-600 shrink-0" />
-                      <span className="text-sm font-medium text-red-800">{identifyDocumentTypeLabel} inválido ou não cadastrado</span>
+                      <span className="text-sm font-medium text-red-800">{identifyDocumentTypeLabel} não cadastrado</span>
                     </div>
                     <p className="text-sm text-red-700">
-                      {completeDocumentNotFoundMessage} O atendente deve redigitar o documento ou confirmar os dados com o cliente.
+                      {completeDocumentNotFoundMessage} Se o cliente ainda não tem cadastro ou não quer informar o documento agora, continue manualmente.
                     </p>
+                    <Button
+                      type="button"
+                      className="w-full"
+                      variant="outline"
+                      onClick={handleSkipIdentify}
+                    >
+                      Preencher cliente manualmente sem CPF/CNPJ
+                      <ChevronRight className="h-4 w-4 ml-1" />
+                    </Button>
                   </div>
                 ) : (
                   <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 space-y-3">
@@ -883,9 +902,8 @@ export default function ServiceOrderNew() {
               {/* Botão pular */}
               <div className="pt-1">
                 <button
-                  className={`text-xs underline underline-offset-2 transition-colors ${shouldBlockDocumentContinuation ? "text-muted-foreground/50 cursor-not-allowed" : "text-muted-foreground hover:text-foreground"}`}
+                  className="text-xs underline underline-offset-2 transition-colors text-muted-foreground hover:text-foreground"
                   onClick={handleSkipIdentify}
-                  disabled={shouldBlockDocumentContinuation}
                 >
                   Pular identificação e preencher manualmente
                 </button>
