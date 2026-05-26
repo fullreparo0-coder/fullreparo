@@ -65,7 +65,7 @@ export default function WarrantyVoucher({
   tenant,
 }: WarrantyVoucherProps) {
   const primary = tenant.primaryColor ?? "#1e3a5f";
-  const verifyUrl = `${window.location.origin}/verificar-garantia?codigo=${encodeURIComponent(warrantyCode)}`;
+  const verifyUrl = `${window.location.origin}/garantia?codigo=${encodeURIComponent(warrantyCode)}`;
   const trackingUrl = `${window.location.origin}/rastrear/${publicToken}`;
   const progress = calcProgress(startsAt, expiresAt, warrantyDays);
   const isExpired = new Date(expiresAt) < new Date();

@@ -414,7 +414,7 @@ export default function ServiceOrderDetail() {
   // Monta link e mensagem de WhatsApp para o comprovante de garantia
   const buildWarrantyWhatsApp = () => {
     if (!warranty) return null;
-    const verifyUrl = `${window.location.origin}/verificar-garantia?codigo=${encodeURIComponent(warranty.warrantyCode)}`;
+    const verifyUrl = `${window.location.origin}/garantia?codigo=${encodeURIComponent(warranty.warrantyCode)}`;
     const expiresStr = new Date(warranty.expiresAt).toLocaleDateString("pt-BR");
     const customerName = (os as any).customerName ?? "Cliente";
     const tenantName = tenantInfo?.name ?? "a assistência";

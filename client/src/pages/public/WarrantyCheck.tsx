@@ -19,13 +19,17 @@ function getContrastColor(hex: string): string {
   return 0.2126 * r + 0.7152 * g + 0.0722 * b > 140 ? "#000000" : "#ffffff";
 }
 
-export default function WarrantyCheck() {
-  // Pré-preencher e buscar automaticamente se ?codigo= estiver na URL
+type WarrantyCheckProps = {
+  routeCode?: string;
+};
+
+export default function WarrantyCheck({ routeCode }: WarrantyCheckProps = {}) {
+  // Pré-preencher e buscar automaticamente se ?codigo= estiver na URL ou se o código vier por rota amigável.
   const initialCode = (() => {
     try {
-      return new URLSearchParams(window.location.search).get("codigo") ?? "";
+      return routeCode ?? new URLSearchParams(window.location.search).get("codigo") ?? "";
     } catch {
-      return "";
+      return routeCode ?? "";
     }
   })();
   const [code, setCode] = useState(initialCode.toUpperCase());

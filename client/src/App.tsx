@@ -255,7 +255,9 @@ function Router() {
       {/* /coleta sem slug: funciona por detecção automática de host */}
       <Route path="/coleta" component={PublicColeta} />
       <Route path="/coleta/:slug" component={PublicColeta} />
-      <Route path="/garantia" component={WarrantyCheck} />
+      <Route path="/verificar-garantia">{() => <WarrantyCheck />}</Route>
+      <Route path="/garantia/:codigo">{(params) => <WarrantyCheck routeCode={params.codigo} />}</Route>
+      <Route path="/garantia">{() => <WarrantyCheck />}</Route>
       <Route path="/cadastro" component={CadastroPage} />
       <Route path="/minha-conta">{() => <CustomerGuard><MinhaContaPortal /></CustomerGuard>}</Route>
       {/* Rotas de senha */}
