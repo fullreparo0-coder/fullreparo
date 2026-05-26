@@ -529,14 +529,14 @@ export default function ServiceOrderDetail() {
                   <CardTitle className="text-sm font-semibold flex items-center gap-2">
                     <FileText className="h-4 w-4 text-muted-foreground" /> Informações da OS
                   </CardTitle>
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center justify-end gap-2">
                     <Button
                       size="sm"
                       variant="outline"
-                      className="h-7 text-xs"
+                      className="h-7 text-xs border-blue-200 text-blue-700 hover:bg-blue-50"
                       onClick={handleOpenEditInfo}
                     >
-                      <Pencil className="h-3 w-3 mr-1" /> Editar
+                      <Pencil className="h-3 w-3 mr-1" /> Editar dados
                     </Button>
                     {os.status !== "finalizado" && os.status !== "cancelado" && (
                       <Button
