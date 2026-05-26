@@ -27,6 +27,7 @@ import { Wrench, AlertCircle, ArrowLeft, KeyRound, ShieldCheck, UserRound } from
 import { PasswordInput } from "@/components/ui/password-input";
 import { Link } from "wouter";
 import { getLoginUrl } from "@/const";
+import { PwaInstallButton } from "@/components/PwaInstallButton";
 
 const STAFF_ROLES = ["super_admin", "tenant_admin", "atendente", "tecnico", "entregador", "admin"];
 type LoginMode = "cliente" | "equipe";
@@ -356,6 +357,8 @@ export default function CustomerLogin() {
                 >
                   Entrar com conta FullReparo
                 </Button>
+
+                <PwaInstallButton className="mt-3" />
 
                 {/* Link para cadastro */}
                 {mode === "cliente" && (

@@ -15,6 +15,7 @@ import {
   HelpCircle
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
+import { PwaInstallButton } from "@/components/PwaInstallButton";
 
 interface NavItem {
   href: string;
@@ -210,7 +211,8 @@ export function TenantLayout({ children, title }: TenantLayoutProps) {
       </nav>
 
       {/* User */}
-      <div className="border-t border-sidebar-border p-3">
+      <div className="border-t border-sidebar-border p-3 space-y-2">
+        <PwaInstallButton variant="sidebar" />
         <div className="flex items-center gap-2.5 p-2 rounded-lg hover:bg-sidebar-accent transition-colors">
           <Avatar className="h-7 w-7">
             <AvatarFallback className="bg-sidebar-primary text-sidebar-primary-foreground text-xs font-bold">
