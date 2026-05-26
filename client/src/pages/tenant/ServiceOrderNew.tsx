@@ -347,7 +347,7 @@ export default function ServiceOrderNew() {
 
   const completeDocumentNotFoundMessage =
     isIdentifyCompleteDocument && !identifyDocumentError
-      ? `${identifyDocumentTypeLabel} não cadastrado. Confira os dígitos ou continue com preenchimento manual.`
+      ? `${identifyDocumentTypeLabel} válido, mas ainda não cadastrado.`
       : null;
 
   const quickDocumentError = useMemo(
@@ -783,7 +783,7 @@ export default function ServiceOrderNew() {
                   </p>
                 )}
                 {searchState === "not_found" && completeDocumentNotFoundMessage && (
-                  <p className="text-xs text-red-600 mt-1 flex items-center gap-1">
+                  <p className="text-xs text-amber-600 mt-1 flex items-center gap-1">
                     <AlertCircle className="h-3.5 w-3.5" />
                     {completeDocumentNotFoundMessage}
                   </p>
@@ -861,14 +861,22 @@ export default function ServiceOrderNew() {
               {/* Estado: não encontrado */}
               {searchState === "not_found" && (
                 completeDocumentNotFoundMessage ? (
-                  <div className="rounded-lg border border-red-200 bg-red-50 p-4 space-y-3">
+                  <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 space-y-3">
                     <div className="flex items-center gap-2">
-                      <AlertCircle className="h-4 w-4 text-red-600 shrink-0" />
-                      <span className="text-sm font-medium text-red-800">{identifyDocumentTypeLabel} não cadastrado</span>
+                      <AlertCircle className="h-4 w-4 text-amber-600 shrink-0" />
+                      <span className="text-sm font-medium text-amber-800">{identifyDocumentTypeLabel} não cadastrado</span>
                     </div>
-                    <p className="text-sm text-red-700">
-                      {completeDocumentNotFoundMessage} Se o cliente ainda não tem cadastro ou não quer informar o documento agora, continue manualmente.
+                    <p className="text-sm text-amber-700">
+                      {completeDocumentNotFoundMessage} Deseja cadastrar este cliente agora usando o documento informado?
                     </p>
+                    <Button
+                      type="button"
+                      className="w-full bg-amber-600 hover:bg-amber-700 text-white"
+                      onClick={handleOpenQuickRegister}
+                    >
+                      <UserPlus className="h-4 w-4 mr-1.5" />
+                      Cadastrar novo cliente
+                    </Button>
                     <Button
                       type="button"
                       className="w-full"
