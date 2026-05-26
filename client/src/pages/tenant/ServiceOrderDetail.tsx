@@ -525,18 +525,17 @@ export default function ServiceOrderDetail() {
             {/* OS Info */}
             <Card>
               <CardHeader className="pb-3">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <CardTitle className="text-sm font-semibold flex items-center gap-2 shrink-0">
                     <FileText className="h-4 w-4 text-muted-foreground" /> Informações da OS
                   </CardTitle>
-                  <div className="flex flex-wrap items-center justify-end gap-2">
+                  <div className="flex flex-wrap items-center gap-2 sm:justify-end">
                     <Button
                       size="sm"
-                      variant="outline"
-                      className="h-7 text-xs border-blue-200 text-blue-700 hover:bg-blue-50"
+                      className="h-7 text-xs bg-blue-600 hover:bg-blue-700 text-white"
                       onClick={handleOpenEditInfo}
                     >
-                      <Pencil className="h-3 w-3 mr-1" /> Editar dados
+                      <Pencil className="h-3 w-3 mr-1" /> Editar
                     </Button>
                     {os.status !== "finalizado" && os.status !== "cancelado" && (
                       <Button
