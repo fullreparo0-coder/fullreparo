@@ -339,12 +339,6 @@ export default function ServiceOrderDetail() {
   const handleBudgetUpdateSubmit = () => {
     if (!editingBudgetId) return;
     const validItems = editBudgetItems.filter((item) => item.description.trim().length > 0);
-    const total = editBudgetLaborCost + validItems.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
-
-    if (total <= 0) {
-      toast.error("Informe um valor maior que zero para o orçamento.");
-      return;
-    }
 
     updateBudget.mutate({
       budgetId: editingBudgetId,
