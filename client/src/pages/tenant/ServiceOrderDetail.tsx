@@ -376,6 +376,19 @@ export default function ServiceOrderDetail() {
 
   const trackingUrl = `${window.location.origin}/rastrear/${os.publicToken}`;
   const totalPaid = payments?.reduce((sum, p) => sum + Number(p.amount), 0) ?? 0;
+  const budgetList = Array.isArray(budgets) ? budgets : [];
+  const primaryBudget = budgetList.find((budget: any) => budget.status === "pending") ?? budgetList[0] ?? null;
+  const primaryBudgetTotal = primaryBudget ? Number(primaryBudget.totalCost) : null;
+  const primaryBudgetLabel = typeof primaryBudgetTotal === "number" && Number.isFinite(primaryBudgetTotal)
+    ? `R$ ${primaryBudgetTotal.toFixed(2)}`
+    : "Sem orçamento";
+  const primaryBudgetStatusLabel = primaryBudget?.status === "approved"
+    ? "Aprovado"
+    : primaryBudget?.status === "rejected"
+      ? "Recusado"
+      : primaryBudget
+        ? "Pendente de aprovação"
+        : "Não lançado";
   const pickupPhotos = ((os as any).photos ?? []).filter((photo: any) => photo.type === "coleta");
   const pickupLatitude = Number((os as any).pickupLatitude);
   const pickupLongitude = Number((os as any).pickupLongitude);
@@ -620,6 +633,14 @@ export default function ServiceOrderDetail() {
                   <div>
                     <p className="text-xs text-muted-foreground">Abertura</p>
                     <p>{new Date(os.createdAt).toLocaleString("pt-BR")}</p>
+                  </div>
+                  <div className="rounded-lg border border-amber-200 bg-amber-50/60 p-3 dark:border-amber-900/60 dark:bg-amber-950/20">
+                    <p className="text-xs text-amber-700 dark:text-amber-300">Orçamento atual</p>
+                    <p className="text-lg font-bold text-amber-900 dark:text-amber-100">{primaryBudgetLabel}</p>
+                  </div>
+                  <div className="rounded-lg border border-amber-200 bg-amber-50/60 p-3 dark:border-amber-900/60 dark:bg-amber-950/20">
+                    <p className="text-xs text-amber-700 dark:text-amber-300">Status do orçamento</p>
+                    <p className="font-semibold text-amber-900 dark:text-amber-100">{primaryBudgetStatusLabel}</p>
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground">Marca</p>
@@ -1184,9 +1205,23 @@ export default function ServiceOrderDetail() {
                 </div>
               </CardHeader>
               <CardContent>
-                {budgets && budgets.length > 0 ? (
-                  <div className="space-y-2">
-                    {budgets.map((b) => (
+                {budgetList.length > 0 ? (
+                  <div className="space-y-3">
+                    {primaryBudget && (
+                      <div className="rounded-lg border border-emerald-200 bg-emerald-50/70 p-3 text-sm dark:border-emerald-900/60 dark:bg-emerald-950/20">
+                        <p className="text-xs font-medium text-emerald-700 dark:text-emerald-300">Orçamento principal da OS</p>
+                        <div className="mt-1 flex items-center justify-between gap-3">
+                          <span className="text-xl font-bold text-emerald-900 dark:text-emerald-100">{primaryBudgetLabel}</span>
+                          <Badge variant={primaryBudget.status === "approved" ? "default" : primaryBudget.status === "rejected" ? "destructive" : "secondary"}>
+                            {primaryBudgetStatusLabel}
+                          </Badge>
+                        </div>
+                        <p className="mt-1 text-xs text-emerald-700/80 dark:text-emerald-200/80">
+                          {primaryBudget.description || "Orçamento lançado para aprovação do cliente."}
+                        </p>
+                      </div>
+                    )}
+                    {budgetList.map((b) => (
                       <div key={b.id} className="p-3 rounded-lg bg-muted/50 text-sm">
                         <div className="flex justify-between items-start gap-2 mb-1">
                           <div>
