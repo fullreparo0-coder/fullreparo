@@ -153,25 +153,18 @@ export const customersRouter = router({
 
       // Detecta se é CPF/CNPJ (só dígitos após normalização) ou e-mail
       const digits = raw.replace(/\D/g, "");
-      const isDocument = digits.length >= 6 && digits === raw.replace(/[.\-\/\s]/g, "");
+      const isDocument = digits.length >= 5 && digits === raw.replace(/[.\-\/\s]/g, "");
       const isEmail = raw.includes("@");
+      const isCompleteDocument = digits.length === 11 || digits.length === 14;
 
       if (!isDocument && !isEmail) return null;
 
-      if (isDocument) {
-        if (digits.length !== 11 && digits.length !== 14) {
-          throw new TRPCError({
-            code: "BAD_REQUEST",
-            message: "Informe um CPF com 11 dígitos ou CNPJ com 14 dígitos.",
-          });
-        }
-        if (!isValidDocument(digits)) {
-          const type = detectDocumentType(digits);
-          throw new TRPCError({
-            code: "BAD_REQUEST",
-            message: type ? `${type} inválido. Verifique os dígitos informados.` : "Documento inválido.",
-          });
-        }
+      if (isDocument && isCompleteDocument && !isValidDocument(digits)) {
+        const type = detectDocumentType(digits);
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: type ? `${type} inválido. Verifique os dígitos informados.` : "Documento inválido.",
+        });
       }
 
       const tenantId = ctx.user.tenantId!;
@@ -181,14 +174,18 @@ export const customersRouter = router({
       if (isEmail) {
         const normalizedEmail = raw.toLowerCase();
         searchCondition = eq(customers.email, normalizedEmail);
-      } else {
-        // Busca pelo CPF/CNPJ normalizado (só dígitos)
+      } else if (isCompleteDocument) {
+        // Documento completo: busca exata pelo CPF/CNPJ normalizado.
         // O banco pode armazenar com ou sem formatação, então buscamos
-        // tanto pelo valor exato quanto pelo normalizado
+        // tanto pelo valor exato quanto pelo normalizado.
         searchCondition = or(
           eq(customers.document, digits),
           eq(customers.document, raw)
         );
+      } else {
+        // Documento parcial: a identificação no balcão deve encontrar
+        // clientes existentes a partir dos 5 primeiros dígitos digitados.
+        searchCondition = like(customers.document, `${digits}%`);
       }
 
       const results = await db

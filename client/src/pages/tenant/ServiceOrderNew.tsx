@@ -334,14 +334,22 @@ export default function ServiceOrderNew() {
     { enabled: !!customerId && !!user?.tenantId }
   );
 
+  const identifyDocumentDigits = useMemo(() => onlyDigits(identifyQuery), [identifyQuery]);
+  const isIdentifyDocumentQuery = detectQueryType(identifyQuery) === "cpf";
+  const isIdentifyCompleteDocument =
+    isIdentifyDocumentQuery && (identifyDocumentDigits.length === 11 || identifyDocumentDigits.length === 14);
+  const identifyDocumentTypeLabel = identifyDocumentDigits.length === 14 ? "CNPJ" : "CPF";
+
   const identifyDocumentError = useMemo(() => {
-    if (detectQueryType(identifyQuery) !== "cpf") return null;
-    const digits = onlyDigits(identifyQuery);
-    if (digits.length >= 11) {
-      return getDocumentValidationMessage(digits);
-    }
-    return null;
-  }, [identifyQuery]);
+    if (!isIdentifyCompleteDocument) return null;
+    return getDocumentValidationMessage(identifyDocumentDigits);
+  }, [identifyDocumentDigits, isIdentifyCompleteDocument]);
+
+  const completeDocumentNotFoundMessage =
+    isIdentifyCompleteDocument && !identifyDocumentError
+      ? `${identifyDocumentTypeLabel} inválido ou não cadastrado. Confira os dígitos antes de continuar.`
+      : null;
+  const shouldBlockDocumentContinuation = !!identifyDocumentError || !!completeDocumentNotFoundMessage;
 
   const quickDocumentError = useMemo(
     () => getDocumentValidationMessage(quickForm.document),
@@ -369,11 +377,16 @@ export default function ServiceOrderNew() {
           setFoundCustomer(result as FoundCustomer);
           setSearchState("found");
         } else {
+          const searchType = detectQueryType(clean);
+          const digits = onlyDigits(clean);
+          const isCompleteDocument = searchType === "cpf" && (digits.length === 11 || digits.length === 14);
           setFoundCustomer(null);
-          setSearchState("not_found");
+          setSearchState(searchType === "cpf" && !isCompleteDocument ? "idle" : "not_found");
         }
       } catch {
-        setSearchState("idle");
+        const searchType = detectQueryType(clean);
+        setFoundCustomer(null);
+        setSearchState(searchType === "cpf" ? "invalid_document" : "idle");
       }
     },
     [user?.tenantId, utils.client.customers.findByDocument]
@@ -399,12 +412,8 @@ export default function ServiceOrderNew() {
         return;
       }
       if (type === "cpf") {
-        if (cleanForSearch.length < 11 || (cleanForSearch.length > 11 && cleanForSearch.length < 14)) {
-          setSearchState("idle");
-          setFoundCustomer(null);
-          return;
-        }
-        if (!isValidDocument(cleanForSearch)) {
+        const isCompleteDocument = cleanForSearch.length === 11 || cleanForSearch.length === 14;
+        if (isCompleteDocument && !isValidDocument(cleanForSearch)) {
           setSearchState("invalid_document");
           setFoundCustomer(null);
           return;
@@ -716,7 +725,7 @@ export default function ServiceOrderNew() {
                 <Search className="h-4 w-4" /> Identificar Cliente
               </CardTitle>
               <p className="text-sm text-muted-foreground">
-                Digite o CPF ou e-mail do cliente para busca automática.
+                Digite os primeiros 5 dígitos do CPF/CNPJ ou o e-mail para buscar um cliente já cadastrado.
               </p>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -758,7 +767,7 @@ export default function ServiceOrderNew() {
                 )}
                 {detectQueryType(identifyQuery) === "cpf" && onlyDigits(identifyQuery).length >= 5 && onlyDigits(identifyQuery).length < 11 && (
                   <p className="text-xs text-muted-foreground mt-1">
-                    Continue digitando o CPF ou CNPJ para validar antes de prosseguir.
+                    Buscando cadastro existente a partir dos primeiros dígitos. Continue digitando para confirmar o documento completo.
                   </p>
                 )}
                 {detectQueryType(identifyQuery) === "cpf" && onlyDigits(identifyQuery).length > 11 && onlyDigits(identifyQuery).length < 14 && (
@@ -770,6 +779,12 @@ export default function ServiceOrderNew() {
                   <p className="text-xs text-red-600 mt-1 flex items-center gap-1">
                     <AlertCircle className="h-3.5 w-3.5" />
                     {identifyDocumentError}
+                  </p>
+                )}
+                {searchState === "not_found" && completeDocumentNotFoundMessage && (
+                  <p className="text-xs text-red-600 mt-1 flex items-center gap-1">
+                    <AlertCircle className="h-3.5 w-3.5" />
+                    {completeDocumentNotFoundMessage}
                   </p>
                 )}
               </div>
@@ -828,37 +843,49 @@ export default function ServiceOrderNew() {
                     <span className="text-sm font-medium text-red-800">CPF/CNPJ inválido</span>
                   </div>
                   <p className="text-sm text-red-700">
-                    {identifyDocumentError} Corrija o documento antes de buscar ou cadastrar um novo cliente.
+                    {identifyDocumentError} Corrija o documento antes de buscar ou continuar o atendimento.
                   </p>
                 </div>
               )}
 
               {/* Estado: não encontrado */}
               {searchState === "not_found" && (
-                <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 space-y-3">
-                  <div className="flex items-center gap-2">
-                    <AlertCircle className="h-4 w-4 text-amber-600 shrink-0" />
-                    <span className="text-sm font-medium text-amber-800">Cliente não encontrado</span>
+                completeDocumentNotFoundMessage ? (
+                  <div className="rounded-lg border border-red-200 bg-red-50 p-4 space-y-3">
+                    <div className="flex items-center gap-2">
+                      <AlertCircle className="h-4 w-4 text-red-600 shrink-0" />
+                      <span className="text-sm font-medium text-red-800">{identifyDocumentTypeLabel} inválido ou não cadastrado</span>
+                    </div>
+                    <p className="text-sm text-red-700">
+                      {completeDocumentNotFoundMessage} O atendente deve redigitar o documento ou confirmar os dados com o cliente.
+                    </p>
                   </div>
-                  <p className="text-sm text-amber-700">
-                    Nenhum cliente com este CPF/e-mail foi encontrado. Deseja cadastrá-lo agora?
-                  </p>
-                  <Button
-                    className="w-full bg-amber-600 hover:bg-amber-700 text-white"
-                    onClick={handleOpenQuickRegister}
-                  >
-                    <UserPlus className="h-4 w-4 mr-1.5" />
-                    Cadastrar novo cliente
-                  </Button>
-                </div>
+                ) : (
+                  <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 space-y-3">
+                    <div className="flex items-center gap-2">
+                      <AlertCircle className="h-4 w-4 text-amber-600 shrink-0" />
+                      <span className="text-sm font-medium text-amber-800">Cliente não encontrado</span>
+                    </div>
+                    <p className="text-sm text-amber-700">
+                      Nenhum cliente com este e-mail foi encontrado. Deseja cadastrá-lo agora?
+                    </p>
+                    <Button
+                      className="w-full bg-amber-600 hover:bg-amber-700 text-white"
+                      onClick={handleOpenQuickRegister}
+                    >
+                      <UserPlus className="h-4 w-4 mr-1.5" />
+                      Cadastrar novo cliente
+                    </Button>
+                  </div>
+                )
               )}
 
               {/* Botão pular */}
               <div className="pt-1">
                 <button
-                  className={`text-xs underline underline-offset-2 transition-colors ${identifyDocumentError ? "text-muted-foreground/50 cursor-not-allowed" : "text-muted-foreground hover:text-foreground"}`}
+                  className={`text-xs underline underline-offset-2 transition-colors ${shouldBlockDocumentContinuation ? "text-muted-foreground/50 cursor-not-allowed" : "text-muted-foreground hover:text-foreground"}`}
                   onClick={handleSkipIdentify}
-                  disabled={!!identifyDocumentError}
+                  disabled={shouldBlockDocumentContinuation}
                 >
                   Pular identificação e preencher manualmente
                 </button>
