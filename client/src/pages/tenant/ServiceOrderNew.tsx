@@ -58,6 +58,19 @@ function detectQueryType(q: string): "cpf" | "email" | "unknown" {
   return "unknown";
 }
 
+function getDocumentValidationMessage(value: string): string | null {
+  const digits = onlyDigits(value);
+  if (!digits) return null;
+  if (digits.length !== 11 && digits.length !== 14) {
+    return "Informe um CPF com 11 dígitos ou CNPJ com 14 dígitos.";
+  }
+  if (!isValidDocument(digits)) {
+    const type = detectDocumentType(digits) ?? "Documento";
+    return `${type} inválido. Verifique os dígitos informados.`;
+  }
+  return null;
+}
+
 /** Formata CPF parcialmente enquanto o usuário digita */
 function formatCpfPartial(raw: string): string {
   const digits = raw.replace(/\D/g, "").slice(0, 14);
@@ -220,7 +233,7 @@ export default function ServiceOrderNew() {
   // ── Step 0: identificação ─────────────────────────────────────────────────
   const [identifyQuery, setIdentifyQuery] = useState("");
   const [displayQuery, setDisplayQuery] = useState(""); // valor formatado exibido
-  const [searchState, setSearchState] = useState<"idle" | "searching" | "found" | "not_found">("idle");
+  const [searchState, setSearchState] = useState<"idle" | "searching" | "found" | "not_found" | "invalid_document">("idle");
   const [foundCustomer, setFoundCustomer] = useState<FoundCustomer | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -321,6 +334,20 @@ export default function ServiceOrderNew() {
     { enabled: !!customerId && !!user?.tenantId }
   );
 
+  const identifyDocumentError = useMemo(() => {
+    if (detectQueryType(identifyQuery) !== "cpf") return null;
+    const digits = onlyDigits(identifyQuery);
+    if (digits.length >= 11) {
+      return getDocumentValidationMessage(digits);
+    }
+    return null;
+  }, [identifyQuery]);
+
+  const quickDocumentError = useMemo(
+    () => getDocumentValidationMessage(quickForm.document),
+    [quickForm.document]
+  );
+
   // ── Mutations ─────────────────────────────────────────────────────────────
   const createCustomer = trpc.customers.create.useMutation();
   const createOs = trpc.serviceOrders.createBalcao.useMutation();
@@ -361,18 +388,30 @@ export default function ServiceOrderNew() {
     }
     setDisplayQuery(formatted);
     // Para busca, usa o valor limpo (sem formatação)
-    const cleanForSearch = type === "cpf" ? raw.replace(/\D/g, "") : raw.trim();
-    setIdentifyQuery(cleanForSearch);
+      const cleanForSearch = type === "cpf" ? raw.replace(/\D/g, "").slice(0, 14) : raw.trim();
+      setIdentifyQuery(cleanForSearch);
 
-    // Debounce 400ms
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    if (cleanForSearch.length < 5) {
-      setSearchState("idle");
-      setFoundCustomer(null);
-      return;
-    }
-    setSearchState("searching");
-    debounceRef.current = setTimeout(() => doSearch(cleanForSearch), 400);
+      // Debounce 400ms
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      if (cleanForSearch.length < 5) {
+        setSearchState("idle");
+        setFoundCustomer(null);
+        return;
+      }
+      if (type === "cpf") {
+        if (cleanForSearch.length < 11 || (cleanForSearch.length > 11 && cleanForSearch.length < 14)) {
+          setSearchState("idle");
+          setFoundCustomer(null);
+          return;
+        }
+        if (!isValidDocument(cleanForSearch)) {
+          setSearchState("invalid_document");
+          setFoundCustomer(null);
+          return;
+        }
+      }
+      setSearchState("searching");
+      debounceRef.current = setTimeout(() => doSearch(cleanForSearch), 400);
   };
 
   // ── Confirmar cliente encontrado ──────────────────────────────────────────
@@ -391,6 +430,12 @@ export default function ServiceOrderNew() {
   // ── Abrir modal de cadastro rápido ────────────────────────────────────────
   const handleOpenQuickRegister = () => {
     const type = detectQueryType(identifyQuery);
+    const documentError = type === "cpf" ? getDocumentValidationMessage(identifyQuery) : null;
+    if (documentError) {
+      toast.error(documentError);
+      setSearchState("invalid_document");
+      return;
+    }
     setQuickForm({
       name: "",
       phone: "",
@@ -412,14 +457,9 @@ export default function ServiceOrderNew() {
       toast.error("Nome e telefone são obrigatórios");
       return;
     }
-    // Validação de CPF/CNPJ antes de enviar
-    if (quickForm.document.trim()) {
-      const digits = onlyDigits(quickForm.document);
-      if ((digits.length === 11 || digits.length === 14) && !isValidDocument(digits)) {
-        const type = detectDocumentType(digits);
-        toast.error(type ? `${type} inválido. Verifique os dígitos informados.` : "Documento inválido.");
-        return;
-      }
+    if (quickDocumentError) {
+      toast.error(quickDocumentError);
+      return;
     }
     try {
       const result = await createCustomer.mutateAsync({
@@ -444,9 +484,10 @@ export default function ServiceOrderNew() {
       setQuickRegisterOpen(false);
       toast.success("Cliente cadastrado com sucesso!");
       setStep("device");
-    } catch {
-      toast.error("Erro ao cadastrar cliente");
-    }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Erro ao cadastrar cliente";
+        toast.error(message || "Erro ao cadastrar cliente");
+      }
   };
 
   // ── Pular identificação ───────────────────────────────────────────────────
@@ -706,10 +747,29 @@ export default function ServiceOrderNew() {
                   {searchState === "not_found" && (
                     <AlertCircle className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-amber-500" />
                   )}
+                  {searchState === "invalid_document" && (
+                    <AlertCircle className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-red-500" />
+                  )}
                 </div>
                 {identifyQuery.length > 0 && identifyQuery.length < 5 && (
                   <p className="text-xs text-muted-foreground mt-1">
                     Continue digitando para iniciar a busca...
+                  </p>
+                )}
+                {detectQueryType(identifyQuery) === "cpf" && onlyDigits(identifyQuery).length >= 5 && onlyDigits(identifyQuery).length < 11 && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Continue digitando o CPF ou CNPJ para validar antes de prosseguir.
+                  </p>
+                )}
+                {detectQueryType(identifyQuery) === "cpf" && onlyDigits(identifyQuery).length > 11 && onlyDigits(identifyQuery).length < 14 && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Complete os 14 dígitos do CNPJ para validar antes de prosseguir.
+                  </p>
+                )}
+                {identifyDocumentError && (
+                  <p className="text-xs text-red-600 mt-1 flex items-center gap-1">
+                    <AlertCircle className="h-3.5 w-3.5" />
+                    {identifyDocumentError}
                   </p>
                 )}
               </div>
@@ -760,6 +820,19 @@ export default function ServiceOrderNew() {
                 </div>
               )}
 
+              {/* Estado: documento inválido */}
+              {searchState === "invalid_document" && identifyDocumentError && (
+                <div className="rounded-lg border border-red-200 bg-red-50 p-4 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <AlertCircle className="h-4 w-4 text-red-600 shrink-0" />
+                    <span className="text-sm font-medium text-red-800">CPF/CNPJ inválido</span>
+                  </div>
+                  <p className="text-sm text-red-700">
+                    {identifyDocumentError} Corrija o documento antes de buscar ou cadastrar um novo cliente.
+                  </p>
+                </div>
+              )}
+
               {/* Estado: não encontrado */}
               {searchState === "not_found" && (
                 <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 space-y-3">
@@ -783,8 +856,9 @@ export default function ServiceOrderNew() {
               {/* Botão pular */}
               <div className="pt-1">
                 <button
-                  className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2 transition-colors"
+                  className={`text-xs underline underline-offset-2 transition-colors ${identifyDocumentError ? "text-muted-foreground/50 cursor-not-allowed" : "text-muted-foreground hover:text-foreground"}`}
                   onClick={handleSkipIdentify}
+                  disabled={!!identifyDocumentError}
                 >
                   Pular identificação e preencher manualmente
                 </button>
@@ -1216,7 +1290,7 @@ export default function ServiceOrderNew() {
           <div className="space-y-3 py-2">
             {/* CPF/e-mail já preenchido */}
             {(quickForm.document || quickForm.email) && (
-              <div className="rounded-md bg-muted px-3 py-2 text-sm text-muted-foreground">
+              <div className={`rounded-md px-3 py-2 text-sm ${quickDocumentError ? "bg-red-50 text-red-700 border border-red-200" : "bg-muted text-muted-foreground"}`}>
                 {quickForm.document ? (
                   <span className="flex items-center gap-1.5">
                     <FileText className="h-3.5 w-3.5" />
@@ -1229,6 +1303,12 @@ export default function ServiceOrderNew() {
                   </span>
                 )}
               </div>
+            )}
+            {quickDocumentError && quickForm.document && (
+              <p className="text-xs text-red-600 -mt-1 flex items-center gap-1">
+                <AlertCircle className="h-3.5 w-3.5" />
+                {quickDocumentError}
+              </p>
             )}
             <div>
               <Label>Nome completo *</Label>
@@ -1268,25 +1348,24 @@ export default function ServiceOrderNew() {
                   className="mt-1.5"
                   placeholder="000.000.000-00"
                   value={quickForm.document}
-                  onChange={(e) => setQuickForm((f) => ({ ...f, document: e.target.value }))}
+                  onChange={(e) => setQuickForm((f) => ({ ...f, document: formatCpfPartial(e.target.value) }))}
                 />
-                {(() => {
-                  const d = onlyDigits(quickForm.document);
-                  if ((d.length === 11 || d.length === 14) && !isValidDocument(d)) {
-                    return <p className="text-xs text-red-500 mt-1">{detectDocumentType(d) ?? "Documento"} inválido. Verifique os dígitos.</p>;
-                  }
-                  return null;
-                })()}
+                {quickDocumentError && (
+                  <p className="text-xs text-red-600 mt-1 flex items-center gap-1">
+                    <AlertCircle className="h-3.5 w-3.5" />
+                    {quickDocumentError}
+                  </p>
+                )}
               </div>
             )}
           </div>
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setQuickRegisterOpen(false)}>
-              Cancelar
+              Cancelar cadastro
             </Button>
             <Button
               onClick={handleQuickRegister}
-              disabled={!quickForm.name.trim() || !quickForm.phone.trim() || createCustomer.isPending || (() => { const d = onlyDigits(quickForm.document); return (d.length === 11 || d.length === 14) && !isValidDocument(d); })()}
+              disabled={!quickForm.name.trim() || !quickForm.phone.trim() || !!quickDocumentError || createCustomer.isPending}
             >
               {createCustomer.isPending ? (
                 <><Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> Cadastrando...</>

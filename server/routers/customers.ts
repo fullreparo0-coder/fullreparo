@@ -158,6 +158,22 @@ export const customersRouter = router({
 
       if (!isDocument && !isEmail) return null;
 
+      if (isDocument) {
+        if (digits.length !== 11 && digits.length !== 14) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Informe um CPF com 11 dígitos ou CNPJ com 14 dígitos.",
+          });
+        }
+        if (!isValidDocument(digits)) {
+          const type = detectDocumentType(digits);
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: type ? `${type} inválido. Verifique os dígitos informados.` : "Documento inválido.",
+          });
+        }
+      }
+
       const tenantId = ctx.user.tenantId!;
 
       // Monta a condição de busca
@@ -171,9 +187,7 @@ export const customersRouter = router({
         // tanto pelo valor exato quanto pelo normalizado
         searchCondition = or(
           eq(customers.document, digits),
-          eq(customers.document, raw),
-          // Busca parcial para CPF com formatação (ex: "123.456.789-00" vs "12345678900")
-          like(customers.document, `%${digits.slice(0, 11)}%`)
+          eq(customers.document, raw)
         );
       }
 
