@@ -50,6 +50,7 @@ import {
 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 
 /** Valida formato de domínio no frontend (mesma regex do backend) */
 function isValidDomain(d: string): boolean {
@@ -495,6 +496,20 @@ export default function TenantSettings() {
   return (
     <TenantLayout title="Configurações">
       <div className="max-w-2xl mx-auto space-y-6">
+        <Accordion type="multiple" defaultValue={["perfil"]} className="space-y-4">
+        <AccordionItem value="perfil" className="rounded-xl border bg-card px-4 shadow-sm">
+          <AccordionTrigger className="hover:no-underline">
+            <div className="flex items-start gap-3 text-left">
+              <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+                <Settings className="h-4 w-4" />
+              </div>
+              <div className="space-y-1">
+                <p className="text-sm font-semibold text-foreground">Perfil da assistência</p>
+                <p className="text-xs font-normal leading-relaxed text-muted-foreground">Dados comerciais, contato, endereço e horário exibidos no painel e no portal público.</p>
+              </div>
+            </div>
+          </AccordionTrigger>
+          <AccordionContent className="space-y-4">
         {/* Informações básicas */}
         <Card>
           <CardHeader>
@@ -548,6 +563,28 @@ export default function TenantSettings() {
           </CardContent>
         </Card>
 
+        <Button
+          className="w-full"
+          onClick={() => update.mutate(form)}
+          disabled={update.isPending}
+        >
+          {update.isPending ? "Salvando..." : "Salvar Perfil da Assistência"}
+        </Button>
+          </AccordionContent>
+        </AccordionItem>
+        <AccordionItem value="identidade-portal" className="rounded-xl border bg-card px-4 shadow-sm">
+          <AccordionTrigger className="hover:no-underline">
+            <div className="flex items-start gap-3 text-left">
+              <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+                <Palette className="h-4 w-4" />
+              </div>
+              <div className="space-y-1">
+                <p className="text-sm font-semibold text-foreground">Identidade visual e portal</p>
+                <p className="text-xs font-normal leading-relaxed text-muted-foreground">Logotipo, cores, prévia do portal, link público, domínio personalizado e texto de boas-vindas.</p>
+              </div>
+            </div>
+          </AccordionTrigger>
+          <AccordionContent className="space-y-4">
         {/* Logotipo */}
         <Card>
           <CardHeader>
@@ -1081,39 +1118,13 @@ export default function TenantSettings() {
           </CardContent>
         </Card>
 
-        {/* Especialidades */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-semibold flex items-center gap-2">
-              <Wrench className="h-4 w-4 text-muted-foreground" /> Especialidades e Marcas Atendidas
-            </CardTitle>
-            <p className="text-xs text-muted-foreground">
-              Configure os tipos de aparelhos e as marcas que sua assistência atende. Essas informações
-              aparecem como chips coloridos na landing page do seu portal público.
-              Deixe as marcas em branco para aceitar qualquer marca naquela categoria.
-            </p>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <DeviceSpecialtiesEditor
-              value={specialties}
-              onChange={setSpecialties}
-              primaryColor={form.primaryColor}
-            />
-            <div className="flex items-center justify-between pt-1">
-              <p className="text-xs text-muted-foreground">
-                {Object.keys(specialties).length} categoria{Object.keys(specialties).length !== 1 ? "s" : ""} ·{" "}
-                {Object.values(specialties).reduce((acc, b) => acc + b.length, 0)} marca{Object.values(specialties).reduce((acc, b) => acc + b.length, 0) !== 1 ? "s" : ""} selecionada{Object.values(specialties).reduce((acc, b) => acc + b.length, 0) !== 1 ? "s" : ""}
-              </p>
-              <Button
-                size="sm"
-                onClick={() => updateSpecialties.mutate({ specialties })}
-                disabled={updateSpecialties.isPending}
-              >
-                {updateSpecialties.isPending ? "Salvando..." : "Salvar Especialidades"}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+        <Button
+          className="w-full"
+          onClick={() => update.mutate(form)}
+          disabled={update.isPending}
+        >
+          {update.isPending ? "Salvando..." : "Salvar Identidade Visual"}
+        </Button>
 
         {/* Portal público */}
         <Card>
@@ -1290,396 +1301,6 @@ export default function TenantSettings() {
           </CardContent>
         </Card>
 
-        {/* E-mail de Notificações de Nova OS */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-semibold flex items-center gap-2">
-              <Bell className="h-4 w-4 text-muted-foreground" /> E-mail de Notificações
-            </CardTitle>
-            <p className="text-xs text-muted-foreground">
-              Quando uma nova OS chegar pelo portal público (coleta ou cadastro), o sistema enviará um e-mail de alerta para o endereço configurado abaixo.
-            </p>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label>E-mail para receber alertas de nova OS</Label>
-              <div className="flex gap-2">
-                <Input
-                  type="email"
-                  placeholder="contato@suaassistencia.com.br"
-                  value={notificationEmailInput}
-                  onChange={(e) => setNotificationEmailInput(e.target.value)}
-                  className="flex-1"
-                />
-                <Button
-                  size="sm"
-                  onClick={() => updateNotificationEmail.mutate({ notificationEmail: notificationEmailInput })}
-                  disabled={updateNotificationEmail.isPending}
-                >
-                  {updateNotificationEmail.isPending ? "Salvando..." : "Salvar"}
-                </Button>
-              </div>
-              {notificationEmailInput && (
-                <p className="text-xs text-muted-foreground">
-                  Alertas serão enviados para <span className="font-medium text-foreground">{notificationEmailInput}</span> sempre que uma nova OS chegar pelo portal público.
-                </p>
-              )}
-              {!notificationEmailInput && (
-                <p className="text-xs text-amber-600 dark:text-amber-400">
-                  Nenhum e-mail configurado. Sem e-mail, as notificações de nova OS aparecerão apenas no painel de notificações interno.
-                </p>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Logística */}
-        <Card className="border-emerald-200">
-          <CardHeader>
-            <CardTitle className="text-sm font-semibold flex items-center gap-2 text-emerald-700">
-              <Truck className="h-4 w-4" /> Logística — Coleta Própria e Uber Direct
-            </CardTitle>
-            <p className="text-xs text-muted-foreground">
-              Defina quais modalidades a assistência poderá usar para buscar e entregar aparelhos. A coleta própria
-              continua disponível para entregadores internos; o Uber Direct pode ser ativado com as credenciais da conta da assistência.
-            </p>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between gap-3 rounded-lg border border-emerald-100 bg-emerald-50/60 p-3">
-              <div>
-                <p className="text-sm font-medium text-foreground">Coleta própria da assistência</p>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  Mantém o fluxo atual com atendente, técnico ou entregador interno responsável pela rota.
-                </p>
-              </div>
-              <Switch
-                checked={uberDirectForm.ownDeliveryEnabled}
-                onCheckedChange={(checked) => setUberDirectForm((prev) => ({ ...prev, ownDeliveryEnabled: checked }))}
-              />
-            </div>
-
-            <div className="flex items-center justify-between gap-3 rounded-lg border border-border p-3">
-              <div>
-                <p className="text-sm font-medium text-foreground">Uber Direct</p>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  Quando ativo, a assistência poderá usar entregadores sob demanda da Uber para coletas e entregas.
-                </p>
-              </div>
-              <Switch
-                checked={uberDirectForm.enabled}
-                onCheckedChange={(checked) => setUberDirectForm((prev) => ({ ...prev, enabled: checked }))}
-              />
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label>Ambiente</Label>
-                <select
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                  value={uberDirectForm.environment}
-                  onChange={(e) => setUberDirectForm((prev) => ({ ...prev, environment: e.target.value as "sandbox" | "production" }))}
-                >
-                  <option value="sandbox">Sandbox / testes</option>
-                  <option value="production">Produção</option>
-                </select>
-              </div>
-              <div className="space-y-1.5">
-                <Label>Customer ID</Label>
-                <Input
-                  value={uberDirectForm.customerId}
-                  onChange={(e) => setUberDirectForm((prev) => ({ ...prev, customerId: e.target.value }))}
-                  placeholder={uberDirectConfig?.customerIdConfigured ? uberDirectConfig.customerIdPreview ?? "Customer ID já configurado" : "cus_..."}
-                  className="font-mono text-xs"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Client ID</Label>
-                <Input
-                  value={uberDirectForm.clientId}
-                  onChange={(e) => setUberDirectForm((prev) => ({ ...prev, clientId: e.target.value }))}
-                  placeholder={uberDirectConfig?.clientIdConfigured ? uberDirectConfig.clientIdPreview ?? "Client ID já configurado" : "Client ID da Uber"}
-                  className="font-mono text-xs"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Client Secret</Label>
-                <Input
-                  type="password"
-                  value={uberDirectForm.clientSecret}
-                  onChange={(e) => setUberDirectForm((prev) => ({ ...prev, clientSecret: e.target.value }))}
-                  placeholder={uberDirectConfig?.clientSecretConfigured ? "Client Secret já configurado — deixe em branco para manter" : "Client Secret da Uber"}
-                  className="font-mono text-xs"
-                />
-              </div>
-            </div>
-
-            <div className="rounded-lg border border-emerald-100 bg-emerald-50 p-3 text-xs text-emerald-800 leading-relaxed">
-              As credenciais não são exibidas novamente após salvar. Se trocar a chave na Uber, cole os novos dados aqui e salve.
-              A ativação operacional de cotações, criação de entrega e rastreio será conectada ao fluxo de coletas/entregas em uma próxima etapa.
-            </div>
-
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex flex-wrap gap-2">
-                <Badge variant={uberDirectForm.ownDeliveryEnabled ? "default" : "secondary"}>
-                  Coleta própria {uberDirectForm.ownDeliveryEnabled ? "ativa" : "inativa"}
-                </Badge>
-                <Badge variant={uberDirectForm.enabled ? "default" : "secondary"}>
-                  Uber Direct {uberDirectForm.enabled ? "ativo" : "inativo"}
-                </Badge>
-              </div>
-              <Button
-                size="sm"
-                onClick={() => updateUberDirectConfig.mutate({
-                  ownDeliveryEnabled: uberDirectForm.ownDeliveryEnabled,
-                  enabled: uberDirectForm.enabled,
-                  environment: uberDirectForm.environment,
-                  customerId: uberDirectForm.customerId.trim() || undefined,
-                  clientId: uberDirectForm.clientId.trim() || undefined,
-                  clientSecret: uberDirectForm.clientSecret.trim() || undefined,
-                })}
-                disabled={updateUberDirectConfig.isPending}
-              >
-                {updateUberDirectConfig.isPending ? "Salvando..." : "Salvar logística"}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Pagar.me */}
-        <Card className="border-blue-200">
-          <CardHeader>
-            <CardTitle className="text-sm font-semibold flex items-center gap-2 text-blue-700">
-              <CreditCard className="h-4 w-4" /> Pagar.me — PIX e Cartão
-            </CardTitle>
-            <p className="text-xs text-muted-foreground">
-              Configure o gateway usado no pagamento opcional da Minha Conta. O cliente só verá PIX/cartão
-              depois que o serviço estiver concluído e a entrega for autorizada por ele.
-            </p>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between rounded-lg border border-border bg-muted/30 px-4 py-3 gap-4">
-              <div>
-                <p className="text-sm font-medium text-foreground">Pagamento online no portal do cliente</p>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  Quando ativo, as cobranças são criadas no Pagar.me e confirmadas pelo webhook.
-                </p>
-              </div>
-              <Switch
-                checked={pagarmeForm.enabled}
-                onCheckedChange={(checked) => setPagarmeForm((prev) => ({ ...prev, enabled: checked }))}
-              />
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label>Ambiente</Label>
-                <select
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                  value={pagarmeForm.environment}
-                  onChange={(e) => setPagarmeForm((prev) => ({ ...prev, environment: e.target.value as "sandbox" | "production" }))}
-                >
-                  <option value="sandbox">Sandbox / testes</option>
-                  <option value="production">Produção</option>
-                </select>
-              </div>
-              <div className="space-y-1.5">
-                <Label>Chave pública</Label>
-                <Input
-                  value={pagarmeForm.publicKey}
-                  onChange={(e) => setPagarmeForm((prev) => ({ ...prev, publicKey: e.target.value }))}
-                  placeholder={pagarmeConfig?.publicKeyConfigured ? pagarmeConfig.publicKeyPreview ?? "Chave já configurada" : "pk_test_..."}
-                  className="font-mono text-xs"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Chave secreta</Label>
-                <Input
-                  type="password"
-                  value={pagarmeForm.secretKey}
-                  onChange={(e) => setPagarmeForm((prev) => ({ ...prev, secretKey: e.target.value }))}
-                  placeholder={pagarmeConfig?.secretKeyConfigured ? "Chave secreta já configurada — deixe em branco para manter" : "sk_test_..."}
-                  className="font-mono text-xs"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Webhook secret</Label>
-                <Input
-                  type="password"
-                  value={pagarmeForm.webhookSecret}
-                  onChange={(e) => setPagarmeForm((prev) => ({ ...prev, webhookSecret: e.target.value }))}
-                  placeholder={pagarmeConfig?.webhookSecretConfigured ? "Secret já configurado — deixe em branco para manter" : "segredo do webhook"}
-                  className="font-mono text-xs"
-                />
-              </div>
-            </div>
-
-            <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 space-y-2">
-              <div className="flex items-center gap-2">
-                <Info className="h-4 w-4 text-blue-600 shrink-0" />
-                <p className="text-sm font-semibold text-blue-800">URL do webhook</p>
-              </div>
-              <p className="text-xs text-blue-700 leading-relaxed">
-                Cadastre esta URL no painel do Pagar.me para que pagamentos aprovados sejam baixados
-                automaticamente no FullReparo.
-              </p>
-              <div className="flex gap-2">
-                <Input value={pagarmeWebhookUrl} readOnly className="font-mono text-xs bg-white" />
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  onClick={() => {
-                    navigator.clipboard.writeText(pagarmeWebhookUrl);
-                    toast.success("URL do webhook copiada");
-                  }}
-                >
-                  <Copy className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between gap-3 pt-1">
-              <div className="flex flex-wrap gap-2">
-                <Badge variant="outline" className={pagarmeConfig?.publicKeyConfigured ? "border-green-300 text-green-700 bg-green-50" : "border-border text-muted-foreground"}>
-                  Pública {pagarmeConfig?.publicKeyConfigured ? "configurada" : "pendente"}
-                </Badge>
-                <Badge variant="outline" className={pagarmeConfig?.secretKeyConfigured ? "border-green-300 text-green-700 bg-green-50" : "border-border text-muted-foreground"}>
-                  Secreta {pagarmeConfig?.secretKeyConfigured ? "configurada" : "pendente"}
-                </Badge>
-                <Badge variant="outline" className={pagarmeConfig?.webhookSecretConfigured ? "border-green-300 text-green-700 bg-green-50" : "border-border text-muted-foreground"}>
-                  Webhook {pagarmeConfig?.webhookSecretConfigured ? "configurado" : "pendente"}
-                </Badge>
-              </div>
-              <Button
-                size="sm"
-                onClick={() => updatePagarmeConfig.mutate({
-                  enabled: pagarmeForm.enabled,
-                  environment: pagarmeForm.environment,
-                  publicKey: pagarmeForm.publicKey.trim() || undefined,
-                  secretKey: pagarmeForm.secretKey.trim() || undefined,
-                  webhookSecret: pagarmeForm.webhookSecret.trim() || undefined,
-                })}
-                disabled={updatePagarmeConfig.isPending}
-              >
-                {updatePagarmeConfig.isPending ? "Salvando..." : "Salvar Pagar.me"}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Notificações de Status ao Cliente */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-semibold flex items-center gap-2">
-              <Bell className="h-4 w-4 text-muted-foreground" /> Notificações de Status ao Cliente
-            </CardTitle>
-            <p className="text-xs text-muted-foreground">
-              Ative os status que devem gerar um link de WhatsApp para enviar ao cliente. Clique em
-              {" "}<span className="font-medium text-foreground">Personalizar mensagem</span> para editar
-              o texto enviado. Variáveis disponíveis:
-              {" "}<code className="text-xs bg-muted px-1 rounded">{"{{nomeCliente}}"}</code>,
-              {" "}<code className="text-xs bg-muted px-1 rounded">{"{{numeroOS}}"}</code>,
-              {" "}<code className="text-xs bg-muted px-1 rounded">{"{{status}}"}</code>,
-              {" "}<code className="text-xs bg-muted px-1 rounded">{"{{nomeTenant}}"}</code>,
-              {" "}<code className="text-xs bg-muted px-1 rounded">{"{{linkRastreamento}}"}</code>.
-            </p>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {([
-              { value: "pronto", label: "Pronto para retirada", defaultMsg: "Olá, {{nomeCliente}}! Seu aparelho (OS #{{numeroOS}}) está pronto para retirada em {{nomeTenant}}. Acompanhe: {{linkRastreamento}}" },
-              { value: "em_reparo", label: "Em reparo", defaultMsg: "Olá, {{nomeCliente}}! Seu aparelho (OS #{{numeroOS}}) está em reparo na {{nomeTenant}}." },
-              { value: "aguardando_aprovacao", label: "Aguardando aprovação do orçamento", defaultMsg: "Olá, {{nomeCliente}}! O orçamento da OS #{{numeroOS}} está aguardando sua aprovação. Acesse: {{linkRastreamento}}" },
-              { value: "aprovado", label: "Orçamento aprovado", defaultMsg: "Olá, {{nomeCliente}}! Orçamento da OS #{{numeroOS}} aprovado. Iniciando o reparo em breve." },
-              { value: "recusado", label: "Orçamento recusado", defaultMsg: "Olá, {{nomeCliente}}! Orçamento da OS #{{numeroOS}} recusado. Entre em contato com {{nomeTenant}} para combinar a devolução." },
-              { value: "aguardando_peca", label: "Aguardando peça", defaultMsg: "Olá, {{nomeCliente}}! Estamos aguardando a peça para concluir o reparo da OS #{{numeroOS}}." },
-              { value: "aguardando_entrega", label: "Aguardando entrega", defaultMsg: "Olá, {{nomeCliente}}! Seu aparelho (OS #{{numeroOS}}) está pronto e aguardando agendamento de entrega." },
-              { value: "saiu_para_entrega", label: "Saiu para entrega", defaultMsg: "Olá, {{nomeCliente}}! Seu aparelho (OS #{{numeroOS}}) saiu para entrega. Acompanhe: {{linkRastreamento}}" },
-              { value: "entregue", label: "Entregue", defaultMsg: "Olá, {{nomeCliente}}! Seu aparelho (OS #{{numeroOS}}) foi entregue. Obrigado por escolher {{nomeTenant}}!" },
-              { value: "finalizado", label: "Finalizado", defaultMsg: "Olá, {{nomeCliente}}! A OS #{{numeroOS}} foi finalizada. Obrigado pela preferência!" },
-              { value: "cancelado", label: "Cancelado", defaultMsg: "Olá, {{nomeCliente}}! A OS #{{numeroOS}} foi cancelada. Entre em contato com {{nomeTenant}} para mais informações." },
-            ] as { value: string; label: string; defaultMsg: string }[]).map((s) => {
-              const isActive = notifyStatuses.includes(s.value);
-              const isExpanded = expandedNotify[s.value] ?? false;
-              const customMsg = notifyMessages[s.value] ?? "";
-              return (
-                <div key={s.value} className={`rounded-lg border transition-colors ${
-                  isActive ? "border-green-200 bg-green-50/50" : "border-border bg-muted/20"
-                }`}>
-                  {/* Linha principal: toggle + label + expandir */}
-                  <div className="flex items-center justify-between py-2 px-3">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <MessageCircle className={`h-3.5 w-3.5 shrink-0 ${
-                        isActive ? "text-green-600" : "text-muted-foreground"
-                      }`} />
-                      <span className={`text-sm ${
-                        isActive ? "font-medium" : "text-muted-foreground"
-                      }`}>{s.label}</span>
-                      {customMsg && isActive && (
-                        <Badge variant="outline" className="text-xs text-green-700 border-green-300 bg-green-50 ml-1">
-                          Personalizada
-                        </Badge>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      {isActive && (
-                        <button
-                          type="button"
-                          onClick={() => setExpandedNotify((prev) => ({ ...prev, [s.value]: !prev[s.value] }))}
-                          className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors"
-                        >
-                          {isExpanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-                          {isExpanded ? "Ocultar" : "Personalizar mensagem"}
-                        </button>
-                      )}
-                      <Switch
-                        checked={isActive}
-                        onCheckedChange={(checked) => {
-                          setNotifyStatuses((prev) =>
-                            checked ? [...prev, s.value] : prev.filter((x) => x !== s.value)
-                          );
-                          if (checked) {
-                            // Ao ativar, expandir automaticamente para o usuário ver/editar a mensagem
-                            setExpandedNotify((prev) => ({ ...prev, [s.value]: true }));
-                          } else {
-                            setExpandedNotify((prev) => ({ ...prev, [s.value]: false }));
-                          }
-                        }}
-                      />
-                    </div>
-                  </div>
-                  {/* Área expandível: textarea da mensagem */}
-                  {isActive && isExpanded && (
-                    <div className="px-3 pb-3 space-y-2">
-                      <Label className="text-xs text-muted-foreground">Mensagem personalizada</Label>
-                      <Textarea
-                        value={customMsg}
-                        onChange={(e) =>
-                          setNotifyMessages((prev) => ({ ...prev, [s.value]: e.target.value }))
-                        }
-                        placeholder={s.defaultMsg}
-                        rows={3}
-                        className="text-xs resize-y"
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        Deixe em branco para usar a mensagem padrão do sistema.
-                      </p>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-            <div className="flex justify-end pt-1">
-              <Button
-                size="sm"
-                onClick={() => updateNotifyStatuses.mutate({ notifyStatuses, notifyMessages })}
-                disabled={updateNotifyStatuses.isPending}
-              >
-                {updateNotifyStatuses.isPending ? "Salvando..." : "Salvar Notificações"}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-
         {/* Texto de Boas-vindas do Portal */}
         <Card>
           <CardHeader>
@@ -1713,72 +1334,50 @@ export default function TenantSettings() {
             </div>
           </CardContent>
         </Card>
-
-        {/* Termo de Serviço */}
+          </AccordionContent>
+        </AccordionItem>
+        <AccordionItem value="servicos-operacao" className="rounded-xl border bg-card px-4 shadow-sm">
+          <AccordionTrigger className="hover:no-underline">
+            <div className="flex items-start gap-3 text-left">
+              <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+                <Wrench className="h-4 w-4" />
+              </div>
+              <div className="space-y-1">
+                <p className="text-sm font-semibold text-foreground">Serviços e operação</p>
+                <p className="text-xs font-normal leading-relaxed text-muted-foreground">Especialidades atendidas, marcas, área de cobertura por CEP e prazos estimados de coleta.</p>
+              </div>
+            </div>
+          </AccordionTrigger>
+          <AccordionContent className="space-y-4">
+        {/* Especialidades */}
         <Card>
           <CardHeader>
             <CardTitle className="text-sm font-semibold flex items-center gap-2">
-              <FileText className="h-4 w-4 text-muted-foreground" /> Termo de Serviço
+              <Wrench className="h-4 w-4 text-muted-foreground" /> Especialidades e Marcas Atendidas
             </CardTitle>
             <p className="text-xs text-muted-foreground">
-              Este texto é impresso junto com a OS de balcão (o cliente assina físicamente) e exibido em um
-              modal de aceite no portal de solicitação de coleta antes de o cliente confirmar.
-              Deixe em branco para não usar termo.
+              Configure os tipos de aparelhos e as marcas que sua assistência atende. Essas informações
+              aparecem como chips coloridos na landing page do seu portal público.
+              Deixe as marcas em branco para aceitar qualquer marca naquela categoria.
             </p>
           </CardHeader>
-          <CardContent className="space-y-3">
-            <Textarea
-              value={termsText}
-              onChange={(e) => setTermsText(e.target.value)}
-              placeholder="Ex: Ao entregar o aparelho, o cliente declara estar ciente de que a assistência não se responsabiliza por dados armazenados no dispositivo..."
-              rows={8}
-              className="resize-y text-sm"
+          <CardContent className="space-y-4">
+            <DeviceSpecialtiesEditor
+              value={specialties}
+              onChange={setSpecialties}
+              primaryColor={form.primaryColor}
             />
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between pt-1">
               <p className="text-xs text-muted-foreground">
-                {termsText.length} caracteres
+                {Object.keys(specialties).length} categoria{Object.keys(specialties).length !== 1 ? "s" : ""} ·{" "}
+                {Object.values(specialties).reduce((acc, b) => acc + b.length, 0)} marca{Object.values(specialties).reduce((acc, b) => acc + b.length, 0) !== 1 ? "s" : ""} selecionada{Object.values(specialties).reduce((acc, b) => acc + b.length, 0) !== 1 ? "s" : ""}
               </p>
               <Button
                 size="sm"
-                onClick={() => updateTerms.mutate({ serviceTerms: termsText })}
-                disabled={updateTerms.isPending}
+                onClick={() => updateSpecialties.mutate({ specialties })}
+                disabled={updateSpecialties.isPending}
               >
-                {updateTerms.isPending ? "Salvando..." : "Salvar Termo"}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Termo de Garantia */}
-        <Card className="border-emerald-200">
-          <CardHeader>
-            <CardTitle className="text-sm font-semibold flex items-center gap-2 text-emerald-700">
-              <Shield className="h-4 w-4" /> Termo de Garantia
-            </CardTitle>
-            <p className="text-xs text-muted-foreground">
-              Este texto é exibido no modal de encerramento da OS (antes de confirmar) e impresso no
-              comprovante de garantia entregue ao cliente. Deixe em branco para não usar termo de garantia.
-            </p>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <Textarea
-              value={warrantyTermsText}
-              onChange={(e) => setWarrantyTermsText(e.target.value)}
-              placeholder="Ex: A garantia cobre defeitos de mão de obra e peças substituídas por esta assistência. Não cobre danos físicos, líquidos, quedas ou uso inadequado. Para acionar a garantia, apresente este comprovante..."
-              rows={6}
-              className="resize-y text-sm"
-            />
-            <div className="flex items-center justify-between">
-              <p className="text-xs text-muted-foreground">
-                {warrantyTermsText.length} caracteres
-              </p>
-              <Button
-                size="sm"
-                className="bg-emerald-600 hover:bg-emerald-700 text-white"
-                onClick={() => updateTerms.mutate({ warrantyTerms: warrantyTermsText })}
-                disabled={updateTerms.isPending}
-              >
-                {updateTerms.isPending ? "Salvando..." : "Salvar Termo de Garantia"}
+                {updateSpecialties.isPending ? "Salvando..." : "Salvar Especialidades"}
               </Button>
             </div>
           </CardContent>
@@ -1908,14 +1507,525 @@ export default function TenantSettings() {
             </div>
           </CardContent>
         </Card>
+          </AccordionContent>
+        </AccordionItem>
+        <AccordionItem value="comunicacao" className="rounded-xl border bg-card px-4 shadow-sm">
+          <AccordionTrigger className="hover:no-underline">
+            <div className="flex items-start gap-3 text-left">
+              <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+                <Bell className="h-4 w-4" />
+              </div>
+              <div className="space-y-1">
+                <p className="text-sm font-semibold text-foreground">Comunicação</p>
+                <p className="text-xs font-normal leading-relaxed text-muted-foreground">E-mail de alertas de novas OS e mensagens de status enviadas ao cliente via WhatsApp.</p>
+              </div>
+            </div>
+          </AccordionTrigger>
+          <AccordionContent className="space-y-4">
+        {/* E-mail de Notificações de Nova OS */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm font-semibold flex items-center gap-2">
+              <Bell className="h-4 w-4 text-muted-foreground" /> E-mail de Notificações
+            </CardTitle>
+            <p className="text-xs text-muted-foreground">
+              Quando uma nova OS chegar pelo portal público (coleta ou cadastro), o sistema enviará um e-mail de alerta para o endereço configurado abaixo.
+            </p>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label>E-mail para receber alertas de nova OS</Label>
+              <div className="flex gap-2">
+                <Input
+                  type="email"
+                  placeholder="contato@suaassistencia.com.br"
+                  value={notificationEmailInput}
+                  onChange={(e) => setNotificationEmailInput(e.target.value)}
+                  className="flex-1"
+                />
+                <Button
+                  size="sm"
+                  onClick={() => updateNotificationEmail.mutate({ notificationEmail: notificationEmailInput })}
+                  disabled={updateNotificationEmail.isPending}
+                >
+                  {updateNotificationEmail.isPending ? "Salvando..." : "Salvar"}
+                </Button>
+              </div>
+              {notificationEmailInput && (
+                <p className="text-xs text-muted-foreground">
+                  Alertas serão enviados para <span className="font-medium text-foreground">{notificationEmailInput}</span> sempre que uma nova OS chegar pelo portal público.
+                </p>
+              )}
+              {!notificationEmailInput && (
+                <p className="text-xs text-amber-600 dark:text-amber-400">
+                  Nenhum e-mail configurado. Sem e-mail, as notificações de nova OS aparecerão apenas no painel de notificações interno.
+                </p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
 
-        <Button
-          className="w-full"
-          onClick={() => update.mutate(form)}
-          disabled={update.isPending}
-        >
-          {update.isPending ? "Salvando..." : "Salvar Configurações"}
-        </Button>
+        {/* Notificações de Status ao Cliente */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm font-semibold flex items-center gap-2">
+              <Bell className="h-4 w-4 text-muted-foreground" /> Notificações de Status ao Cliente
+            </CardTitle>
+            <p className="text-xs text-muted-foreground">
+              Ative os status que devem gerar um link de WhatsApp para enviar ao cliente. Clique em
+              {" "}<span className="font-medium text-foreground">Personalizar mensagem</span> para editar
+              o texto enviado. Variáveis disponíveis:
+              {" "}<code className="text-xs bg-muted px-1 rounded">{"{{nomeCliente}}"}</code>,
+              {" "}<code className="text-xs bg-muted px-1 rounded">{"{{numeroOS}}"}</code>,
+              {" "}<code className="text-xs bg-muted px-1 rounded">{"{{status}}"}</code>,
+              {" "}<code className="text-xs bg-muted px-1 rounded">{"{{nomeTenant}}"}</code>,
+              {" "}<code className="text-xs bg-muted px-1 rounded">{"{{linkRastreamento}}"}</code>.
+            </p>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {([
+              { value: "pronto", label: "Pronto para retirada", defaultMsg: "Olá, {{nomeCliente}}! Seu aparelho (OS #{{numeroOS}}) está pronto para retirada em {{nomeTenant}}. Acompanhe: {{linkRastreamento}}" },
+              { value: "em_reparo", label: "Em reparo", defaultMsg: "Olá, {{nomeCliente}}! Seu aparelho (OS #{{numeroOS}}) está em reparo na {{nomeTenant}}." },
+              { value: "aguardando_aprovacao", label: "Aguardando aprovação do orçamento", defaultMsg: "Olá, {{nomeCliente}}! O orçamento da OS #{{numeroOS}} está aguardando sua aprovação. Acesse: {{linkRastreamento}}" },
+              { value: "aprovado", label: "Orçamento aprovado", defaultMsg: "Olá, {{nomeCliente}}! Orçamento da OS #{{numeroOS}} aprovado. Iniciando o reparo em breve." },
+              { value: "recusado", label: "Orçamento recusado", defaultMsg: "Olá, {{nomeCliente}}! Orçamento da OS #{{numeroOS}} recusado. Entre em contato com {{nomeTenant}} para combinar a devolução." },
+              { value: "aguardando_peca", label: "Aguardando peça", defaultMsg: "Olá, {{nomeCliente}}! Estamos aguardando a peça para concluir o reparo da OS #{{numeroOS}}." },
+              { value: "aguardando_entrega", label: "Aguardando entrega", defaultMsg: "Olá, {{nomeCliente}}! Seu aparelho (OS #{{numeroOS}}) está pronto e aguardando agendamento de entrega." },
+              { value: "saiu_para_entrega", label: "Saiu para entrega", defaultMsg: "Olá, {{nomeCliente}}! Seu aparelho (OS #{{numeroOS}}) saiu para entrega. Acompanhe: {{linkRastreamento}}" },
+              { value: "entregue", label: "Entregue", defaultMsg: "Olá, {{nomeCliente}}! Seu aparelho (OS #{{numeroOS}}) foi entregue. Obrigado por escolher {{nomeTenant}}!" },
+              { value: "finalizado", label: "Finalizado", defaultMsg: "Olá, {{nomeCliente}}! A OS #{{numeroOS}} foi finalizada. Obrigado pela preferência!" },
+              { value: "cancelado", label: "Cancelado", defaultMsg: "Olá, {{nomeCliente}}! A OS #{{numeroOS}} foi cancelada. Entre em contato com {{nomeTenant}} para mais informações." },
+            ] as { value: string; label: string; defaultMsg: string }[]).map((s) => {
+              const isActive = notifyStatuses.includes(s.value);
+              const isExpanded = expandedNotify[s.value] ?? false;
+              const customMsg = notifyMessages[s.value] ?? "";
+              return (
+                <div key={s.value} className={`rounded-lg border transition-colors ${
+                  isActive ? "border-green-200 bg-green-50/50" : "border-border bg-muted/20"
+                }`}>
+                  {/* Linha principal: toggle + label + expandir */}
+                  <div className="flex items-center justify-between py-2 px-3">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <MessageCircle className={`h-3.5 w-3.5 shrink-0 ${
+                        isActive ? "text-green-600" : "text-muted-foreground"
+                      }`} />
+                      <span className={`text-sm ${
+                        isActive ? "font-medium" : "text-muted-foreground"
+                      }`}>{s.label}</span>
+                      {customMsg && isActive && (
+                        <Badge variant="outline" className="text-xs text-green-700 border-green-300 bg-green-50 ml-1">
+                          Personalizada
+                        </Badge>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      {isActive && (
+                        <button
+                          type="button"
+                          onClick={() => setExpandedNotify((prev) => ({ ...prev, [s.value]: !prev[s.value] }))}
+                          className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors"
+                        >
+                          {isExpanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                          {isExpanded ? "Ocultar" : "Personalizar mensagem"}
+                        </button>
+                      )}
+                      <Switch
+                        checked={isActive}
+                        onCheckedChange={(checked) => {
+                          setNotifyStatuses((prev) =>
+                            checked ? [...prev, s.value] : prev.filter((x) => x !== s.value)
+                          );
+                          if (checked) {
+                            // Ao ativar, expandir automaticamente para o usuário ver/editar a mensagem
+                            setExpandedNotify((prev) => ({ ...prev, [s.value]: true }));
+                          } else {
+                            setExpandedNotify((prev) => ({ ...prev, [s.value]: false }));
+                          }
+                        }}
+                      />
+                    </div>
+                  </div>
+                  {/* Área expandível: textarea da mensagem */}
+                  {isActive && isExpanded && (
+                    <div className="px-3 pb-3 space-y-2">
+                      <Label className="text-xs text-muted-foreground">Mensagem personalizada</Label>
+                      <Textarea
+                        value={customMsg}
+                        onChange={(e) =>
+                          setNotifyMessages((prev) => ({ ...prev, [s.value]: e.target.value }))
+                        }
+                        placeholder={s.defaultMsg}
+                        rows={3}
+                        className="text-xs resize-y"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Deixe em branco para usar a mensagem padrão do sistema.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+            <div className="flex justify-end pt-1">
+              <Button
+                size="sm"
+                onClick={() => updateNotifyStatuses.mutate({ notifyStatuses, notifyMessages })}
+                disabled={updateNotifyStatuses.isPending}
+              >
+                {updateNotifyStatuses.isPending ? "Salvando..." : "Salvar Notificações"}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+          </AccordionContent>
+        </AccordionItem>
+        <AccordionItem value="logistica" className="rounded-xl border bg-card px-4 shadow-sm">
+          <AccordionTrigger className="hover:no-underline">
+            <div className="flex items-start gap-3 text-left">
+              <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+                <Truck className="h-4 w-4" />
+              </div>
+              <div className="space-y-1">
+                <p className="text-sm font-semibold text-foreground">Logística</p>
+                <p className="text-xs font-normal leading-relaxed text-muted-foreground">Coleta própria da assistência e credenciais do Uber Direct para entregas sob demanda.</p>
+              </div>
+            </div>
+          </AccordionTrigger>
+          <AccordionContent className="space-y-4">
+        {/* Logística */}
+        <Card className="border-emerald-200">
+          <CardHeader>
+            <CardTitle className="text-sm font-semibold flex items-center gap-2 text-emerald-700">
+              <Truck className="h-4 w-4" /> Logística — Coleta Própria e Uber Direct
+            </CardTitle>
+            <p className="text-xs text-muted-foreground">
+              Defina quais modalidades a assistência poderá usar para buscar e entregar aparelhos. A coleta própria
+              continua disponível para entregadores internos; o Uber Direct pode ser ativado com as credenciais da conta da assistência.
+            </p>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center justify-between gap-3 rounded-lg border border-emerald-100 bg-emerald-50/60 p-3">
+              <div>
+                <p className="text-sm font-medium text-foreground">Coleta própria da assistência</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Mantém o fluxo atual com atendente, técnico ou entregador interno responsável pela rota.
+                </p>
+              </div>
+              <Switch
+                checked={uberDirectForm.ownDeliveryEnabled}
+                onCheckedChange={(checked) => setUberDirectForm((prev) => ({ ...prev, ownDeliveryEnabled: checked }))}
+              />
+            </div>
+
+            <div className="flex items-center justify-between gap-3 rounded-lg border border-border p-3">
+              <div>
+                <p className="text-sm font-medium text-foreground">Uber Direct</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Quando ativo, a assistência poderá usar entregadores sob demanda da Uber para coletas e entregas.
+                </p>
+              </div>
+              <Switch
+                checked={uberDirectForm.enabled}
+                onCheckedChange={(checked) => setUberDirectForm((prev) => ({ ...prev, enabled: checked }))}
+              />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label>Ambiente</Label>
+                <select
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  value={uberDirectForm.environment}
+                  onChange={(e) => setUberDirectForm((prev) => ({ ...prev, environment: e.target.value as "sandbox" | "production" }))}
+                >
+                  <option value="sandbox">Sandbox / testes</option>
+                  <option value="production">Produção</option>
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Customer ID</Label>
+                <Input
+                  value={uberDirectForm.customerId}
+                  onChange={(e) => setUberDirectForm((prev) => ({ ...prev, customerId: e.target.value }))}
+                  placeholder={uberDirectConfig?.customerIdConfigured ? uberDirectConfig.customerIdPreview ?? "Customer ID já configurado" : "cus_..."}
+                  className="font-mono text-xs"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Client ID</Label>
+                <Input
+                  value={uberDirectForm.clientId}
+                  onChange={(e) => setUberDirectForm((prev) => ({ ...prev, clientId: e.target.value }))}
+                  placeholder={uberDirectConfig?.clientIdConfigured ? uberDirectConfig.clientIdPreview ?? "Client ID já configurado" : "Client ID da Uber"}
+                  className="font-mono text-xs"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Client Secret</Label>
+                <Input
+                  type="password"
+                  value={uberDirectForm.clientSecret}
+                  onChange={(e) => setUberDirectForm((prev) => ({ ...prev, clientSecret: e.target.value }))}
+                  placeholder={uberDirectConfig?.clientSecretConfigured ? "Client Secret já configurado — deixe em branco para manter" : "Client Secret da Uber"}
+                  className="font-mono text-xs"
+                />
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-emerald-100 bg-emerald-50 p-3 text-xs text-emerald-800 leading-relaxed">
+              As credenciais não são exibidas novamente após salvar. Se trocar a chave na Uber, cole os novos dados aqui e salve.
+              A ativação operacional de cotações, criação de entrega e rastreio será conectada ao fluxo de coletas/entregas em uma próxima etapa.
+            </div>
+
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex flex-wrap gap-2">
+                <Badge variant={uberDirectForm.ownDeliveryEnabled ? "default" : "secondary"}>
+                  Coleta própria {uberDirectForm.ownDeliveryEnabled ? "ativa" : "inativa"}
+                </Badge>
+                <Badge variant={uberDirectForm.enabled ? "default" : "secondary"}>
+                  Uber Direct {uberDirectForm.enabled ? "ativo" : "inativo"}
+                </Badge>
+              </div>
+              <Button
+                size="sm"
+                onClick={() => updateUberDirectConfig.mutate({
+                  ownDeliveryEnabled: uberDirectForm.ownDeliveryEnabled,
+                  enabled: uberDirectForm.enabled,
+                  environment: uberDirectForm.environment,
+                  customerId: uberDirectForm.customerId.trim() || undefined,
+                  clientId: uberDirectForm.clientId.trim() || undefined,
+                  clientSecret: uberDirectForm.clientSecret.trim() || undefined,
+                })}
+                disabled={updateUberDirectConfig.isPending}
+              >
+                {updateUberDirectConfig.isPending ? "Salvando..." : "Salvar logística"}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+          </AccordionContent>
+        </AccordionItem>
+        <AccordionItem value="pagamentos" className="rounded-xl border bg-card px-4 shadow-sm">
+          <AccordionTrigger className="hover:no-underline">
+            <div className="flex items-start gap-3 text-left">
+              <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+                <CreditCard className="h-4 w-4" />
+              </div>
+              <div className="space-y-1">
+                <p className="text-sm font-semibold text-foreground">Pagamentos</p>
+                <p className="text-xs font-normal leading-relaxed text-muted-foreground">Configurações do Pagar.me para PIX, cartão, chaves técnicas e webhook de confirmação.</p>
+              </div>
+            </div>
+          </AccordionTrigger>
+          <AccordionContent className="space-y-4">
+        {/* Pagar.me */}
+        <Card className="border-blue-200">
+          <CardHeader>
+            <CardTitle className="text-sm font-semibold flex items-center gap-2 text-blue-700">
+              <CreditCard className="h-4 w-4" /> Pagar.me — PIX e Cartão
+            </CardTitle>
+            <p className="text-xs text-muted-foreground">
+              Configure o gateway usado no pagamento opcional da Minha Conta. O cliente só verá PIX/cartão
+              depois que o serviço estiver concluído e a entrega for autorizada por ele.
+            </p>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center justify-between rounded-lg border border-border bg-muted/30 px-4 py-3 gap-4">
+              <div>
+                <p className="text-sm font-medium text-foreground">Pagamento online no portal do cliente</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Quando ativo, as cobranças são criadas no Pagar.me e confirmadas pelo webhook.
+                </p>
+              </div>
+              <Switch
+                checked={pagarmeForm.enabled}
+                onCheckedChange={(checked) => setPagarmeForm((prev) => ({ ...prev, enabled: checked }))}
+              />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label>Ambiente</Label>
+                <select
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  value={pagarmeForm.environment}
+                  onChange={(e) => setPagarmeForm((prev) => ({ ...prev, environment: e.target.value as "sandbox" | "production" }))}
+                >
+                  <option value="sandbox">Sandbox / testes</option>
+                  <option value="production">Produção</option>
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Chave pública</Label>
+                <Input
+                  value={pagarmeForm.publicKey}
+                  onChange={(e) => setPagarmeForm((prev) => ({ ...prev, publicKey: e.target.value }))}
+                  placeholder={pagarmeConfig?.publicKeyConfigured ? pagarmeConfig.publicKeyPreview ?? "Chave já configurada" : "pk_test_..."}
+                  className="font-mono text-xs"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Chave secreta</Label>
+                <Input
+                  type="password"
+                  value={pagarmeForm.secretKey}
+                  onChange={(e) => setPagarmeForm((prev) => ({ ...prev, secretKey: e.target.value }))}
+                  placeholder={pagarmeConfig?.secretKeyConfigured ? "Chave secreta já configurada — deixe em branco para manter" : "sk_test_..."}
+                  className="font-mono text-xs"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Webhook secret</Label>
+                <Input
+                  type="password"
+                  value={pagarmeForm.webhookSecret}
+                  onChange={(e) => setPagarmeForm((prev) => ({ ...prev, webhookSecret: e.target.value }))}
+                  placeholder={pagarmeConfig?.webhookSecretConfigured ? "Secret já configurado — deixe em branco para manter" : "segredo do webhook"}
+                  className="font-mono text-xs"
+                />
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 space-y-2">
+              <div className="flex items-center gap-2">
+                <Info className="h-4 w-4 text-blue-600 shrink-0" />
+                <p className="text-sm font-semibold text-blue-800">URL do webhook</p>
+              </div>
+              <p className="text-xs text-blue-700 leading-relaxed">
+                Cadastre esta URL no painel do Pagar.me para que pagamentos aprovados sejam baixados
+                automaticamente no FullReparo.
+              </p>
+              <div className="flex gap-2">
+                <Input value={pagarmeWebhookUrl} readOnly className="font-mono text-xs bg-white" />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={() => {
+                    navigator.clipboard.writeText(pagarmeWebhookUrl);
+                    toast.success("URL do webhook copiada");
+                  }}
+                >
+                  <Copy className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between gap-3 pt-1">
+              <div className="flex flex-wrap gap-2">
+                <Badge variant="outline" className={pagarmeConfig?.publicKeyConfigured ? "border-green-300 text-green-700 bg-green-50" : "border-border text-muted-foreground"}>
+                  Pública {pagarmeConfig?.publicKeyConfigured ? "configurada" : "pendente"}
+                </Badge>
+                <Badge variant="outline" className={pagarmeConfig?.secretKeyConfigured ? "border-green-300 text-green-700 bg-green-50" : "border-border text-muted-foreground"}>
+                  Secreta {pagarmeConfig?.secretKeyConfigured ? "configurada" : "pendente"}
+                </Badge>
+                <Badge variant="outline" className={pagarmeConfig?.webhookSecretConfigured ? "border-green-300 text-green-700 bg-green-50" : "border-border text-muted-foreground"}>
+                  Webhook {pagarmeConfig?.webhookSecretConfigured ? "configurado" : "pendente"}
+                </Badge>
+              </div>
+              <Button
+                size="sm"
+                onClick={() => updatePagarmeConfig.mutate({
+                  enabled: pagarmeForm.enabled,
+                  environment: pagarmeForm.environment,
+                  publicKey: pagarmeForm.publicKey.trim() || undefined,
+                  secretKey: pagarmeForm.secretKey.trim() || undefined,
+                  webhookSecret: pagarmeForm.webhookSecret.trim() || undefined,
+                })}
+                disabled={updatePagarmeConfig.isPending}
+              >
+                {updatePagarmeConfig.isPending ? "Salvando..." : "Salvar Pagar.me"}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+          </AccordionContent>
+        </AccordionItem>
+        <AccordionItem value="termos-juridico" className="rounded-xl border bg-card px-4 shadow-sm">
+          <AccordionTrigger className="hover:no-underline">
+            <div className="flex items-start gap-3 text-left">
+              <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+                <FileText className="h-4 w-4" />
+              </div>
+              <div className="space-y-1">
+                <p className="text-sm font-semibold text-foreground">Termos e jurídico</p>
+                <p className="text-xs font-normal leading-relaxed text-muted-foreground">Textos longos de responsabilidade técnica, termo de serviço e garantia ficam isolados nesta categoria.</p>
+              </div>
+            </div>
+          </AccordionTrigger>
+          <AccordionContent className="space-y-4">
+        {/* Termo de Serviço */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm font-semibold flex items-center gap-2">
+              <FileText className="h-4 w-4 text-muted-foreground" /> Termo de Serviço
+            </CardTitle>
+            <p className="text-xs text-muted-foreground">
+              Este texto é impresso junto com a OS de balcão (o cliente assina físicamente) e exibido em um
+              modal de aceite no portal de solicitação de coleta antes de o cliente confirmar.
+              Deixe em branco para não usar termo.
+            </p>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <Textarea
+              value={termsText}
+              onChange={(e) => setTermsText(e.target.value)}
+              placeholder="Ex: Ao entregar o aparelho, o cliente declara estar ciente de que a assistência não se responsabiliza por dados armazenados no dispositivo..."
+              rows={8}
+              className="resize-y text-sm"
+            />
+            <div className="flex items-center justify-between">
+              <p className="text-xs text-muted-foreground">
+                {termsText.length} caracteres
+              </p>
+              <Button
+                size="sm"
+                onClick={() => updateTerms.mutate({ serviceTerms: termsText })}
+                disabled={updateTerms.isPending}
+              >
+                {updateTerms.isPending ? "Salvando..." : "Salvar Termo"}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Termo de Garantia */}
+        <Card className="border-emerald-200">
+          <CardHeader>
+            <CardTitle className="text-sm font-semibold flex items-center gap-2 text-emerald-700">
+              <Shield className="h-4 w-4" /> Termo de Garantia
+            </CardTitle>
+            <p className="text-xs text-muted-foreground">
+              Este texto é exibido no modal de encerramento da OS (antes de confirmar) e impresso no
+              comprovante de garantia entregue ao cliente. Deixe em branco para não usar termo de garantia.
+            </p>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <Textarea
+              value={warrantyTermsText}
+              onChange={(e) => setWarrantyTermsText(e.target.value)}
+              placeholder="Ex: A garantia cobre defeitos de mão de obra e peças substituídas por esta assistência. Não cobre danos físicos, líquidos, quedas ou uso inadequado. Para acionar a garantia, apresente este comprovante..."
+              rows={6}
+              className="resize-y text-sm"
+            />
+            <div className="flex items-center justify-between">
+              <p className="text-xs text-muted-foreground">
+                {warrantyTermsText.length} caracteres
+              </p>
+              <Button
+                size="sm"
+                className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                onClick={() => updateTerms.mutate({ warrantyTerms: warrantyTermsText })}
+                disabled={updateTerms.isPending}
+              >
+                {updateTerms.isPending ? "Salvando..." : "Salvar Termo de Garantia"}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+          </AccordionContent>
+        </AccordionItem>
+        </Accordion>
       </div>
     </TenantLayout>
   );
