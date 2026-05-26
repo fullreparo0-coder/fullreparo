@@ -269,6 +269,7 @@ export default function ServiceOrderNew() {
     accessories: "",
     devicePassword: "",
     internalNotes: "",
+    initialBudgetValue: "",
     warrantyDays: "90",
   });
 
@@ -545,9 +546,28 @@ export default function ServiceOrderNew() {
     setDeviceMode("new");
   };
 
+  const parseInitialBudgetValue = () => {
+    const raw = form.initialBudgetValue.trim();
+    if (!raw) return undefined;
+
+    const sanitized = raw.replace(/[^\d,.-]/g, "");
+    const normalized = sanitized.includes(",")
+      ? sanitized.replace(/\./g, "").replace(",", ".")
+      : sanitized;
+    const parsed = Number(normalized);
+
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+  };
+
   // ── Submissão da OS ───────────────────────────────────────────────────────
   const handleSubmit = async () => {
     if (!customerId) return;
+    const initialBudgetValue = parseInitialBudgetValue();
+    if (initialBudgetValue === null) {
+      toast.error("Informe um valor de orçamento válido ou deixe o campo em branco.");
+      return;
+    }
+
     try {
       const result = await createOs.mutateAsync({
         customerId,
@@ -563,6 +583,7 @@ export default function ServiceOrderNew() {
         devicePassword: form.devicePassword || undefined,
         internalNotes: form.internalNotes || undefined,
         warrantyDays: parseInt(form.warrantyDays),
+        initialBudgetValue,
         checklist: selectedChecklist,
       });
       toast.success(`OS ${result.osNumber} criada com sucesso!`);
@@ -1210,6 +1231,24 @@ export default function ServiceOrderNew() {
                   placeholder="Descreva o problema relatado pelo cliente..."
                   rows={3}
                 />
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-[1fr_220px] gap-3">
+                <div>
+                  <Label>Orçamento inicial</Label>
+                  <Input
+                    className="mt-1.5"
+                    inputMode="decimal"
+                    value={form.initialBudgetValue}
+                    onChange={(e) => update("initialBudgetValue", e.target.value)}
+                    placeholder="0,00"
+                  />
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Use este campo quando o diagnóstico for feito no balcão e o cliente puder aprovar na hora.
+                  </p>
+                </div>
+                <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                  Se preenchido, a OS será criada em <strong>aguardando aprovação</strong> e o orçamento ficará disponível nos detalhes da OS.
+                </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>

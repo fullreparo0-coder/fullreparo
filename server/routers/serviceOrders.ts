@@ -1,7 +1,7 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { getDb, getServiceOrdersByTenant, getServiceOrderById, getOsTimeline, generateOsNumber, getPhotosByOs, getChecklistByOs, countOsThisMonth, getFinancialReport } from "../db";
-import { serviceOrders, osStatusHistory, osChecklist, photos, devices, payments, customers, osNotifications, users } from "../../drizzle/schema";
+import { serviceOrders, osStatusHistory, osChecklist, photos, devices, payments, customers, osNotifications, users, budgets } from "../../drizzle/schema";
 import { protectedProcedure, publicProcedure, router } from "../_core/trpc";
 import { and, eq } from "drizzle-orm";
 import { nanoid } from "nanoid";
@@ -266,6 +266,7 @@ export const serviceOrdersRouter = router({
         technicianId: z.number().optional(),
         estimatedDelivery: z.string().optional(),
         warrantyDays: z.number().default(90),
+        initialBudgetValue: z.number().min(0).optional(),
         checklist: z.array(z.string()).optional(),
       })
     )
@@ -286,7 +287,10 @@ export const serviceOrdersRouter = router({
       }
       const osNumber = await generateOsNumber(ctx.user.tenantId!);
       const publicToken = nanoid(32);
-      const { checklist, brand, model, imei, serialNumber, deviceType, deviceId, ...osData } = input;
+      const { checklist, brand, model, imei, serialNumber, deviceType, deviceId, initialBudgetValue, ...osData } = input;
+      const hasInitialBudget = typeof initialBudgetValue === "number" && initialBudgetValue > 0;
+      const initialBudgetAmount = hasInitialBudget ? initialBudgetValue.toFixed(2) : null;
+      const initialStatus = hasInitialBudget ? "aguardando_aprovacao" : "recebido_na_assistencia";
 
       let resolvedDeviceId = deviceId ?? null;
       if (resolvedDeviceId) {
@@ -330,7 +334,7 @@ export const serviceOrdersRouter = router({
         osNumber,
         publicToken,
         origin: "balcao",
-        status: "recebido_na_assistencia",
+        status: initialStatus,
         attendantId: ctx.user.id,
         estimatedDelivery: input.estimatedDelivery ? new Date(input.estimatedDelivery) : undefined,
       });
@@ -339,11 +343,38 @@ export const serviceOrdersRouter = router({
       await db.insert(osStatusHistory).values({
         tenantId: ctx.user.tenantId!,
         serviceOrderId: osId,
-        status: "recebido_na_assistencia",
-        notes: "OS aberta no balcão",
+        status: initialStatus,
+        notes: hasInitialBudget && initialBudgetAmount
+          ? `OS aberta no balcão com orçamento inicial: R$ ${initialBudgetAmount.replace(".", ",")}`
+          : "OS aberta no balcão",
         changedById: ctx.user.id,
         changedByName: ctx.user.name ?? "Atendente",
       });
+      if (hasInitialBudget && initialBudgetAmount) {
+        const validUntil = new Date();
+        validUntil.setDate(validUntil.getDate() + 7);
+        await db.insert(budgets).values({
+          tenantId: ctx.user.tenantId!,
+          serviceOrderId: osId,
+          description: "Orçamento informado na abertura da OS no balcão.",
+          laborCost: initialBudgetAmount,
+          partsCost: "0.00",
+          totalCost: initialBudgetAmount,
+          status: "pending",
+          validUntil,
+          createdById: ctx.user.id,
+        });
+
+        await db.insert(osStatusHistory).values({
+          tenantId: ctx.user.tenantId!,
+          serviceOrderId: osId,
+          status: "aguardando_aprovacao",
+          notes: `Orçamento inicial enviado para aprovação: R$ ${initialBudgetAmount.replace(".", ",")}`,
+          changedById: ctx.user.id,
+          changedByName: ctx.user.name ?? "Atendente",
+        });
+      }
+
       // Salvar checklist
       if (checklist && checklist.length > 0) {
         await db.insert(osChecklist).values(
@@ -362,6 +393,16 @@ export const serviceOrdersRouter = router({
         actorName: ctx.user.name ?? "Atendente",
         origin: ctx.req?.headers?.origin ?? null,
       }).catch((err) => console.warn("[createBalcao] Falha na comunicação automática da OS aberta:", err));
+
+      if (hasInitialBudget) {
+        triggerAutoCommunication({
+          tenantId: ctx.user.tenantId!,
+          serviceOrderId: osId,
+          event: "budget_available",
+          actorName: ctx.user.name ?? "Atendente",
+          origin: ctx.req?.headers?.origin ?? null,
+        }).catch((err) => console.warn("[createBalcao] Falha na comunicação automática do orçamento inicial:", err));
+      }
 
       // Vinculação automática: se o customer não tem userOpenId ainda,
       // tenta encontrar um user cadastrado com o mesmo e-mail e vincula.
