@@ -235,7 +235,7 @@ export function TenantLayout({ children, title }: TenantLayoutProps) {
   );
 
   return (
-    <div className="flex h-screen bg-background overflow-hidden">
+    <div className="flex h-[100dvh] w-full max-w-full bg-background overflow-hidden">
       {/* Sidebar Desktop */}
       <aside className="hidden lg:flex w-60 flex-col bg-sidebar shrink-0">
         <SidebarContent />
@@ -252,9 +252,9 @@ export function TenantLayout({ children, title }: TenantLayoutProps) {
       )}
 
       {/* Main */}
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
         {/* Top bar */}
-        <header className="flex h-14 items-center gap-3 border-b border-border bg-background px-4 lg:px-6 shrink-0">
+        <header className="flex h-14 w-full max-w-full items-center gap-3 border-b border-border bg-background px-4 lg:px-6 shrink-0">
           <Button
             variant="ghost"
             size="icon"
@@ -276,7 +276,7 @@ export function TenantLayout({ children, title }: TenantLayoutProps) {
         </header>
 
         {/* Content */}
-        <main className="flex-1 overflow-y-auto p-4 lg:p-6">
+        <main className="flex-1 w-full max-w-full overflow-y-auto overflow-x-hidden overscroll-contain p-4 lg:p-6">
           {showSubscriptionNotice && (
             <div className={cn(
               "mb-4 rounded-xl border p-3 text-sm flex items-start gap-3",

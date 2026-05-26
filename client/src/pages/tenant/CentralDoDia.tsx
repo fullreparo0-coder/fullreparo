@@ -67,15 +67,15 @@ function StatCard({ title, value, description, icon: Icon, tone, onClick }: {
   onClick?: () => void;
 }) {
   return (
-    <Card className="overflow-hidden transition hover:shadow-md">
+    <Card className="w-full min-w-0 overflow-hidden transition hover:shadow-md">
       <CardContent className="p-5">
-        <div className="flex items-start justify-between gap-4">
-          <div>
+        <div className="flex items-start justify-between gap-4 min-w-0">
+          <div className="min-w-0">
             <p className="text-sm font-medium text-muted-foreground">{title}</p>
             <p className="mt-2 text-3xl font-bold tracking-tight">{value}</p>
             <p className="mt-1 text-xs text-muted-foreground">{description}</p>
           </div>
-          <div className={`rounded-xl p-3 ${tone}`}>
+          <div className={`shrink-0 rounded-xl p-3 ${tone}`}>
             <Icon className="h-5 w-5" />
           </div>
         </div>
@@ -92,7 +92,7 @@ function StatCard({ title, value, description, icon: Icon, tone, onClick }: {
 function LoadingGrid() {
   return (
     <div className="space-y-6">
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid w-full max-w-full gap-4 md:grid-cols-2 xl:grid-cols-4">
         {Array.from({ length: 4 }).map((_, idx) => (
           <Card key={idx}><CardContent className="p-5"><Skeleton className="h-20 w-full" /></CardContent></Card>
         ))}
@@ -146,7 +146,7 @@ export default function CentralDoDia() {
 
   return (
     <TenantLayout title="Central do Dia">
-      <div className="space-y-6">
+      <div className="max-w-full space-y-6 overflow-x-hidden">
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div>
             <h1 className="text-2xl font-bold tracking-tight">Central do Dia</h1>
@@ -166,7 +166,7 @@ export default function CentralDoDia() {
           </div>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <div className="grid w-full max-w-full gap-4 md:grid-cols-2 xl:grid-cols-4">
           <StatCard
             title="OS novas hoje"
             value={cards.newOrdersToday}
@@ -201,7 +201,7 @@ export default function CentralDoDia() {
           />
         </div>
 
-        <Card className="border-primary/20 bg-gradient-to-br from-primary/5 via-background to-background">
+        <Card className="w-full min-w-0 border-primary/20 bg-gradient-to-br from-primary/5 via-background to-background">
           <CardHeader className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div>
               <CardTitle className="flex items-center gap-2"><Zap className="h-5 w-5 text-primary" /> Console inteligente de ações</CardTitle>
@@ -216,7 +216,7 @@ export default function CentralDoDia() {
           </CardHeader>
         </Card>
 
-        <div className="grid gap-4 lg:grid-cols-3">
+        <div className="grid w-full max-w-full gap-4 lg:grid-cols-3">
           <Card className="lg:col-span-2">
             <CardHeader className="flex flex-row items-center justify-between gap-2">
               <div>
@@ -314,7 +314,7 @@ export default function CentralDoDia() {
           </div>
         </div>
 
-        <div className="grid gap-4 lg:grid-cols-2">
+        <div className="grid w-full max-w-full gap-4 lg:grid-cols-2">
           <Card>
             <CardHeader>
               <CardTitle>Distribuição por status</CardTitle>
@@ -369,7 +369,7 @@ export default function CentralDoDia() {
                 <p className="mt-3 text-sm text-muted-foreground">Nenhuma comunicação recente registrada.</p>
               </div>
             ) : (
-              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+              <div className="grid w-full max-w-full gap-3 md:grid-cols-2 xl:grid-cols-3">
                 {inboxByOs.map((item, idx) => {
                   const Icon = channelIcon[item.channel] ?? Bell;
                   return (
@@ -393,7 +393,7 @@ export default function CentralDoDia() {
           </CardContent>
         </Card>
 
-        <div className="grid gap-3 md:grid-cols-3">
+        <div className="grid w-full max-w-full gap-3 md:grid-cols-3">
           <Button variant="outline" className="justify-start" onClick={() => navigate("/painel/os/nova")}>
             <Plus className="mr-2 h-4 w-4" /> Abrir nova OS
           </Button>
