@@ -221,8 +221,7 @@
 
   body.print-mode-argox8040 > #print-root {
     display: block !important;
-    position: fixed !important;
-    inset: 0 auto auto 0 !important;
+    position: static !important;
     width: 78mm !important;
     height: 37.4mm !important;
     max-width: 78mm !important;
@@ -231,14 +230,26 @@
     padding: 0 !important;
     overflow: hidden !important;
     box-sizing: border-box !important;
-    contain: strict !important;
+  }
+
+  body.print-mode-argox8040 > #print-root > :not(.print-argox8040) {
+    display: none !important;
+  }
+
+  body.print-mode-argox8040 > #print-root > .print-argox8040:not(:first-child) {
+    display: none !important;
   }
 
   body.print-mode-argox8040 .print-argox8040 {
+    display: block !important;
+    position: static !important;
     width: 78mm !important;
     max-width: 78mm !important;
     height: 37.4mm !important;
     max-height: 37.4mm !important;
+    margin: 0 !important;
+    overflow: hidden !important;
+    box-sizing: border-box !important;
     break-before: avoid !important;
     break-after: avoid !important;
     break-inside: avoid !important;
