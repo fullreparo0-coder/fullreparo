@@ -34,6 +34,8 @@ export default function TenantDashboard() {
     aguardando_entrega: "#6366f1",
     saiu_para_entrega: "#8b5cf6",
     finalizado: "#22c55e",
+    encerrado_sem_reparo: "#64748b",
+    encerrado_condenado: "#dc2626",
     entregue: "#16a34a",
     cancelado: "#6b7280",
   };

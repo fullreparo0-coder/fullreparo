@@ -16,7 +16,9 @@ const STATUS_LABELS: Record<string, string> = {
   aguardando_entrega: "Aguard. Entrega",
   saiu_para_entrega: "Saiu p/ Entrega",
   entregue: "Entregue",
-  finalizado: "Finalizado",
+  finalizado: "Feito",
+  encerrado_sem_reparo: "Encerrado sem Reparo",
+  encerrado_condenado: "Encerrado Condenado",
   cancelado: "Cancelado",
 };
 

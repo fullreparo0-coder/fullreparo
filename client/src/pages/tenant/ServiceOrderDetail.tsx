@@ -38,6 +38,7 @@ export default function ServiceOrderDetail() {
   // Modal de encerramento (status = finalizado)
   const [closeModal, setCloseModal] = useState(false);
   const [closeWarrantyDays, setCloseWarrantyDays] = useState<number>(90);
+  const [closeOutcome, setCloseOutcome] = useState<"finalizado" | "encerrado_sem_reparo" | "encerrado_condenado">("finalizado");
   const [closeNotes, setCloseNotes] = useState("");
   const [budgetOpen, setBudgetOpen] = useState(false);
   const [budgetItems, setBudgetItems] = useState<{ description: string; quantity: number; unitPrice: number; type: "service" | "part" }[]>([{ description: "", quantity: 1, unitPrice: 0, type: "service" }]);
@@ -122,6 +123,7 @@ export default function ServiceOrderDetail() {
       setNewStatus("");
       setStatusNotes("");
       setCloseModal(false);
+      setCloseOutcome("finalizado");
       setCloseNotes("");
       if (data?.whatsappNotification) {
         setWhatsappModal(data.whatsappNotification);
@@ -213,6 +215,7 @@ export default function ServiceOrderDetail() {
       // Interceptar: abrir modal de encerramento em vez de confirmar direto
       setNewStatus(status);
       setCloseWarrantyDays(os?.warrantyDays ?? 90);
+      setCloseOutcome("finalizado");
       setCloseNotes("");
       setCloseModal(true);
     } else {
@@ -221,11 +224,21 @@ export default function ServiceOrderDetail() {
   };
 
   const handleConfirmClose = () => {
+    const outcomeLabels: Record<typeof closeOutcome, string> = {
+      finalizado: "Feito",
+      encerrado_sem_reparo: "Encerrado sem reparo",
+      encerrado_condenado: "Encerrado condenado",
+    };
+    const notes = [
+      `Resultado do encerramento: ${outcomeLabels[closeOutcome]}.`,
+      closeNotes.trim() || null,
+    ].filter(Boolean).join(" ");
+
     updateStatus.mutate({
       id: osId,
-      status: "finalizado",
-      notes: closeNotes || undefined,
-      warrantyDays: closeWarrantyDays,
+      status: closeOutcome as any,
+      notes,
+      warrantyDays: closeOutcome === "finalizado" ? closeWarrantyDays : 0,
     });
   };
 
@@ -501,6 +514,7 @@ export default function ServiceOrderDetail() {
               onClick={() => {
                 setNewStatus("finalizado");
                 setCloseWarrantyDays(os.warrantyDays ?? 90);
+                setCloseOutcome("finalizado");
                 setCloseNotes("");
                 setCloseModal(true);
               }}
@@ -614,7 +628,8 @@ export default function ServiceOrderDetail() {
                         onClick={() => {
                           setNewStatus("finalizado");
                           setCloseWarrantyDays(os.warrantyDays ?? 90);
-                          setCloseNotes("");
+                          setCloseOutcome("finalizado");
+                setCloseNotes("");
                           setCloseModal(true);
                         }}
                       >
@@ -1459,7 +1474,37 @@ export default function ServiceOrderDetail() {
           {/* Corpo */}
           <div className="px-6 py-5 space-y-5">
 
+            {/* Resultado do encerramento */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Resultado do encerramento</Label>
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                {([
+                  { value: "finalizado", label: "Feito", description: "Serviço realizado, com opção de garantia." },
+                  { value: "encerrado_sem_reparo", label: "Sem reparo", description: "OS encerrada sem executar reparo." },
+                  { value: "encerrado_condenado", label: "Condenado", description: "Aparelho inviável para reparo." },
+                ] as const).map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => {
+                      setCloseOutcome(option.value);
+                      if (option.value !== "finalizado") setCloseWarrantyDays(0);
+                    }}
+                    className={`rounded-xl border px-3 py-3 text-left transition-colors ${
+                      closeOutcome === option.value
+                        ? "border-emerald-500 bg-emerald-50 text-emerald-900 ring-1 ring-emerald-500"
+                        : "border-border bg-background hover:bg-muted/60"
+                    }`}
+                  >
+                    <span className="block text-sm font-semibold">{option.label}</span>
+                    <span className="mt-1 block text-xs text-muted-foreground leading-snug">{option.description}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
             {/* Bloco de garantia */}
+            {closeOutcome === "finalizado" ? (
             <div className="rounded-xl border-2 border-emerald-200 bg-emerald-50/60 p-4 space-y-3">
               <div className="flex items-center gap-2">
                 <Shield className="h-4 w-4 text-emerald-600" />
@@ -1510,6 +1555,11 @@ export default function ServiceOrderDetail() {
                 )}
               </div>
             </div>
+            ) : (
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
+                Este encerramento não gera garantia digital automaticamente. O status da OS ficará como <strong>{STATUS_LABELS[closeOutcome]}</strong>.
+              </div>
+            )}
 
             {/* Observação final */}
             <div className="space-y-1.5">
@@ -1553,7 +1603,7 @@ export default function ServiceOrderDetail() {
               >
                 {updateStatus.isPending
                   ? <><span className="animate-spin mr-2">⏳</span> Encerrando...</>
-                  : <><Shield className="h-4 w-4 mr-2" /> Confirmar Encerramento</>}
+                  : <><Shield className="h-4 w-4 mr-2" /> Confirmar {STATUS_LABELS[closeOutcome]}</>}
               </Button>
               <Button
                 variant="outline"

@@ -15,7 +15,9 @@ const STATUS_LABELS: Record<string, string> = {
   aguardando_peca: "Aguardando Peça",
   pronto: "Pronto para Retirada",
   saiu_para_entrega: "Saiu para Entrega",
-  finalizado: "Finalizado",
+  finalizado: "Feito",
+  encerrado_sem_reparo: "Encerrado sem Reparo",
+  encerrado_condenado: "Encerrado Condenado",
   cancelado: "Cancelado",
 };
 
@@ -34,6 +36,8 @@ const STATUS_EMOJIS: Record<string, string> = {
   pronto: "🎉",
   saiu_para_entrega: "🚚",
   finalizado: "✅",
+  encerrado_sem_reparo: "ℹ️",
+  encerrado_condenado: "⚠️",
   cancelado: "❌",
 };
 

@@ -174,12 +174,14 @@ describe("Labels de status para exportação", () => {
     aguardando_entrega: "Aguardando Entrega",
     saiu_para_entrega: "Saiu para Entrega",
     entregue: "Entregue",
-    finalizado: "Finalizado",
+    finalizado: "Feito",
+    encerrado_sem_reparo: "Encerrado sem Reparo",
+    encerrado_condenado: "Encerrado Condenado",
     cancelado: "Cancelado",
   };
 
-  it("tem labels para todos os 17 status do sistema", () => {
-    expect(Object.keys(STATUS_LABELS)).toHaveLength(17);
+  it("tem labels para todos os 19 status do sistema", () => {
+    expect(Object.keys(STATUS_LABELS)).toHaveLength(19);
   });
 
   it("todos os status têm label não vazio em português", () => {

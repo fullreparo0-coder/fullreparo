@@ -34,7 +34,7 @@ type SmartActionContext = {
   deliveryAuthorizedAt?: Date | string | null;
 };
 
-const FINAL_STATUSES = new Set(["finalizado", "cancelado", "entregue"]);
+const FINAL_STATUSES = new Set(["finalizado", "encerrado_sem_reparo", "encerrado_condenado", "cancelado", "entregue"]);
 const HIGH_TOUCH_STATUSES = new Set(["aguardando_aprovacao", "pronto", "aguardando_entrega", "aguardando_peca"]);
 const CUSTOMER_PUSH_STATUSES = new Set([
   "aguardando_aprovacao",
@@ -45,6 +45,8 @@ const CUSTOMER_PUSH_STATUSES = new Set([
   "saiu_para_entrega",
   "entregue",
   "finalizado",
+  "encerrado_sem_reparo",
+  "encerrado_condenado",
 ]);
 
 const SLA_LIMIT_HOURS: Record<string, number> = {
@@ -183,7 +185,7 @@ const OS_STATUSES = [
   "solicitado", "aguardando_coleta", "coleta_agendada", "coletado",
   "recebido_na_assistencia", "em_diagnostico", "aguardando_aprovacao",
   "aprovado", "recusado", "aguardando_peca", "em_reparo", "pronto",
-  "aguardando_entrega", "saiu_para_entrega", "entregue", "finalizado", "cancelado",
+  "aguardando_entrega", "saiu_para_entrega", "entregue", "finalizado", "encerrado_sem_reparo", "encerrado_condenado", "cancelado",
 ] as const;
 
 export const serviceOrdersRouter = router({
@@ -652,7 +654,7 @@ export const serviceOrdersRouter = router({
         id: z.number(),
         status: z.enum(OS_STATUSES),
         notes: z.string().optional(),
-        /** Dias de garantia a aplicar ao encerrar (status=finalizado). Sobrescreve o valor da OS. */
+        /** Dias de garantia a aplicar quando o encerramento for Feito (status=finalizado). Sobrescreve o valor da OS. */
         warrantyDays: z.number().int().min(0).max(3650).optional(),
       })
     )
@@ -1272,7 +1274,7 @@ export const serviceOrdersRouter = router({
     const { sql } = await import("drizzle-orm");
     const [total, open, finished, pendingPickup] = await Promise.all([
       db.select({ count: sql<number>`COUNT(*)` }).from(serviceOrders).where(eq(serviceOrders.tenantId, ctx.user.tenantId!)),
-      db.select({ count: sql<number>`COUNT(*)` }).from(serviceOrders).where(and(eq(serviceOrders.tenantId, ctx.user.tenantId!), sql`status NOT IN ('finalizado','cancelado','entregue')`)),
+      db.select({ count: sql<number>`COUNT(*)` }).from(serviceOrders).where(and(eq(serviceOrders.tenantId, ctx.user.tenantId!), sql`status NOT IN ('finalizado','encerrado_sem_reparo','encerrado_condenado','cancelado','entregue')`)),
       db.select({ count: sql<number>`COUNT(*)` }).from(serviceOrders).where(and(eq(serviceOrders.tenantId, ctx.user.tenantId!), eq(serviceOrders.status, "finalizado"))),
       db.select({ count: sql<number>`COUNT(*)` }).from(serviceOrders).where(and(eq(serviceOrders.tenantId, ctx.user.tenantId!), sql`status IN ('aguardando_coleta','coleta_agendada')`)),
     ]);
@@ -1336,7 +1338,7 @@ export const serviceOrdersRouter = router({
         eq(serviceOrders.tenantId, tenantId),
         sql`${serviceOrders.estimatedDelivery} IS NOT NULL`,
         sql`${serviceOrders.estimatedDelivery} < ${now}`,
-        sql`${serviceOrders.status} NOT IN ('finalizado','cancelado','entregue')`,
+        sql`${serviceOrders.status} NOT IN ('finalizado','encerrado_sem_reparo','encerrado_condenado','cancelado','entregue')`,
       )),
       db.select({ count: countExpr }).from(serviceOrders).where(and(
         eq(serviceOrders.tenantId, tenantId),
@@ -1390,7 +1392,7 @@ export const serviceOrdersRouter = router({
         .where(and(
           eq(serviceOrders.tenantId, tenantId),
           sql`(${serviceOrders.status} IN ('recebido_na_assistencia','solicitado','aguardando_coleta','coleta_agendada','em_diagnostico','aguardando_aprovacao','aguardando_peca','em_reparo','pronto','aguardando_entrega') OR ${serviceOrders.estimatedDelivery} < ${now})`,
-          sql`${serviceOrders.status} NOT IN ('finalizado','cancelado','entregue')`,
+          sql`${serviceOrders.status} NOT IN ('finalizado','encerrado_sem_reparo','encerrado_condenado','cancelado','entregue')`,
         ))
         .orderBy(desc(serviceOrders.createdAt))
         .limit(12),
@@ -1421,9 +1423,9 @@ export const serviceOrdersRouter = router({
           technicianId: serviceOrders.technicianId,
           technicianName: users.name,
           total: countExpr,
-          openCount: sql<number>`SUM(CASE WHEN ${serviceOrders.status} NOT IN ('finalizado','cancelado','entregue') THEN 1 ELSE 0 END)`,
-          finishedCount: sql<number>`SUM(CASE WHEN ${serviceOrders.status} IN ('finalizado','entregue') THEN 1 ELSE 0 END)`,
-          overdueCount: sql<number>`SUM(CASE WHEN ${serviceOrders.estimatedDelivery} IS NOT NULL AND ${serviceOrders.estimatedDelivery} < ${now} AND ${serviceOrders.status} NOT IN ('finalizado','cancelado','entregue') THEN 1 ELSE 0 END)`,
+          openCount: sql<number>`SUM(CASE WHEN ${serviceOrders.status} NOT IN ('finalizado','encerrado_sem_reparo','encerrado_condenado','cancelado','entregue') THEN 1 ELSE 0 END)`,
+          finishedCount: sql<number>`SUM(CASE WHEN ${serviceOrders.status} IN ('finalizado','encerrado_sem_reparo','encerrado_condenado','entregue') THEN 1 ELSE 0 END)`,
+          overdueCount: sql<number>`SUM(CASE WHEN ${serviceOrders.estimatedDelivery} IS NOT NULL AND ${serviceOrders.estimatedDelivery} < ${now} AND ${serviceOrders.status} NOT IN ('finalizado','encerrado_sem_reparo','encerrado_condenado','cancelado','entregue') THEN 1 ELSE 0 END)`,
         })
         .from(serviceOrders)
         .leftJoin(users, eq(users.id, serviceOrders.technicianId))

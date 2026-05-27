@@ -178,6 +178,8 @@ export const serviceOrders = mysqlTable("service_orders", {
     "saiu_para_entrega",
     "entregue",
     "finalizado",
+    "encerrado_sem_reparo",
+    "encerrado_condenado",
     "cancelado",
   ])
     .notNull()
