@@ -335,7 +335,7 @@ export const tenantsRouter = router({
   listPublicPlans: publicProcedure.query(async () => {
     const db = await getDb();
     if (!db) return [];
-    return db.select().from(plans).where(eq(plans.isActive, true));
+    return db.select().from(plans).where(and(eq(plans.isActive, true), eq(plans.isPublic, true)));
   }),
 
   // Obter tenant do usuário logado
@@ -1058,6 +1058,25 @@ export const tenantsRouter = router({
     }),
 });
 
+const planPayloadSchema = z.object({
+  name: z.string().min(2).max(80),
+  slug: z.string().min(2).max(80).regex(/^[a-z0-9-]+$/, "Use apenas letras minúsculas, números e hífen no slug."),
+  description: z.string().max(500).optional().nullable(),
+  price: z.number().min(0),
+  maxOsPerMonth: z.number().int().min(-1),
+  maxUsers: z.number().int().min(-1),
+  hasPickupDelivery: z.boolean().optional(),
+  hasOnlineBudget: z.boolean().optional(),
+  hasWhatsapp: z.boolean().optional(),
+  hasClientPortal: z.boolean().optional(),
+  hasStock: z.boolean().optional(),
+  hasFinancial: z.boolean().optional(),
+  hasReports: z.boolean().optional(),
+  hasAdvancedCustomization: z.boolean().optional(),
+  isPublic: z.boolean().optional(),
+  isActive: z.boolean().optional(),
+});
+
 export const plansRouter = router({
   list: protectedProcedure.query(async () => {
     const db = await getDb();
@@ -1071,23 +1090,44 @@ export const plansRouter = router({
     return db.select().from(plans);
   }),
 
-  update: superAdminProcedure
-    .input(
-      z.object({
-        id: z.number(),
-        name: z.string().optional(),
-        price: z.number().optional(),
-        maxOsPerMonth: z.number().optional(),
-        maxUsers: z.number().optional(),
-        features: z.string().optional(),
-        isActive: z.boolean().optional(),
-      })
-    )
+  create: superAdminProcedure
+    .input(planPayloadSchema)
     .mutation(async ({ input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
-      const { id, price, ...data } = input;
-      await db.update(plans).set({ ...data, ...(price !== undefined && { price: String(price) }) }).where(eq(plans.id, id));
+      await db.insert(plans).values({
+        name: input.name.trim(),
+        slug: input.slug.trim(),
+        description: input.description?.trim() || null,
+        price: String(input.price),
+        maxOsPerMonth: input.maxOsPerMonth,
+        maxUsers: input.maxUsers,
+        hasPickupDelivery: input.hasPickupDelivery ?? false,
+        hasOnlineBudget: input.hasOnlineBudget ?? false,
+        hasWhatsapp: input.hasWhatsapp ?? false,
+        hasClientPortal: input.hasClientPortal ?? false,
+        hasStock: input.hasStock ?? false,
+        hasFinancial: input.hasFinancial ?? false,
+        hasReports: input.hasReports ?? false,
+        hasAdvancedCustomization: input.hasAdvancedCustomization ?? false,
+        isPublic: input.isPublic ?? true,
+        isActive: input.isActive ?? true,
+      });
+      return { success: true };
+    }),
+
+  update: superAdminProcedure
+    .input(planPayloadSchema.partial().extend({ id: z.number() }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      const { id, price, name, slug, description, ...data } = input;
+      const updates: Record<string, unknown> = { ...data };
+      if (name !== undefined) updates.name = name.trim();
+      if (slug !== undefined) updates.slug = slug.trim();
+      if (description !== undefined) updates.description = description?.trim() || null;
+      if (price !== undefined) updates.price = String(price);
+      await db.update(plans).set(updates).where(eq(plans.id, id));
       return { success: true };
     }),
 });

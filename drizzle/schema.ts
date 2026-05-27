@@ -27,6 +27,7 @@ export const plans = mysqlTable("plans", {
   hasFinancial: boolean("hasFinancial").notNull().default(false),
   hasReports: boolean("hasReports").notNull().default(false),
   hasAdvancedCustomization: boolean("hasAdvancedCustomization").notNull().default(false),
+  isPublic: boolean("isPublic").notNull().default(true),
   isActive: boolean("isActive").notNull().default(true),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),

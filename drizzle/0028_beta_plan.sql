@@ -1,0 +1,53 @@
+ALTER TABLE `plans` ADD COLUMN `isPublic` boolean NOT NULL DEFAULT true;
+
+INSERT INTO `plans` (
+  `name`,
+  `slug`,
+  `description`,
+  `price`,
+  `maxOsPerMonth`,
+  `maxUsers`,
+  `hasPickupDelivery`,
+  `hasOnlineBudget`,
+  `hasWhatsapp`,
+  `hasClientPortal`,
+  `hasStock`,
+  `hasFinancial`,
+  `hasReports`,
+  `hasAdvancedCustomization`,
+  `isPublic`,
+  `isActive`
+) VALUES (
+  'Beta',
+  'beta',
+  'Plano interno para clientes testadores do FullReparo, liberado manualmente pelo Super Admin durante a fase de validação.',
+  '0.00',
+  -1,
+  -1,
+  true,
+  true,
+  true,
+  true,
+  true,
+  true,
+  true,
+  true,
+  false,
+  true
+)
+ON DUPLICATE KEY UPDATE
+  `name` = VALUES(`name`),
+  `description` = VALUES(`description`),
+  `price` = VALUES(`price`),
+  `maxOsPerMonth` = VALUES(`maxOsPerMonth`),
+  `maxUsers` = VALUES(`maxUsers`),
+  `hasPickupDelivery` = VALUES(`hasPickupDelivery`),
+  `hasOnlineBudget` = VALUES(`hasOnlineBudget`),
+  `hasWhatsapp` = VALUES(`hasWhatsapp`),
+  `hasClientPortal` = VALUES(`hasClientPortal`),
+  `hasStock` = VALUES(`hasStock`),
+  `hasFinancial` = VALUES(`hasFinancial`),
+  `hasReports` = VALUES(`hasReports`),
+  `hasAdvancedCustomization` = VALUES(`hasAdvancedCustomization`),
+  `isPublic` = VALUES(`isPublic`),
+  `isActive` = VALUES(`isActive`);
