@@ -52,6 +52,16 @@ export default function SuperAdminTenantDetail() {
     },
   });
 
+  const activateBetaPlan = trpc.tenants.activateBetaPlan.useMutation({
+    onSuccess: (data) => {
+      toast.success(`Assistência ativada no ${data.planName}`);
+      setForm((f) => ({ ...f, planId: String(data.planId), status: "active" }));
+      utils.tenants.getById.invalidate({ id: tenantId! });
+      utils.whatsapp.getByTenant.invalidate({ tenantId: tenantId! });
+    },
+    onError: (err) => toast.error(err.message || "Erro ao ativar Plano Beta"),
+  });
+
   const saveWhatsapp = trpc.whatsapp.saveForTenant.useMutation({
     onSuccess: () => {
       toast.success("Configuração WhatsApp atualizada");
@@ -178,6 +188,8 @@ export default function SuperAdminTenantDetail() {
     });
   };
 
+  const betaPlan = plans?.find((p) => p.slug === "beta" || p.name.toLowerCase() === "beta");
+  const isBetaTenant = !!betaPlan && Number(form.planId) === betaPlan.id;
   const whatsappEligible = Boolean(whatsappStatus?.eligibility?.eligible);
   const whatsappConfigured = Boolean(whatsappStatus?.integration?.hasAccessToken && whatsappStatus.integration.phoneNumberId);
   const whatsappTokenPreview = whatsappStatus?.integration?.accessTokenPreview;
@@ -264,6 +276,24 @@ export default function SuperAdminTenantDetail() {
                       ))}
                     </SelectContent>
                   </Select>
+                  <Button
+                    type="button"
+                    variant={isBetaTenant ? "secondary" : "outline"}
+                    size="sm"
+                    className="w-full"
+                    disabled={!betaPlan || isBetaTenant || activateBetaPlan.isPending}
+                    onClick={() => {
+                      if (!betaPlan) {
+                        toast.error("Plano Beta não encontrado. Crie o Plano Beta em Super Admin → Planos.");
+                        return;
+                      }
+                      if (window.confirm(`Ativar ${tenant.name} no Plano Beta?`)) {
+                        activateBetaPlan.mutate({ id: tenant.id });
+                      }
+                    }}
+                  >
+                    {isBetaTenant ? "Plano Beta ativo" : activateBetaPlan.isPending ? "Ativando Beta..." : "Ativar Plano Beta"}
+                  </Button>
                 </div>
                 <div className="space-y-1.5">
                   <Label>Status da assinatura</Label>

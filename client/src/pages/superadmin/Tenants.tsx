@@ -38,8 +38,18 @@ export default function SuperAdminTenants() {
     },
     onError: () => toast.error("Erro ao criar assistência"),
   });
+  const betaPlan = plans?.find((p) => p.slug === "beta" || p.name.toLowerCase() === "beta");
+  const getPlanName = (planId: number | null | undefined) => plans?.find((p) => p.id === planId)?.name ?? (planId ? `Plano ${planId}` : "—");
+
   const toggleStatus = trpc.tenants.toggleStatus.useMutation({
     onSuccess: () => utils.tenants.list.invalidate(),
+  });
+  const activateBetaPlan = trpc.tenants.activateBetaPlan.useMutation({
+    onSuccess: (data) => {
+      toast.success(`Assistência ativada no ${data.planName}`);
+      utils.tenants.list.invalidate();
+    },
+    onError: (error) => toast.error(error.message || "Erro ao ativar Plano Beta"),
   });
   const switchTenant = trpc.tenants.switchTenant.useMutation({
     onSuccess: async (data) => {
@@ -171,16 +181,18 @@ export default function SuperAdminTenants() {
                   <span>Status</span>
                   <span>Ações</span>
                 </div>
-                {tenants.map((t) => (
+                {tenants.map((t) => {
+                  const isBetaTenant = !!betaPlan && t.planId === betaPlan.id;
+                  return (
                   <div key={t.id} className="grid grid-cols-1 sm:grid-cols-[2fr_1fr_1fr_1fr_auto] gap-2 sm:gap-4 px-5 py-4 items-center">
                     <div>
                       <p className="text-sm font-semibold">{t.name}</p>
                       {t.email && <p className="text-xs text-muted-foreground">{t.email}</p>}
                     </div>
                     <span className="text-xs font-mono text-muted-foreground">{t.slug}</span>
-                    <span className="text-xs text-muted-foreground">{t.planId ? `Plano ${t.planId}` : "—"}</span>
-                    <Badge variant={t.status === "active" ? "default" : "destructive"} className="w-fit text-xs">
-                      {t.status === "active" ? "Ativo" : t.status === "blocked" ? "Bloqueado" : t.status}
+                    <span className="text-xs text-muted-foreground">{getPlanName(t.planId)}</span>
+                    <Badge variant={isBetaTenant ? "secondary" : t.status === "active" ? "default" : "destructive"} className="w-fit text-xs">
+                      {isBetaTenant ? "Beta" : t.status === "active" ? "Ativo" : t.status === "blocked" ? "Bloqueado" : t.status}
                     </Badge>
 	                    <div className="flex items-center gap-2">
 	                      <Button
@@ -199,6 +211,23 @@ export default function SuperAdminTenants() {
                         title="Operar como este tenant"
                       >
                         <LogIn className="h-3.5 w-3.5 mr-1" /> Operar
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant={isBetaTenant ? "secondary" : "outline"}
+                        onClick={() => {
+                          if (!betaPlan) {
+                            toast.error("Plano Beta não encontrado. Crie o Plano Beta em Super Admin → Planos.");
+                            return;
+                          }
+                          if (window.confirm(`Ativar ${t.name} no Plano Beta?`)) {
+                            activateBetaPlan.mutate({ id: t.id });
+                          }
+                        }}
+                        disabled={!betaPlan || isBetaTenant || activateBetaPlan.isPending}
+                        title={isBetaTenant ? "Esta assistência já está no Plano Beta" : "Ativar esta assistência no Plano Beta"}
+                      >
+                        {isBetaTenant ? "Beta ativo" : "Ativar Beta"}
                       </Button>
                       <Button
                         size="sm"
@@ -223,7 +252,8 @@ export default function SuperAdminTenants() {
 	                      </Button>
 	                    </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </CardContent>

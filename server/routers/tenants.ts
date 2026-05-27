@@ -408,6 +408,62 @@ export const tenantsRouter = router({
       return { success: true };
     }),
 
+  // Ativar Plano Beta para um tenant (super admin)
+  activateBetaPlan: superAdminProcedure
+    .input(z.object({ id: z.number() }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+
+      const [tenant] = await db
+        .select({
+          id: tenants.id,
+          name: tenants.name,
+          email: tenants.email,
+          slug: tenants.slug,
+          currentPlanId: tenants.planId,
+        })
+        .from(tenants)
+        .where(eq(tenants.id, input.id))
+        .limit(1);
+      if (!tenant) throw new TRPCError({ code: "NOT_FOUND", message: "Assistência não encontrada" });
+
+      const [betaPlan] = await db
+        .select({ id: plans.id, name: plans.name })
+        .from(plans)
+        .where(and(eq(plans.slug, "beta"), eq(plans.isActive, true)))
+        .limit(1);
+      if (!betaPlan) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Plano Beta não encontrado ou inativo. Crie/ative o Plano Beta em Super Admin → Planos.",
+        });
+      }
+
+      await db
+        .update(tenants)
+        .set({
+          planId: betaPlan.id,
+          status: "active",
+          trialEndsAt: null,
+          subscriptionEndsAt: null,
+        })
+        .where(eq(tenants.id, input.id));
+
+      if (tenant.currentPlanId !== betaPlan.id) {
+        await notifyPlanSelected({
+          tenantName: tenant.name,
+          tenantEmail: tenant.email || undefined,
+          tenantSlug: tenant.slug,
+          planName: betaPlan.name,
+          trialEndsAt: null,
+          selectedBy: "super_admin",
+        }).catch(() => undefined);
+      }
+
+      return { success: true, planId: betaPlan.id, planName: betaPlan.name };
+    }),
+
   // Obter detalhes completos de um tenant (super admin)
   getById: superAdminProcedure
     .input(z.object({ id: z.number() }))
