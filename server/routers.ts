@@ -1,5 +1,6 @@
 import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
+import { canUseTenantLoginInput, TENANT_STAFF_ROLES } from "./_core/authIsolation";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, router } from "./_core/trpc";
 import { TRPCError } from "@trpc/server";
@@ -53,8 +54,16 @@ export const appRouter = router({
 
         const normalizedEmail = input.email.trim().toLowerCase();
         const tenantIdFromHost = ctx.tenantFromHost?.id;
-        const tenantId = input.tenantId ?? tenantIdFromHost;
+        const hasTenantIdInput = typeof input.tenantId === "number";
+        const tenantId = tenantIdFromHost ?? input.tenantId;
         const isTenantLogin = typeof tenantId === "number";
+
+        if (hasTenantIdInput && !canUseTenantLoginInput(ctx.req, ctx.tenantFromHost)) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "Acesse a assistência pelo link próprio para entrar como equipe.",
+          });
+        }
 
         const [user] = isTenantLogin
           ? await db
@@ -79,9 +88,8 @@ export const appRouter = router({
           });
         }
 
-        const tenantStaffRoles = ["tenant_admin", "atendente", "tecnico", "entregador", "admin"];
         if (isTenantLogin) {
-          if (!tenantStaffRoles.includes(user.role) || user.tenantId !== tenantId) {
+          if (!(TENANT_STAFF_ROLES as readonly string[]).includes(user.role) || user.tenantId !== tenantId) {
             throw new TRPCError({
               code: "FORBIDDEN",
               message: "Acesso permitido apenas para a equipe desta assistência.",

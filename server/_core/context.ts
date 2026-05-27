@@ -2,6 +2,7 @@ import type { CreateExpressContextOptions } from "@trpc/server/adapters/express"
 import type { User } from "../../drizzle/schema";
 import type { ResolvedTenant } from "./tenantResolver";
 import { sdk } from "./sdk";
+import { isUserAllowedForRequestHost } from "./authIsolation";
 
 export type TrpcContext = {
   req: CreateExpressContextOptions["req"];
@@ -27,12 +28,20 @@ export async function createContext(
     user = null;
   }
 
+  // O middleware tenantResolverMiddleware popula req.resolvedTenant antes
+  // que o contexto tRPC seja criado.
+  const tenantFromHost: ResolvedTenant | null = (opts.req as any).resolvedTenant ?? null;
+
+  // Defesa central: cookies são compartilhados no domínio raiz por compatibilidade,
+  // mas uma sessão só pode ser aceita no host correspondente ao seu papel.
+  if (user && !isUserAllowedForRequestHost(user, tenantFromHost, opts.req)) {
+    user = null;
+  }
+
   return {
     req: opts.req,
     res: opts.res,
     user,
-    // O middleware tenantResolverMiddleware popula req.resolvedTenant antes
-    // que o contexto tRPC seja criado.
-    tenantFromHost: (opts.req as any).resolvedTenant ?? null,
+    tenantFromHost,
   };
 }
