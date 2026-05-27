@@ -49,6 +49,22 @@ const CUSTOMER_PUSH_STATUSES = new Set([
   "encerrado_condenado",
 ]);
 
+const CLOSE_PAYMENT_METHODS = ["dinheiro", "pix", "cartao_credito", "cartao_debito"] as const;
+const closePaymentSchema = z.object({
+  method: z.enum(CLOSE_PAYMENT_METHODS),
+  amount: z.number().positive(),
+});
+
+function moneyToCents(value: unknown) {
+  const n = Number(value ?? 0);
+  if (!Number.isFinite(n)) return 0;
+  return Math.round(n * 100);
+}
+
+function centsToMoney(cents: number) {
+  return (Math.max(0, cents) / 100).toFixed(2);
+}
+
 const SLA_LIMIT_HOURS: Record<string, number> = {
   solicitado: 4,
   aguardando_coleta: 8,
@@ -656,6 +672,8 @@ export const serviceOrdersRouter = router({
         notes: z.string().optional(),
         /** Dias de garantia a aplicar quando o encerramento for Feito (status=finalizado). Sobrescreve o valor da OS. */
         warrantyDays: z.number().int().min(0).max(3650).optional(),
+        /** Pagamento manual obrigatório quando finaliza uma OS com saldo em aberto. */
+        closingPayment: closePaymentSchema.optional(),
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -670,18 +688,90 @@ export const serviceOrdersRouter = router({
         updatePayload.warrantyDays = input.warrantyDays;
       }
 
-      await db
-        .update(serviceOrders)
-        .set(updatePayload as any)
-        .where(and(eq(serviceOrders.id, input.id), eq(serviceOrders.tenantId, ctx.user.tenantId!)));
-      await db.insert(osStatusHistory).values({
-        tenantId: ctx.user.tenantId!,
-        serviceOrderId: input.id,
-        status: input.status,
-        notes: input.notes,
-        changedById: ctx.user.id,
-        changedByName: ctx.user.name ?? "Usuário",
-      });
+      const tenantId = ctx.user.tenantId!;
+      let closingPaymentToInsert: Record<string, unknown> | null = null;
+
+      if (input.status === "finalizado") {
+        const totalCents = moneyToCents(os.totalAmount);
+        const paidRows = await db
+          .select({ amount: payments.amount })
+          .from(payments)
+          .where(and(
+            eq(payments.tenantId, tenantId),
+            eq(payments.serviceOrderId, input.id),
+            eq(payments.status, "paid"),
+          ));
+        const paidCents = paidRows.reduce((sum, payment) => sum + moneyToCents(payment.amount), 0);
+        const balanceCents = Math.max(0, totalCents - paidCents);
+
+        if (balanceCents > 0) {
+          if (!input.closingPayment) {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: "Informe o pagamento total do encerramento antes de finalizar a OS.",
+            });
+          }
+
+          const paymentCents = moneyToCents(input.closingPayment.amount);
+          if (paymentCents > balanceCents) {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: "O pagamento do encerramento não pode ser maior que o saldo em aberto.",
+            });
+          }
+          if (paymentCents < balanceCents) {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: "Nesta versão, o encerramento exige pagamento total do saldo em aberto.",
+            });
+          }
+
+          closingPaymentToInsert = {
+            tenantId,
+            serviceOrderId: input.id,
+            amount: centsToMoney(balanceCents),
+            method: input.closingPayment.method,
+            status: "paid",
+            paidAt: new Date(),
+            gateway: "manual",
+            notes: input.notes ? `Pagamento registrado no encerramento da OS. Observação: ${input.notes}` : "Pagamento registrado no encerramento da OS.",
+            receivedById: ctx.user.id,
+            metadata: {
+              source: "service_order_closure",
+              requiredFullPayment: true,
+              totalAmount: centsToMoney(totalCents),
+              paidBeforeClosure: centsToMoney(paidCents),
+              balanceAtClosure: centsToMoney(balanceCents),
+              closedById: ctx.user.id,
+              closedByName: ctx.user.name ?? "Usuário",
+            },
+          };
+        }
+      }
+
+      const applyStatusAndPayment = async (tx: typeof db) => {
+        await tx
+          .update(serviceOrders)
+          .set(updatePayload as any)
+          .where(and(eq(serviceOrders.id, input.id), eq(serviceOrders.tenantId, tenantId)));
+        if (closingPaymentToInsert) {
+          await tx.insert(payments).values(closingPaymentToInsert as any);
+        }
+        await tx.insert(osStatusHistory).values({
+          tenantId,
+          serviceOrderId: input.id,
+          status: input.status,
+          notes: input.notes,
+          changedById: ctx.user.id,
+          changedByName: ctx.user.name ?? "Usuário",
+        });
+      };
+
+      if (typeof (db as any).transaction === "function") {
+        await (db as any).transaction(async (tx: typeof db) => applyStatusAndPayment(tx));
+      } else {
+        await applyStatusAndPayment(db);
+      }
       const autoEvent = os.status !== input.status ? autoCommunicationEventForStatus(input.status) : null;
       const origin = ctx.req?.headers?.origin ?? null;
       if (autoEvent) {

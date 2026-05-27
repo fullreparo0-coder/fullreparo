@@ -27,6 +27,23 @@ import {
 } from "lucide-react";
 
 const STATUS_OPTIONS = Object.entries(STATUS_LABELS);
+const CLOSING_PAYMENT_METHODS = [
+  { value: "pix", label: "Pix" },
+  { value: "dinheiro", label: "Dinheiro" },
+  { value: "cartao_credito", label: "Cartão de crédito" },
+  { value: "cartao_debito", label: "Cartão de débito" },
+] as const;
+type ClosingPaymentMethod = typeof CLOSING_PAYMENT_METHODS[number]["value"];
+
+function toCurrency(value: number) {
+  return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+}
+
+function moneyToCents(value: unknown) {
+  const n = Number(value ?? 0);
+  if (!Number.isFinite(n)) return 0;
+  return Math.round(n * 100);
+}
 
 export default function ServiceOrderDetail() {
   const [, params] = useRoute("/painel/os/:id");
@@ -40,6 +57,8 @@ export default function ServiceOrderDetail() {
   const [closeWarrantyDays, setCloseWarrantyDays] = useState<number>(90);
   const [closeOutcome, setCloseOutcome] = useState<"finalizado" | "encerrado_sem_reparo" | "encerrado_condenado">("finalizado");
   const [closeNotes, setCloseNotes] = useState("");
+  const [closePaymentMethod, setClosePaymentMethod] = useState<ClosingPaymentMethod>("pix");
+  const [closePaymentAmount, setClosePaymentAmount] = useState("");
   const [budgetOpen, setBudgetOpen] = useState(false);
   const [budgetItems, setBudgetItems] = useState<{ description: string; quantity: number; unitPrice: number; type: "service" | "part" }[]>([{ description: "", quantity: 1, unitPrice: 0, type: "service" }]);
   const [laborCost, setLaborCost] = useState(0);
@@ -125,11 +144,14 @@ export default function ServiceOrderDetail() {
       setCloseModal(false);
       setCloseOutcome("finalizado");
       setCloseNotes("");
+      setClosePaymentMethod("pix");
+      setClosePaymentAmount("");
+      utils.payments.getByOs.invalidate({ serviceOrderId: osId });
       if (data?.whatsappNotification) {
         setWhatsappModal(data.whatsappNotification);
       }
     },
-    onError: () => toast.error("Erro ao atualizar status"),
+    onError: (error) => toast.error(error.message || "Erro ao atualizar status"),
   });
 
   const updateInfo = trpc.serviceOrders.updateInfo.useMutation({
@@ -217,6 +239,13 @@ export default function ServiceOrderDetail() {
       setCloseWarrantyDays(os?.warrantyDays ?? 90);
       setCloseOutcome("finalizado");
       setCloseNotes("");
+      const totalCents = moneyToCents(os?.totalAmount);
+      const paidCents = (payments ?? [])
+        .filter((payment: any) => payment.status === "paid")
+        .reduce((sum: number, payment: any) => sum + moneyToCents(payment.amount), 0);
+      const balanceCents = Math.max(0, totalCents - paidCents);
+      setClosePaymentAmount(balanceCents > 0 ? (balanceCents / 100).toFixed(2) : "");
+      setClosePaymentMethod("pix");
       setCloseModal(true);
     } else {
       setNewStatus(status);
@@ -234,11 +263,36 @@ export default function ServiceOrderDetail() {
       closeNotes.trim() || null,
     ].filter(Boolean).join(" ");
 
+    const totalCents = moneyToCents(os?.totalAmount);
+    const paidCents = (payments ?? [])
+      .filter((payment: any) => payment.status === "paid")
+      .reduce((sum: number, payment: any) => sum + moneyToCents(payment.amount), 0);
+    const balanceCents = Math.max(0, totalCents - paidCents);
+    const paymentCents = moneyToCents(closePaymentAmount.replace(",", "."));
+
+    if (closeOutcome === "finalizado" && balanceCents > 0) {
+      if (!closePaymentMethod) {
+        toast.error("Selecione o meio de pagamento do encerramento.");
+        return;
+      }
+      if (paymentCents > balanceCents) {
+        toast.error("O pagamento do encerramento não pode ser maior que o saldo em aberto.");
+        return;
+      }
+      if (paymentCents < balanceCents) {
+        toast.error("Nesta versão, o encerramento exige pagamento total do saldo em aberto.");
+        return;
+      }
+    }
+
     updateStatus.mutate({
       id: osId,
       status: closeOutcome as any,
       notes,
       warrantyDays: closeOutcome === "finalizado" ? closeWarrantyDays : 0,
+      closingPayment: closeOutcome === "finalizado" && balanceCents > 0
+        ? { method: closePaymentMethod, amount: balanceCents / 100 }
+        : undefined,
     });
   };
 
@@ -388,7 +442,14 @@ export default function ServiceOrderDetail() {
   }
 
   const trackingUrl = `${window.location.origin}/rastrear/${os.publicToken}`;
-  const totalPaid = payments?.reduce((sum, p) => sum + Number(p.amount), 0) ?? 0;
+  const paidPayments = (payments ?? []).filter((payment: any) => payment.status === "paid");
+  const totalPaid = paidPayments.reduce((sum, p) => sum + Number(p.amount), 0);
+  const totalAmountCents = moneyToCents(os.totalAmount);
+  const totalPaidCents = paidPayments.reduce((sum, payment: any) => sum + moneyToCents(payment.amount), 0);
+  const closingBalanceCents = Math.max(0, totalAmountCents - totalPaidCents);
+  const closingBalance = closingBalanceCents / 100;
+  const closingPaymentAmountCents = moneyToCents(closePaymentAmount.replace(",", "."));
+  const isClosingFullPaymentValid = closeOutcome !== "finalizado" || closingBalanceCents === 0 || closingPaymentAmountCents === closingBalanceCents;
   const budgetList = Array.isArray(budgets) ? budgets : [];
   const primaryBudget = budgetList.find((budget: any) => budget.status === "pending") ?? budgetList[0] ?? null;
   const primaryBudgetTotal = primaryBudget ? Number(primaryBudget.totalCost) : null;
@@ -1561,6 +1622,71 @@ export default function ServiceOrderDetail() {
               </div>
             )}
 
+            {closeOutcome === "finalizado" && (
+              <div className="rounded-xl border-2 border-emerald-200 bg-emerald-50/60 p-4 space-y-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <DollarSign className="h-4 w-4 text-emerald-600" />
+                    <span className="text-sm font-semibold text-emerald-800">Pagamento do encerramento</span>
+                  </div>
+                  <Badge variant="secondary" className="bg-white text-emerald-700 border border-emerald-200">
+                    Saldo: {toCurrency(closingBalance)}
+                  </Badge>
+                </div>
+
+                {closingBalanceCents > 0 ? (
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      <div className="space-y-1.5">
+                        <Label htmlFor="close-payment-method" className="text-xs font-medium text-emerald-700 uppercase tracking-wide">
+                          Meio de pagamento
+                        </Label>
+                        <Select
+                          value={closePaymentMethod}
+                          onValueChange={(value) => setClosePaymentMethod(value as ClosingPaymentMethod)}
+                        >
+                          <SelectTrigger id="close-payment-method" className="bg-white border-emerald-300 focus:border-emerald-500">
+                            <SelectValue placeholder="Selecione" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {CLOSING_PAYMENT_METHODS.map((method) => (
+                              <SelectItem key={method.value} value={method.value}>{method.label}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <Label htmlFor="close-payment-amount" className="text-xs font-medium text-emerald-700 uppercase tracking-wide">
+                          Valor recebido
+                        </Label>
+                        <Input
+                          id="close-payment-amount"
+                          type="number"
+                          min={0}
+                          step="0.01"
+                          max={closingBalance}
+                          value={closePaymentAmount}
+                          onChange={(e) => setClosePaymentAmount(e.target.value)}
+                          className="bg-white border-emerald-300 focus:border-emerald-500 font-semibold"
+                        />
+                      </div>
+                    </div>
+
+                    <div className={`rounded-lg border px-3 py-2 text-xs ${isClosingFullPaymentValid ? "border-emerald-200 bg-white text-emerald-700" : "border-amber-200 bg-amber-50 text-amber-700"}`}>
+                      {isClosingFullPaymentValid
+                        ? `Será registrado pagamento manual como quitado no valor de ${toCurrency(closingBalance)}.`
+                        : `Para esta versão, informe exatamente o saldo em aberto: ${toCurrency(closingBalance)}.`}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="rounded-lg border border-emerald-200 bg-white px-3 py-2 text-xs text-emerald-700">
+                    Esta OS já está quitada. O encerramento será concluído sem criar novo pagamento.
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Observação final */}
             <div className="space-y-1.5">
               <Label htmlFor="close-notes" className="text-sm font-medium">
@@ -1599,7 +1725,7 @@ export default function ServiceOrderDetail() {
               <Button
                 className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold h-11"
                 onClick={handleConfirmClose}
-                disabled={updateStatus.isPending}
+                disabled={updateStatus.isPending || !isClosingFullPaymentValid}
               >
                 {updateStatus.isPending
                   ? <><span className="animate-spin mr-2">⏳</span> Encerrando...</>
