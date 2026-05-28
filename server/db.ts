@@ -286,7 +286,27 @@ export async function getServiceOrdersByTenant(
   const offset = (page - 1) * pageSize;
 
   const [data, countResult] = await Promise.all([
-    db.select().from(serviceOrders).where(where).orderBy(desc(serviceOrders.createdAt)).limit(pageSize).offset(offset),
+    db
+      .select({
+        id: serviceOrders.id,
+        tenantId: serviceOrders.tenantId,
+        osNumber: serviceOrders.osNumber,
+        customerId: serviceOrders.customerId,
+        deviceId: serviceOrders.deviceId,
+        status: serviceOrders.status,
+        origin: serviceOrders.origin,
+        reportedDefect: serviceOrders.reportedDefect,
+        totalAmount: serviceOrders.totalAmount,
+        createdAt: serviceOrders.createdAt,
+        updatedAt: serviceOrders.updatedAt,
+        customerName: customers.name,
+      })
+      .from(serviceOrders)
+      .leftJoin(customers, and(eq(serviceOrders.customerId, customers.id), eq(serviceOrders.tenantId, customers.tenantId)))
+      .where(where)
+      .orderBy(desc(serviceOrders.createdAt))
+      .limit(pageSize)
+      .offset(offset),
     db.select({ count: sql<number>`COUNT(*)` }).from(serviceOrders).where(where),
   ]);
 

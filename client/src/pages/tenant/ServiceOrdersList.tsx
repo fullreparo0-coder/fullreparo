@@ -432,8 +432,9 @@ export default function ServiceOrdersList() {
             ) : (
               <div className="divide-y divide-border">
                 {/* Header */}
-                <div className="hidden sm:grid grid-cols-[1fr_2fr_1.5fr_1fr_auto] gap-4 px-5 py-2.5 text-xs font-medium text-muted-foreground bg-muted/30">
+                <div className="hidden sm:grid grid-cols-[1fr_1.4fr_2fr_1.5fr_1fr_auto] gap-4 px-5 py-2.5 text-xs font-medium text-muted-foreground bg-muted/30">
                   <span>Número</span>
+                  <span>Cliente</span>
                   <span>Defeito</span>
                   <span>Status</span>
                   <span>Data</span>
@@ -443,14 +444,20 @@ export default function ServiceOrdersList() {
                   <button
                     key={os.id}
                     onClick={() => navigate(`/painel/os/${os.id}`)}
-                    className="w-full grid grid-cols-1 sm:grid-cols-[1fr_2fr_1.5fr_1fr_auto] gap-2 sm:gap-4 px-5 py-4 hover:bg-muted/40 transition-colors text-left items-center"
+                    className="w-full grid grid-cols-1 sm:grid-cols-[1fr_1.4fr_2fr_1.5fr_1fr_auto] gap-2 sm:gap-4 px-5 py-4 hover:bg-muted/40 transition-colors text-left items-center"
                   >
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-start sm:items-center gap-2 min-w-0">
                       <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-muted shrink-0">
                         <Wrench className="h-3.5 w-3.5 text-muted-foreground" />
                       </div>
-                      <span className="text-sm font-semibold text-foreground">{os.osNumber}</span>
+                      <div className="min-w-0">
+                        <span className="block text-sm font-semibold text-foreground truncate">{os.osNumber}</span>
+                        <span className="block sm:hidden text-sm font-medium text-foreground/80 truncate mt-0.5">
+                          {os.customerName ?? "Cliente não informado"}
+                        </span>
+                      </div>
                     </div>
+                    <p className="hidden sm:block text-sm font-medium text-foreground/80 truncate">{os.customerName ?? "Cliente não informado"}</p>
                     <p className="text-sm text-muted-foreground truncate">{os.reportedDefect}</p>
                     <StatusBadge status={os.status} size="sm" />
                     <span className="text-xs text-muted-foreground">
