@@ -674,6 +674,8 @@ export const serviceOrdersRouter = router({
         warrantyDays: z.number().int().min(0).max(3650).optional(),
         /** Pagamento manual obrigatório quando finaliza uma OS com saldo em aberto. */
         closingPayment: closePaymentSchema.optional(),
+        /** Orçamento pendente/aprovado que deve ser convertido em valor da OS durante o encerramento. */
+        approveClosingBudgetId: z.number().int().positive().optional(),
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -691,8 +693,69 @@ export const serviceOrdersRouter = router({
       const tenantId = ctx.user.tenantId!;
       let closingPaymentToInsert: Record<string, unknown> | null = null;
 
+      let closingBudgetApproval: { id: number; amountCents: number; wasPending: boolean; status: string | null } | null = null;
+
       if (input.status === "finalizado") {
-        const totalCents = moneyToCents(os.totalAmount);
+        let totalCents = moneyToCents(os.totalAmount);
+
+        if (totalCents === 0) {
+          const budgetRows = await db
+            .select({ id: budgets.id, totalCost: budgets.totalCost, status: budgets.status })
+            .from(budgets)
+            .where(and(eq(budgets.tenantId, tenantId), eq(budgets.serviceOrderId, input.id)));
+
+          const payableBudgets = budgetRows.filter((budget) => moneyToCents(budget.totalCost) > 0);
+          const pendingPayableBudgets = payableBudgets.filter((budget) => budget.status === "pending");
+          const approvedPayableBudgets = payableBudgets.filter((budget) => budget.status === "approved");
+
+          if (input.approveClosingBudgetId) {
+            const selectedBudget = payableBudgets.find((budget) => budget.id === input.approveClosingBudgetId);
+            if (!selectedBudget) {
+              throw new TRPCError({
+                code: "BAD_REQUEST",
+                message: "Orçamento selecionado para o encerramento não foi encontrado ou não possui valor válido.",
+              });
+            }
+            if (selectedBudget.status !== "pending" && selectedBudget.status !== "approved") {
+              throw new TRPCError({
+                code: "BAD_REQUEST",
+                message: "Somente orçamento pendente ou já aprovado pode ser usado no encerramento.",
+              });
+            }
+
+            totalCents = moneyToCents(selectedBudget.totalCost);
+            updatePayload.totalAmount = centsToMoney(totalCents);
+            closingBudgetApproval = {
+              id: selectedBudget.id,
+              amountCents: totalCents,
+              wasPending: selectedBudget.status === "pending",
+              status: selectedBudget.status,
+            };
+          } else if (approvedPayableBudgets.length === 1 && pendingPayableBudgets.length === 0) {
+            const approvedBudget = approvedPayableBudgets[0];
+            totalCents = moneyToCents(approvedBudget.totalCost);
+            updatePayload.totalAmount = centsToMoney(totalCents);
+            closingBudgetApproval = {
+              id: approvedBudget.id,
+              amountCents: totalCents,
+              wasPending: false,
+              status: approvedBudget.status,
+            };
+          } else if (pendingPayableBudgets.length > 0) {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: pendingPayableBudgets.length === 1
+                ? "Aprove o orçamento pendente no encerramento antes de finalizar a OS."
+                : "Existe mais de um orçamento pendente. Revise os orçamentos antes de finalizar a OS.",
+            });
+          } else if (approvedPayableBudgets.length > 1) {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: "Existe mais de um orçamento aprovado. Defina o valor final da OS antes de finalizar.",
+            });
+          }
+        }
+
         const paidRows = await db
           .select({ amount: payments.amount })
           .from(payments)
@@ -742,6 +805,8 @@ export const serviceOrdersRouter = router({
               totalAmount: centsToMoney(totalCents),
               paidBeforeClosure: centsToMoney(paidCents),
               balanceAtClosure: centsToMoney(balanceCents),
+              closingBudgetId: closingBudgetApproval?.id ?? null,
+              budgetApprovedDuringClosure: closingBudgetApproval?.wasPending ?? false,
               closedById: ctx.user.id,
               closedByName: ctx.user.name ?? "Usuário",
             },
@@ -750,6 +815,30 @@ export const serviceOrdersRouter = router({
       }
 
       const applyStatusAndPayment = async (tx: typeof db) => {
+        if (closingBudgetApproval?.wasPending) {
+          await tx
+            .update(budgets)
+            .set({ status: "approved", approvedAt: new Date() })
+            .where(and(eq(budgets.id, closingBudgetApproval.id), eq(budgets.tenantId, tenantId)));
+          await tx.insert(osStatusHistory).values({
+            tenantId,
+            serviceOrderId: input.id,
+            status: "aprovado",
+            notes: `Orçamento aprovado no encerramento da OS. Valor aprovado: R$ ${centsToMoney(closingBudgetApproval.amountCents).replace(".", ",")}.`,
+            changedById: ctx.user.id,
+            changedByName: ctx.user.name ?? "Usuário",
+          });
+          await tx.insert(osNotifications).values({
+            tenantId,
+            serviceOrderId: input.id,
+            status: "aprovado",
+            channel: "sistema",
+            message: `Orçamento aprovado no encerramento da OS por ${ctx.user.name ?? "Usuário"}. Valor: R$ ${centsToMoney(closingBudgetApproval.amountCents).replace(".", ",")}.`,
+            eventType: "budget_approved_at_closure",
+            actorName: ctx.user.name ?? "Usuário",
+          });
+        }
+
         await tx
           .update(serviceOrders)
           .set(updatePayload as any)

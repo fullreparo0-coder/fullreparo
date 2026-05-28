@@ -59,6 +59,7 @@ export default function ServiceOrderDetail() {
   const [closeNotes, setCloseNotes] = useState("");
   const [closePaymentMethod, setClosePaymentMethod] = useState<ClosingPaymentMethod>("pix");
   const [closePaymentAmount, setClosePaymentAmount] = useState("");
+  const [closeApproveBudgetId, setCloseApproveBudgetId] = useState<number | null>(null);
   const [budgetOpen, setBudgetOpen] = useState(false);
   const [budgetItems, setBudgetItems] = useState<{ description: string; quantity: number; unitPrice: number; type: "service" | "part" }[]>([{ description: "", quantity: 1, unitPrice: 0, type: "service" }]);
   const [laborCost, setLaborCost] = useState(0);
@@ -243,7 +244,17 @@ export default function ServiceOrderDetail() {
       const paidCents = (payments ?? [])
         .filter((payment: any) => payment.status === "paid")
         .reduce((sum: number, payment: any) => sum + moneyToCents(payment.amount), 0);
-      const balanceCents = Math.max(0, totalCents - paidCents);
+      const payableBudgets = Array.isArray(budgets)
+        ? budgets.filter((budget: any) => ["pending", "approved"].includes(budget.status) && moneyToCents(budget.totalCost) > 0)
+        : [];
+      const pendingPayableBudgets = payableBudgets.filter((budget: any) => budget.status === "pending");
+      const approvedPayableBudgets = payableBudgets.filter((budget: any) => budget.status === "approved");
+      const autoSyncBudget = totalCents === 0 && pendingPayableBudgets.length === 0 && approvedPayableBudgets.length === 1
+        ? approvedPayableBudgets[0]
+        : null;
+      const effectiveTotalCents = autoSyncBudget ? moneyToCents(autoSyncBudget.totalCost) : totalCents;
+      const balanceCents = Math.max(0, effectiveTotalCents - paidCents);
+      setCloseApproveBudgetId(autoSyncBudget ? Number(autoSyncBudget.id) : null);
       setClosePaymentAmount(balanceCents > 0 ? (balanceCents / 100).toFixed(2) : "");
       setClosePaymentMethod("pix");
       setCloseModal(true);
@@ -267,7 +278,30 @@ export default function ServiceOrderDetail() {
     const paidCents = (payments ?? [])
       .filter((payment: any) => payment.status === "paid")
       .reduce((sum: number, payment: any) => sum + moneyToCents(payment.amount), 0);
-    const balanceCents = Math.max(0, totalCents - paidCents);
+    const payableBudgets = Array.isArray(budgets)
+      ? budgets.filter((budget: any) => ["pending", "approved"].includes(budget.status) && moneyToCents(budget.totalCost) > 0)
+      : [];
+    const pendingPayableBudgets = payableBudgets.filter((budget: any) => budget.status === "pending");
+    const selectedClosingBudget = closeApproveBudgetId
+      ? payableBudgets.find((budget: any) => Number(budget.id) === closeApproveBudgetId)
+      : null;
+
+    if (closeOutcome === "finalizado" && totalCents === 0 && pendingPayableBudgets.length > 1) {
+      toast.error("Existe mais de um orçamento pendente. Revise os orçamentos antes de encerrar.");
+      return;
+    }
+
+    if (closeOutcome === "finalizado" && totalCents === 0 && pendingPayableBudgets.length === 1 && !selectedClosingBudget) {
+      toast.error("Aprove o orçamento pendente no modal antes de encerrar a OS.");
+      return;
+    }
+
+    const effectiveTotalCents = totalCents > 0
+      ? totalCents
+      : selectedClosingBudget
+        ? moneyToCents(selectedClosingBudget.totalCost)
+        : 0;
+    const balanceCents = Math.max(0, effectiveTotalCents - paidCents);
     const paymentCents = moneyToCents(closePaymentAmount.replace(",", "."));
 
     if (closeOutcome === "finalizado" && balanceCents > 0) {
@@ -290,6 +324,7 @@ export default function ServiceOrderDetail() {
       status: closeOutcome as any,
       notes,
       warrantyDays: closeOutcome === "finalizado" ? closeWarrantyDays : 0,
+      approveClosingBudgetId: closeOutcome === "finalizado" && selectedClosingBudget ? Number(selectedClosingBudget.id) : undefined,
       closingPayment: closeOutcome === "finalizado" && balanceCents > 0
         ? { method: closePaymentMethod, amount: balanceCents / 100 }
         : undefined,
@@ -444,13 +479,25 @@ export default function ServiceOrderDetail() {
   const trackingUrl = `${window.location.origin}/rastrear/${os.publicToken}`;
   const paidPayments = (payments ?? []).filter((payment: any) => payment.status === "paid");
   const totalPaid = paidPayments.reduce((sum, p) => sum + Number(p.amount), 0);
+  const budgetList = Array.isArray(budgets) ? budgets : [];
   const totalAmountCents = moneyToCents(os.totalAmount);
   const totalPaidCents = paidPayments.reduce((sum, payment: any) => sum + moneyToCents(payment.amount), 0);
-  const closingBalanceCents = Math.max(0, totalAmountCents - totalPaidCents);
+  const payableClosingBudgets = budgetList.filter((budget: any) => ["pending", "approved"].includes(budget.status) && moneyToCents(budget.totalCost) > 0);
+  const pendingClosingBudgets = payableClosingBudgets.filter((budget: any) => budget.status === "pending");
+  const approvedClosingBudgets = payableClosingBudgets.filter((budget: any) => budget.status === "approved");
+  const selectedClosingBudget = closeApproveBudgetId
+    ? payableClosingBudgets.find((budget: any) => Number(budget.id) === closeApproveBudgetId) ?? null
+    : null;
+  const selectedClosingBudgetCents = selectedClosingBudget ? moneyToCents(selectedClosingBudget.totalCost) : 0;
+  const effectiveClosingTotalCents = totalAmountCents > 0 ? totalAmountCents : selectedClosingBudgetCents;
+  const closingBalanceCents = Math.max(0, effectiveClosingTotalCents - totalPaidCents);
   const closingBalance = closingBalanceCents / 100;
   const closingPaymentAmountCents = moneyToCents(closePaymentAmount.replace(",", "."));
-  const isClosingFullPaymentValid = closeOutcome !== "finalizado" || closingBalanceCents === 0 || closingPaymentAmountCents === closingBalanceCents;
-  const budgetList = Array.isArray(budgets) ? budgets : [];
+  const closingHasSinglePendingBudget = totalAmountCents === 0 && pendingClosingBudgets.length === 1;
+  const closingHasMultiplePendingBudgets = totalAmountCents === 0 && pendingClosingBudgets.length > 1;
+  const closingHasSingleApprovedBudgetToSync = totalAmountCents === 0 && pendingClosingBudgets.length === 0 && approvedClosingBudgets.length === 1;
+  const isClosingBudgetReady = closeOutcome !== "finalizado" || totalAmountCents > 0 || !closingHasSinglePendingBudget || !!selectedClosingBudget;
+  const isClosingFullPaymentValid = closeOutcome !== "finalizado" || closingHasMultiplePendingBudgets === false && isClosingBudgetReady && (closingBalanceCents === 0 || closingPaymentAmountCents === closingBalanceCents);
   const primaryBudget = budgetList.find((budget: any) => budget.status === "pending") ?? budgetList[0] ?? null;
   const primaryBudgetTotal = primaryBudget ? Number(primaryBudget.totalCost) : null;
   const primaryBudgetLabel = typeof primaryBudgetTotal === "number" && Number.isFinite(primaryBudgetTotal)
@@ -1629,10 +1676,57 @@ export default function ServiceOrderDetail() {
                     <DollarSign className="h-4 w-4 text-emerald-600" />
                     <span className="text-sm font-semibold text-emerald-800">Pagamento do encerramento</span>
                   </div>
-                  <Badge variant="secondary" className="bg-white text-emerald-700 border border-emerald-200">
-                    Saldo: {toCurrency(closingBalance)}
-                  </Badge>
+                  <div className="flex flex-wrap justify-end gap-2">
+                    {totalAmountCents === 0 && selectedClosingBudget && (
+                      <Badge variant="secondary" className="bg-white text-slate-700 border border-slate-200">
+                        Valor da OS: {toCurrency(effectiveClosingTotalCents / 100)}
+                      </Badge>
+                    )}
+                    <Badge variant="secondary" className="bg-white text-emerald-700 border border-emerald-200">
+                      Saldo: {toCurrency(closingBalance)}
+                    </Badge>
+                  </div>
                 </div>
+
+                {totalAmountCents === 0 && closingHasSinglePendingBudget && !selectedClosingBudget && (
+                  <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-3 text-xs text-amber-800 space-y-2">
+                    <p>
+                      Existe um orçamento pendente de <strong>{toCurrency(moneyToCents(pendingClosingBudgets[0].totalCost) / 100)}</strong>. Para encerrar como feito, aprove o orçamento e use este valor no fechamento.
+                    </p>
+                    <Button
+                      type="button"
+                      size="sm"
+                      className="bg-amber-600 hover:bg-amber-700 text-white"
+                      onClick={() => {
+                        const budget = pendingClosingBudgets[0];
+                        const budgetCents = moneyToCents(budget.totalCost);
+                        const balanceCents = Math.max(0, budgetCents - totalPaidCents);
+                        setCloseApproveBudgetId(Number(budget.id));
+                        setClosePaymentAmount(balanceCents > 0 ? (balanceCents / 100).toFixed(2) : "");
+                      }}
+                    >
+                      Aprovar orçamento agora e usar no fechamento
+                    </Button>
+                  </div>
+                )}
+
+                {totalAmountCents === 0 && selectedClosingBudget && selectedClosingBudget.status === "pending" && (
+                  <div className="rounded-lg border border-emerald-200 bg-white px-3 py-2 text-xs text-emerald-700">
+                    O orçamento de <strong>{toCurrency(selectedClosingBudgetCents / 100)}</strong> será aprovado agora, convertido em valor total da OS e usado para calcular o pagamento do encerramento.
+                  </div>
+                )}
+
+                {closingHasSingleApprovedBudgetToSync && selectedClosingBudget && (
+                  <div className="rounded-lg border border-emerald-200 bg-white px-3 py-2 text-xs text-emerald-700">
+                    O orçamento aprovado de <strong>{toCurrency(selectedClosingBudgetCents / 100)}</strong> será sincronizado como valor total da OS antes do encerramento.
+                  </div>
+                )}
+
+                {closingHasMultiplePendingBudgets && (
+                  <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+                    Há mais de um orçamento pendente. Revise e aprove o orçamento correto antes de encerrar esta OS.
+                  </div>
+                )}
 
                 {closingBalanceCents > 0 ? (
                   <div className="space-y-3">
