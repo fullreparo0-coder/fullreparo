@@ -83,7 +83,7 @@ function SpecialtyCard({
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="w-full flex items-center gap-2.5 px-3 py-2.5 text-left group"
+        className="w-full flex items-center gap-2 px-2.5 py-2 text-left group sm:gap-2.5 sm:px-3 sm:py-2.5"
         style={{
           background: open
             ? `linear-gradient(135deg, ${primaryColor}18 0%, ${primaryColor}08 100%)`
@@ -94,7 +94,7 @@ function SpecialtyCard({
       >
         {/* Ícone da categoria */}
         <div
-          className="flex h-8 w-8 items-center justify-center rounded-lg shrink-0"
+          className="flex h-7 w-7 items-center justify-center rounded-lg shrink-0 sm:h-8 sm:w-8"
           style={{
             background: open
               ? `linear-gradient(135deg, ${primaryColor} 0%, ${primaryColor}cc 100%)`
@@ -110,12 +110,12 @@ function SpecialtyCard({
         {/* Nome da categoria */}
         <div className="flex-1 min-w-0">
           <p
-            className="text-[13px] font-semibold leading-tight"
+            className="text-xs font-semibold leading-tight sm:text-[13px]"
             style={{ color: open ? primaryColor : undefined }}
           >
             {type}
           </p>
-          <p className="text-[11px] text-muted-foreground mt-0.5">
+          <p className="text-[10px] text-muted-foreground mt-0.5 sm:text-[11px]">
             {brands.length} {brands.length === 1 ? "marca" : "marcas"}
           </p>
         </div>
@@ -171,15 +171,15 @@ function SpecialtyCard({
         }}
       >
         <div
-          className="px-3 pb-3 pt-1"
+          className="px-2.5 pb-2.5 pt-1 sm:px-3 sm:pb-3"
           style={{ borderTop: `1px solid ${primaryColor}15` }}
         >
           {/* Linha divisória decorativa */}
-          <div className="flex flex-wrap gap-1.5 pt-2.5">
+          <div className="flex flex-wrap gap-1 pt-2 sm:gap-1.5 sm:pt-2.5">
             {brands.map((brand) => (
               <span
                 key={brand}
-                className="inline-flex items-center rounded-full px-2 py-1 text-[11px] font-medium"
+                className="inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium sm:px-2 sm:py-1 sm:text-[11px]"
                 style={{
                   backgroundColor: `${primaryColor}0d`,
                   color: primaryColor,
@@ -435,7 +435,7 @@ export default function PublicPortal() {
         className="relative overflow-hidden"
         style={{
           background: `linear-gradient(145deg, ${primaryColor} 0%, ${primaryColor}e8 45%, ${primaryColor}b0 100%)`,
-          minHeight: "340px",
+          minHeight: "clamp(240px, 56vw, 340px)",
         }}
       >
         {/* Padrão de pontos SVG inline */}
@@ -477,10 +477,10 @@ export default function PublicPortal() {
         />
 
         {/* Conteúdo do hero */}
-        <div className="relative max-w-6xl mx-auto px-4 py-12 md:py-16">
-          <div className="flex items-start gap-5">
+        <div className="relative max-w-6xl mx-auto px-4 py-8 sm:py-10 md:py-16">
+          <div className="flex items-start gap-4 sm:gap-5">
             {/* Coluna de texto */}
-            <div className="flex-1 min-w-0 space-y-4">
+            <div className="flex-1 min-w-0 space-y-3 sm:space-y-4">
               {/* Badge de status — step 1 */}
               <div className="flex items-center gap-2" style={heroItemStyle(1)}>
                 {isOpen !== null && (
@@ -513,25 +513,25 @@ export default function PublicPortal() {
 
 
               {/* Texto de boas-vindas — step 3 */}
-              <p className="text-sm leading-relaxed" style={{ ...heroItemStyle(3), color: contrastColor, opacity: heroStep >= 3 ? 0.88 : 0 }}>
+              <p className="text-[13px] leading-snug sm:text-sm sm:leading-relaxed" style={{ ...heroItemStyle(3), color: contrastColor, opacity: heroStep >= 3 ? 0.88 : 0 }}>
                 {(tenant as any).welcomeText
                   ? (tenant as any).welcomeText
                   : "Solicite coleta, acompanhe sua OS ou verifique sua garantia digital com facilidade."}
               </p>
 
               {/* CTAs diretos no hero — step 4 */}
-              <div className="flex flex-wrap gap-2 pt-1" style={heroItemStyle(4)}>
+              <div className="grid grid-cols-2 gap-2 pt-0.5 sm:flex sm:flex-wrap sm:pt-1" style={heroItemStyle(4)}>
                 <button
                   onClick={() => tenantNavigate("/coleta")}
-                  className="inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold shadow-md transition-all duration-150 active:scale-[0.97] hover:brightness-110"
+                  className="inline-flex items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-xs font-semibold shadow-md transition-all duration-150 active:scale-[0.97] hover:brightness-110 sm:gap-2 sm:px-4 sm:py-2.5 sm:text-sm"
                   style={{ backgroundColor: secondaryColor, color: secondaryContrastColor }}
                 >
-                  <Truck className="h-4 w-4" />
+                  <Truck className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                   Solicitar Coleta
                 </button>
                 <button
                   onClick={() => tenantNavigate("/rastrear")}
-                  className="inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all duration-150 active:scale-[0.97]"
+                  className="inline-flex items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-xs font-semibold transition-all duration-150 active:scale-[0.97] sm:gap-2 sm:px-4 sm:py-2.5 sm:text-sm"
                   style={{
                     backgroundColor: "rgba(255,255,255,0.18)",
                     color: contrastColor,
@@ -539,12 +539,12 @@ export default function PublicPortal() {
                     backdropFilter: "blur(4px)",
                   }}
                 >
-                  <Search className="h-4 w-4" />
+                  <Search className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                   Rastrear OS
                 </button>
                 <button
                   onClick={() => tenantNavigate("/garantia")}
-                  className="inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all duration-150 active:scale-[0.97]"
+                  className="inline-flex items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-xs font-semibold transition-all duration-150 active:scale-[0.97] sm:gap-2 sm:px-4 sm:py-2.5 sm:text-sm"
                   style={{
                     backgroundColor: "rgba(255,255,255,0.12)",
                     color: contrastColor,
@@ -552,8 +552,9 @@ export default function PublicPortal() {
                     backdropFilter: "blur(4px)",
                   }}
                 >
-                  <Shield className="h-4 w-4" />
-                  Consultar garantia
+                  <Shield className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                  <span className="sm:hidden">Garantia</span>
+                  <span className="hidden sm:inline">Consultar garantia</span>
                 </button>
               </div>
             </div>
@@ -635,29 +636,29 @@ export default function PublicPortal() {
         }
       `}</style>
 
-      <main className="flex-1 max-w-6xl mx-auto w-full px-4 py-6 md:py-8 space-y-8">
+      <main className="flex-1 max-w-6xl mx-auto w-full px-4 py-4 space-y-5 sm:py-6 sm:space-y-7 md:py-8 md:space-y-8">
 
         {/* CTA de cadastro — visível apenas para visitantes não logados */}
         {!user && (
           <div
-            className="rounded-2xl p-4 flex items-center gap-3 shadow-sm"
+            className="rounded-xl p-3 flex items-center gap-2.5 shadow-sm sm:rounded-2xl sm:p-4 sm:gap-3"
             style={{ backgroundColor: `${primaryColor}12`, border: `1.5px solid ${primaryColor}30` }}
           >
             <div
-              className="flex h-10 w-10 items-center justify-center rounded-xl shrink-0"
+              className="flex h-8 w-8 items-center justify-center rounded-lg shrink-0 sm:h-10 sm:w-10 sm:rounded-xl"
               style={{ backgroundColor: secondaryColor }}
             >
-              <UserPlus className="h-5 w-5" style={{ color: secondaryContrastColor }} />
+              <UserPlus className="h-4 w-4 sm:h-5 sm:w-5" style={{ color: secondaryContrastColor }} />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-bold text-foreground">Crie sua conta grátis</p>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-[13px] font-bold leading-tight text-foreground sm:text-sm">Crie sua conta grátis</p>
+              <p className="text-[11px] leading-tight text-muted-foreground sm:text-xs">
                 Acompanhe suas OS e solicite coletas com facilidade
               </p>
             </div>
             <Button
               size="sm"
-              className="shrink-0 font-semibold shadow-sm"
+              className="h-8 shrink-0 px-2.5 text-xs font-semibold shadow-sm sm:h-9 sm:px-3"
               style={{ backgroundColor: secondaryColor, color: secondaryContrastColor }}
               onClick={() => tenantNavigate("/register")}
             >
@@ -671,7 +672,7 @@ export default function PublicPortal() {
           <div className="flex items-end justify-between gap-3">
             <div>
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Serviços</p>
-              <h2 className="font-display text-xl font-bold text-foreground mt-1 sm:text-2xl">Como podemos ajudar?</h2>
+              <h2 className="font-display text-lg font-bold text-foreground mt-0.5 sm:mt-1 sm:text-2xl">Como podemos ajudar?</h2>
             </div>
             <span
               className="hidden rounded-full px-2.5 py-1 text-[11px] font-semibold sm:inline-flex"
@@ -680,18 +681,18 @@ export default function PublicPortal() {
               Atendimento rápido
             </span>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
             {defaultServices.map(({ icon: Icon, title, description }) => (
-              <Card key={title} className="rounded-2xl border border-border/70 bg-card/95 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md">
-                <CardContent className="p-3.5 sm:p-4">
+              <Card key={title} className="rounded-xl border border-border/70 bg-card/95 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md sm:rounded-2xl">
+                <CardContent className="p-2.5 sm:p-4">
                   <div
-                    className="flex h-8 w-8 items-center justify-center rounded-xl mb-3"
+                    className="flex h-7 w-7 items-center justify-center rounded-lg mb-2 sm:h-8 sm:w-8 sm:rounded-xl sm:mb-3"
                     style={{ backgroundColor: `${primaryColor}12`, color: primaryColor }}
                   >
-                    <Icon className="h-4 w-4" />
+                    <Icon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                   </div>
-                  <p className="text-[13px] font-bold leading-tight text-foreground sm:text-sm">{title}</p>
-                  <p className="text-xs text-muted-foreground mt-1.5 leading-snug">{description}</p>
+                  <p className="text-xs font-bold leading-tight text-foreground sm:text-sm">{title}</p>
+                  <p className="mt-1 text-[10px] leading-snug text-muted-foreground line-clamp-2 sm:mt-1.5 sm:text-xs">{description}</p>
                 </CardContent>
               </Card>
             ))}
@@ -756,25 +757,25 @@ export default function PublicPortal() {
         <section className="space-y-3">
           <div>
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Atendimento</p>
-            <h2 className="font-display text-xl font-bold text-foreground mt-1 sm:text-2xl">Do orçamento à garantia, tudo acompanhado online</h2>
+            <h2 className="font-display text-lg font-bold leading-tight text-foreground mt-0.5 sm:mt-1 sm:text-2xl">Do orçamento à garantia, tudo acompanhado online</h2>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2.5 sm:gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3">
             {serviceFlow.map(({ icon: Icon, title, description }, index) => (
-              <Card key={title} className="relative overflow-hidden rounded-2xl border border-border/70 bg-card/95 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md">
-                <CardContent className="p-3.5 sm:p-4">
-                  <div className="flex items-center gap-2.5 mb-2.5">
+              <Card key={title} className="relative overflow-hidden rounded-xl border border-border/70 bg-card/95 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md sm:rounded-2xl">
+                <CardContent className="p-2.5 sm:p-4">
+                  <div className="flex items-center gap-2 mb-2 sm:gap-2.5 sm:mb-2.5">
                     <div
-                      className="flex h-8 w-8 items-center justify-center rounded-xl"
+                      className="flex h-7 w-7 items-center justify-center rounded-lg sm:h-8 sm:w-8 sm:rounded-xl"
                       style={{ backgroundColor: `${primaryColor}12`, color: primaryColor }}
                     >
-                      <Icon className="h-4 w-4" />
+                      <Icon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                     </div>
-                    <span className="text-[11px] font-bold rounded-full px-2 py-0.5" style={{ backgroundColor: `${secondaryColor}18`, color: secondaryColor }}>
+                    <span className="text-[10px] font-bold rounded-full px-1.5 py-0.5 sm:text-[11px] sm:px-2" style={{ backgroundColor: `${secondaryColor}18`, color: secondaryColor }}>
                       {index + 1}
                     </span>
                   </div>
-                  <p className="text-[13px] font-bold leading-tight text-foreground sm:text-sm">{title}</p>
-                  <p className="text-xs text-muted-foreground mt-1.5 leading-snug">{description}</p>
+                  <p className="text-xs font-bold leading-tight text-foreground sm:text-sm">{title}</p>
+                  <p className="mt-1 text-[10px] leading-snug text-muted-foreground line-clamp-2 sm:mt-1.5 sm:text-xs">{description}</p>
                 </CardContent>
               </Card>
             ))}
@@ -796,11 +797,11 @@ export default function PublicPortal() {
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide px-1">
                   Horário de Atendimento
                 </p>
-                <div className="rounded-2xl border border-border bg-card p-4 space-y-3">
+                <div className="rounded-xl border border-border bg-card p-3 space-y-2.5 sm:rounded-2xl sm:p-4 sm:space-y-3">
                   {/* Status e próxima abertura */}
                   <div className="flex items-center gap-2">
                     <div
-                      className="flex h-8 w-8 items-center justify-center rounded-lg shrink-0"
+                      className="flex h-7 w-7 items-center justify-center rounded-lg shrink-0 sm:h-8 sm:w-8"
                       style={{ backgroundColor: `${primaryColor}15` }}
                     >
                       <Clock className="h-4 w-4" style={{ color: primaryColor }} />
@@ -822,7 +823,7 @@ export default function PublicPortal() {
                     </div>
                   </div>
                   {/* Tabela de horários por dia */}
-                  <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                  <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 sm:gap-x-4 sm:gap-y-1">
                     {Array.from({ length: 7 }, (_, i) => String(i)).map((key) => {
                       const day = schedule[key];
                       const isToday = key === todayKey;
@@ -854,12 +855,12 @@ export default function PublicPortal() {
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide px-1">
                 Horário de Atendimento
               </p>
-              <div className="rounded-2xl border border-border bg-card p-4">
+              <div className="rounded-xl border border-border bg-card p-3 sm:rounded-2xl sm:p-4">
                 <div className="flex items-start gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl shrink-0" style={{ backgroundColor: `${primaryColor}15` }}>
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg shrink-0 sm:h-10 sm:w-10 sm:rounded-xl" style={{ backgroundColor: `${primaryColor}15` }}>
                     <Clock className="h-5 w-5" style={{ color: primaryColor }} />
                   </div>
-                  <p className="text-sm text-foreground leading-relaxed pt-2">{tenant.businessHours}</p>
+                  <p className="pt-1 text-xs leading-snug text-foreground sm:pt-2 sm:text-sm sm:leading-relaxed">{tenant.businessHours}</p>
                 </div>
               </div>
             </div>
@@ -879,13 +880,13 @@ export default function PublicPortal() {
                   <iframe
                     title={`Mapa de ${tenant.name}`}
                     src={googleMapsEmbedUrl}
-                    className="h-52 w-full border-0"
+                    className="h-44 w-full border-0 sm:h-52"
                     loading="lazy"
                     referrerPolicy="no-referrer-when-downgrade"
                     allowFullScreen
                   />
                 ) : (
-                  <div className="h-52 w-full flex items-center justify-center bg-muted/40 px-6 text-center">
+                  <div className="h-44 w-full flex items-center justify-center bg-muted/40 px-6 text-center sm:h-52">
                     <div className="space-y-2">
                       <MapPin className="h-8 w-8 mx-auto text-muted-foreground" />
                       <p className="text-sm font-semibold text-foreground">Localização disponível</p>
@@ -894,7 +895,7 @@ export default function PublicPortal() {
                   </div>
                 )}
                 {(tenant.address || googleMapsUrl) && (
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 px-4 py-3 bg-card border-t border-border">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1.5 px-3 py-2.5 bg-card border-t border-border sm:gap-2 sm:px-4 sm:py-3">
                     <div className="flex items-center gap-2 min-w-0">
                       <MapPin className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                       <p className="text-xs text-muted-foreground truncate">
@@ -919,10 +920,10 @@ export default function PublicPortal() {
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide px-1">
               Fale conosco
             </p>
-            <div className="flex gap-3">
+            <div className="flex gap-2 sm:gap-3">
               {tenant.phone && (
                 <a href={`tel:${tenant.phone.replace(/\D/g, "")}`} className="flex-1">
-                  <Button variant="outline" className="w-full gap-2 bg-background">
+                  <Button variant="outline" className="h-9 w-full gap-1.5 bg-background text-xs sm:h-10 sm:gap-2 sm:text-sm">
                     <Phone className="h-4 w-4" />
                     Ligar
                   </Button>
@@ -931,7 +932,7 @@ export default function PublicPortal() {
               {whatsappUrl && (
                 <a href={whatsappUrl} target="_blank" rel="noopener noreferrer" className="flex-1">
                   <Button
-                    className="w-full gap-2 text-white"
+                    className="h-9 w-full gap-1.5 text-xs text-white sm:h-10 sm:gap-2 sm:text-sm"
                     style={{ backgroundColor: "#25d366" }}
                   >
                     <MessageCircle className="h-4 w-4" />
@@ -945,7 +946,7 @@ export default function PublicPortal() {
       </main>
 
       {/* Footer */}
-      <footer className="text-center py-6 text-xs text-muted-foreground border-t border-border">
+      <footer className="text-center py-4 text-xs text-muted-foreground border-t border-border sm:py-6">
         {tenant.name} · Powered by{" "}
         <a href="/" className="font-semibold text-foreground hover:underline">
           fullreparo
