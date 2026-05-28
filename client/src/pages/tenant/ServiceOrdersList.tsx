@@ -444,28 +444,40 @@ export default function ServiceOrdersList() {
                   <button
                     key={os.id}
                     onClick={() => navigate(`/painel/os/${os.id}`)}
-                    className="w-full grid grid-cols-1 sm:grid-cols-[1fr_1.4fr_2fr_1.5fr_1fr_auto] gap-2 sm:gap-4 px-5 py-4 hover:bg-muted/40 transition-colors text-left items-center"
+                    className="group w-full grid grid-cols-1 sm:grid-cols-[1fr_1.4fr_2fr_1.5fr_1fr_auto] gap-1.5 sm:gap-4 px-4 sm:px-5 py-3 sm:py-4 hover:bg-muted/35 active:bg-muted/60 transition-colors text-left sm:items-center"
                   >
                     <div className="flex items-start sm:items-center gap-2 min-w-0">
-                      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-muted shrink-0">
+                      <div className="hidden sm:flex h-8 w-8 items-center justify-center rounded-lg bg-muted shrink-0">
                         <Wrench className="h-3.5 w-3.5 text-muted-foreground" />
                       </div>
-                      <div className="min-w-0">
-                        <span className="block text-sm font-semibold text-foreground truncate">{os.osNumber}</span>
-                        <span className="block sm:hidden text-sm font-medium text-foreground/80 truncate mt-0.5">
+                      <div className="min-w-0 w-full sm:w-auto">
+                        <div className="flex items-center justify-between gap-2 sm:block">
+                          <span className="block text-[13px] sm:text-sm font-semibold text-foreground tracking-tight truncate">{os.osNumber}</span>
+                          <StatusBadge
+                            status={os.status}
+                            size="sm"
+                            className="sm:hidden max-w-[52%] px-2 py-0.5 text-[10px] leading-4 shadow-none truncate"
+                          />
+                        </div>
+                        <span className="block sm:hidden text-[13px] font-semibold text-foreground/85 leading-5 truncate mt-0.5">
                           {os.customerName ?? "Cliente não informado"}
                         </span>
                       </div>
                     </div>
                     <p className="hidden sm:block text-sm font-medium text-foreground/80 truncate">{os.customerName ?? "Cliente não informado"}</p>
-                    <p className="text-sm text-muted-foreground truncate">{os.reportedDefect}</p>
-                    <StatusBadge status={os.status} size="sm" />
-                    <span className="text-xs text-muted-foreground">
+                    <p className="text-xs sm:text-sm text-muted-foreground leading-5 sm:leading-normal truncate">{os.reportedDefect}</p>
+                    <StatusBadge status={os.status} size="sm" className="hidden sm:inline-flex" />
+                    <span className="hidden sm:inline text-xs text-muted-foreground">
                       {new Date(os.createdAt).toLocaleDateString("pt-BR")}
                     </span>
-                    <Badge variant="outline" className="text-[10px] h-5 px-1.5 w-fit">
+                    <Badge variant="outline" className="hidden sm:inline-flex text-[10px] h-5 px-1.5 w-fit">
                       {os.origin === "coleta" ? "Coleta" : "Balcão"}
                     </Badge>
+                    <div className="sm:hidden flex items-center gap-2 text-[11px] leading-4 text-muted-foreground">
+                      <span>{new Date(os.createdAt).toLocaleDateString("pt-BR")}</span>
+                      <span className="h-1 w-1 rounded-full bg-muted-foreground/35" />
+                      <span>{os.origin === "coleta" ? "Coleta" : "Balcão"}</span>
+                    </div>
                   </button>
                 ))}
               </div>
