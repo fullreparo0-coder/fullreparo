@@ -1692,7 +1692,7 @@ export default function ServiceOrderDetail() {
                 {totalAmountCents === 0 && closingHasSinglePendingBudget && !selectedClosingBudget && (
                   <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-3 text-xs text-amber-800 space-y-2">
                     <p>
-                      Existe um orçamento pendente de <strong>{toCurrency(moneyToCents(pendingClosingBudgets[0].totalCost) / 100)}</strong>. Para encerrar como feito, aprove o orçamento e use este valor no fechamento.
+                      Existe um orçamento pendente de <strong>{toCurrency(moneyToCents(pendingClosingBudgets[0].totalCost) / 100)}</strong>. Para encerrar como Entregue reparado, aprove o orçamento e use este valor no fechamento.
                     </p>
                     <Button
                       type="button"
