@@ -641,7 +641,7 @@ export default function PublicPortal() {
         {/* CTA de cadastro — visível apenas para visitantes não logados */}
         {!user && (
           <div
-            className="rounded-xl p-3 flex items-center gap-2.5 shadow-sm sm:rounded-2xl sm:p-4 sm:gap-3"
+            className="grid grid-cols-[auto,1fr] items-center gap-2.5 rounded-xl p-3 shadow-sm sm:flex sm:rounded-2xl sm:p-4 sm:gap-3"
             style={{ backgroundColor: `${primaryColor}12`, border: `1.5px solid ${primaryColor}30` }}
           >
             <div
@@ -658,7 +658,7 @@ export default function PublicPortal() {
             </div>
             <Button
               size="sm"
-              className="h-8 shrink-0 px-2.5 text-xs font-semibold shadow-sm sm:h-9 sm:px-3"
+              className="col-span-2 h-8 w-full px-2.5 text-xs font-semibold shadow-sm sm:col-span-1 sm:h-9 sm:w-auto sm:shrink-0 sm:px-3"
               style={{ backgroundColor: secondaryColor, color: secondaryContrastColor }}
               onClick={() => tenantNavigate("/register")}
             >
