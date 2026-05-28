@@ -9,7 +9,7 @@ import bcrypt from "bcryptjs";
 import { sdk } from "./_core/sdk";
 import { getDb } from "./db";
 import { users } from "../drizzle/schema";
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { tenantsRouter, plansRouter } from "./routers/tenants";
 import { usersRouter } from "./routers/users";
 import { customersRouter } from "./routers/customers";
@@ -65,23 +65,29 @@ export const appRouter = router({
           });
         }
 
-        const [user] = isTenantLogin
+        const loginCandidates = isTenantLogin
           ? await db
               .select()
               .from(users)
               .where(and(eq(users.email, normalizedEmail), eq(users.tenantId, tenantId)))
-              .limit(1)
-          : await db.select().from(users).where(eq(users.email, normalizedEmail)).limit(1);
+              .orderBy(sql`field(${users.role}, 'tenant_admin', 'admin', 'super_admin', 'atendente', 'tecnico', 'entregador', 'cliente', 'user')`, users.id)
+          : await db
+              .select()
+              .from(users)
+              .where(eq(users.email, normalizedEmail))
+              .orderBy(sql`field(${users.role}, 'super_admin', 'admin', 'tenant_admin', 'atendente', 'tecnico', 'entregador', 'cliente', 'user')`, users.id);
 
-        if (!user || !user.localLoginEnabled || !user.passwordHash || !user.isActive) {
-          throw new TRPCError({
-            code: "UNAUTHORIZED",
-            message: "E-mail ou senha inválidos.",
-          });
+        let user = null;
+        for (const candidate of loginCandidates) {
+          if (!candidate.localLoginEnabled || !candidate.passwordHash || !candidate.isActive) continue;
+          const isPasswordValid = await bcrypt.compare(input.password, candidate.passwordHash);
+          if (isPasswordValid) {
+            user = candidate;
+            break;
+          }
         }
 
-        const isPasswordValid = await bcrypt.compare(input.password, user.passwordHash);
-        if (!isPasswordValid) {
+        if (!user) {
           throw new TRPCError({
             code: "UNAUTHORIZED",
             message: "E-mail ou senha inválidos.",
