@@ -35,6 +35,13 @@ const CLOSING_PAYMENT_METHODS = [
 ] as const;
 type ClosingPaymentMethod = typeof CLOSING_PAYMENT_METHODS[number]["value"];
 
+const MANUAL_PAYMENT_METHODS = [
+  ...CLOSING_PAYMENT_METHODS,
+  { value: "transferencia", label: "Transferência" },
+  { value: "outro", label: "Outro" },
+] as const;
+type ManualPaymentMethod = typeof MANUAL_PAYMENT_METHODS[number]["value"];
+
 function toCurrency(value: number) {
   return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
@@ -60,6 +67,10 @@ export default function ServiceOrderDetail() {
   const [closePaymentMethod, setClosePaymentMethod] = useState<ClosingPaymentMethod | "">("");
   const [closePaymentAmount, setClosePaymentAmount] = useState("");
   const [closeApproveBudgetId, setCloseApproveBudgetId] = useState<number | null>(null);
+  const [paymentOpen, setPaymentOpen] = useState(false);
+  const [paymentAmount, setPaymentAmount] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState<ManualPaymentMethod | "">("");
+  const [paymentNotes, setPaymentNotes] = useState("");
   const [budgetOpen, setBudgetOpen] = useState(false);
   const [budgetItems, setBudgetItems] = useState<{ description: string; quantity: number; unitPrice: number; type: "service" | "part" }[]>([{ description: "", quantity: 1, unitPrice: 0, type: "service" }]);
   const [laborCost, setLaborCost] = useState(0);
@@ -221,9 +232,38 @@ export default function ServiceOrderDetail() {
   const registerPayment = trpc.payments.register.useMutation({
     onSuccess: () => {
       toast.success("Pagamento registrado");
+      setPaymentOpen(false);
+      setPaymentAmount("");
+      setPaymentMethod("");
+      setPaymentNotes("");
       utils.payments.getByOs.invalidate({ serviceOrderId: osId });
+      utils.serviceOrders.getById.invalidate({ id: osId });
     },
+    onError: (error) => toast.error(error.message || "Erro ao registrar pagamento"),
   });
+
+  const handleRegisterPayment = () => {
+    const amount = Number(paymentAmount.replace(",", "."));
+    const amountCents = moneyToCents(amount);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      toast.error("Informe um valor de pagamento válido.");
+      return;
+    }
+    if (administrativeBalanceCents > 0 && amountCents > administrativeBalanceCents) {
+      toast.error("O valor recebido não pode ser maior que o saldo atual da OS.");
+      return;
+    }
+    if (!paymentMethod) {
+      toast.error("Selecione o meio de pagamento.");
+      return;
+    }
+    registerPayment.mutate({
+      serviceOrderId: osId,
+      amount,
+      method: paymentMethod,
+      notes: paymentNotes.trim() || undefined,
+    });
+  };
 
   // Pré-preencher dias de garantia com o valor atual da OS quando ela carregar
   // (useEffect garante que o valor seja atualizado quando os mudar)
@@ -482,6 +522,9 @@ export default function ServiceOrderDetail() {
   const budgetList = Array.isArray(budgets) ? budgets : [];
   const totalAmountCents = moneyToCents(os.totalAmount);
   const totalPaidCents = paidPayments.reduce((sum, payment: any) => sum + moneyToCents(payment.amount), 0);
+  const administrativeBudgetCents = moneyToCents(budgetList.find((budget: any) => ["pending", "approved"].includes(budget.status) && moneyToCents(budget.totalCost) > 0)?.totalCost);
+  const administrativeTotalCents = totalAmountCents > 0 ? totalAmountCents : administrativeBudgetCents;
+  const administrativeBalanceCents = Math.max(0, administrativeTotalCents - totalPaidCents);
   const payableClosingBudgets = budgetList.filter((budget: any) => ["pending", "approved"].includes(budget.status) && moneyToCents(budget.totalCost) > 0);
   const pendingClosingBudgets = payableClosingBudgets.filter((budget: any) => budget.status === "pending");
   const approvedClosingBudgets = payableClosingBudgets.filter((budget: any) => budget.status === "approved");
@@ -1385,27 +1428,109 @@ export default function ServiceOrderDetail() {
             {/* Pagamentos */}
             <Card>
               <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                  <DollarSign className="h-4 w-4 text-muted-foreground" /> Pagamentos
-                </CardTitle>
+                <div className="flex items-center justify-between gap-3">
+                  <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                    <DollarSign className="h-4 w-4 text-muted-foreground" /> Pagamentos
+                  </CardTitle>
+                  <Dialog open={paymentOpen} onOpenChange={setPaymentOpen}>
+                    <DialogTrigger asChild>
+                      <Button size="sm" variant="outline" disabled={administrativeTotalCents > 0 && administrativeBalanceCents <= 0}>
+                        <Plus className="h-3.5 w-3.5 mr-1" /> Registrar pagamento
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="max-w-md">
+                      <DialogHeader>
+                        <DialogTitle>Registrar pagamento</DialogTitle>
+                      </DialogHeader>
+                      <div className="space-y-4">
+                        <div className="grid grid-cols-3 gap-2 text-xs">
+                          <div className="rounded-md bg-muted/40 p-2">
+                            <p className="text-muted-foreground">Valor da OS</p>
+                            <p className="font-semibold text-foreground">{toCurrency(administrativeTotalCents / 100)}</p>
+                          </div>
+                          <div className="rounded-md bg-muted/40 p-2">
+                            <p className="text-muted-foreground">Pago</p>
+                            <p className="font-semibold text-emerald-700">{toCurrency(totalPaidCents / 100)}</p>
+                          </div>
+                          <div className="rounded-md bg-muted/40 p-2">
+                            <p className="text-muted-foreground">Saldo</p>
+                            <p className="font-semibold text-blue-700">{toCurrency(administrativeBalanceCents / 100)}</p>
+                          </div>
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label htmlFor="payment-amount">Valor recebido</Label>
+                          <Input
+                            id="payment-amount"
+                            inputMode="decimal"
+                            placeholder="0,00"
+                            value={paymentAmount}
+                            onChange={(event) => setPaymentAmount(event.target.value.replace(/[^0-9,.]/g, ""))}
+                          />
+                          <p className="text-xs text-muted-foreground">Aceita pagamento parcial ou total antes da entrega.</p>
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label htmlFor="payment-method">Meio de pagamento</Label>
+                          <Select value={paymentMethod} onValueChange={(value) => setPaymentMethod(value as ManualPaymentMethod)}>
+                            <SelectTrigger id="payment-method">
+                              <SelectValue placeholder="Selecione" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {MANUAL_PAYMENT_METHODS.map((method) => (
+                                <SelectItem key={method.value} value={method.value}>{method.label}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label htmlFor="payment-notes">Observação opcional</Label>
+                          <Textarea
+                            id="payment-notes"
+                            rows={3}
+                            placeholder="Ex.: pagamento antecipado no balcão"
+                            value={paymentNotes}
+                            onChange={(event) => setPaymentNotes(event.target.value)}
+                          />
+                        </div>
+                        <div className="flex justify-end gap-2">
+                          <Button type="button" variant="outline" onClick={() => setPaymentOpen(false)}>Cancelar</Button>
+                          <Button type="button" onClick={handleRegisterPayment} disabled={registerPayment.isPending}>
+                            {registerPayment.isPending ? "Registrando..." : "Registrar pagamento"}
+                          </Button>
+                        </div>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                </div>
               </CardHeader>
               <CardContent>
                 {payments && payments.length > 0 ? (
                   <div className="space-y-2">
-                    {payments.map((p) => (
-                      <div key={p.id} className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">{p.method}</span>
-                        <span className="font-semibold text-emerald-600">R$ {Number(p.amount).toFixed(2)}</span>
-                      </div>
-                    ))}
+                    {payments.map((p) => {
+                      const paymentMethodLabel = MANUAL_PAYMENT_METHODS.find((method) => method.value === p.method)?.label ?? p.method;
+                      return (
+                        <div key={p.id} className="flex justify-between gap-3 text-sm">
+                          <span className="text-muted-foreground">{paymentMethodLabel}</span>
+                          <span className="font-semibold text-emerald-600">{toCurrency(Number(p.amount))}</span>
+                        </div>
+                      );
+                    })}
                     <Separator />
                     <div className="flex justify-between text-sm font-bold">
                       <span>Total pago</span>
-                      <span className="text-emerald-600">R$ {totalPaid.toFixed(2)}</span>
+                      <span className="text-emerald-600">{toCurrency(totalPaid)}</span>
+                    </div>
+                    <div className="flex justify-between text-xs text-muted-foreground">
+                      <span>Saldo atual</span>
+                      <span>{toCurrency(administrativeBalanceCents / 100)}</span>
                     </div>
                   </div>
                 ) : (
-                  <p className="text-xs text-muted-foreground">Nenhum pagamento registrado</p>
+                  <div className="space-y-2">
+                    <p className="text-xs text-muted-foreground">Nenhum pagamento registrado</p>
+                    {administrativeTotalCents > 0 && (
+                      <p className="text-xs text-muted-foreground">Saldo atual: {toCurrency(administrativeBalanceCents / 100)}</p>
+                    )}
+                  </div>
                 )}
               </CardContent>
             </Card>

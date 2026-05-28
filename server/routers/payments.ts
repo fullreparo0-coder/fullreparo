@@ -64,6 +64,14 @@ export const paymentsRouter = router({
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
       const [os] = await db.select().from(serviceOrders).where(and(eq(serviceOrders.id, input.serviceOrderId), eq(serviceOrders.tenantId, ctx.user.tenantId!))).limit(1);
       if (!os) throw new TRPCError({ code: "NOT_FOUND", message: "OS não encontrada" });
+      const total = toNumber(os.totalAmount);
+      if (total > 0) {
+        const summary = await summarizePayments(db, ctx.user.tenantId!, input.serviceOrderId);
+        const amountDue = Math.max(0, total - summary.paid);
+        if (input.amount > amountDue) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "O valor recebido não pode ser maior que o saldo atual da OS." });
+        }
+      }
       const result = await db.insert(payments).values({
         tenantId: ctx.user.tenantId!,
         serviceOrderId: input.serviceOrderId,
