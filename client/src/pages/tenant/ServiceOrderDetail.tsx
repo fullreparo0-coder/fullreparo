@@ -497,7 +497,8 @@ export default function ServiceOrderDetail() {
   const closingHasMultiplePendingBudgets = totalAmountCents === 0 && pendingClosingBudgets.length > 1;
   const closingHasSingleApprovedBudgetToSync = totalAmountCents === 0 && pendingClosingBudgets.length === 0 && approvedClosingBudgets.length === 1;
   const isClosingBudgetReady = closeOutcome !== "finalizado" || totalAmountCents > 0 || !closingHasSinglePendingBudget || !!selectedClosingBudget;
-  const isClosingFullPaymentValid = closeOutcome !== "finalizado" || closingHasMultiplePendingBudgets === false && isClosingBudgetReady && (closingBalanceCents === 0 || closingPaymentAmountCents === closingBalanceCents);
+  const isClosingPaymentMethodValid = closeOutcome !== "finalizado" || closingBalanceCents === 0 || !!closePaymentMethod;
+  const isClosingFullPaymentValid = closeOutcome !== "finalizado" || closingHasMultiplePendingBudgets === false && isClosingBudgetReady && isClosingPaymentMethodValid && (closingBalanceCents === 0 || closingPaymentAmountCents === closingBalanceCents);
   const primaryBudget = budgetList.find((budget: any) => budget.status === "pending") ?? budgetList[0] ?? null;
   const primaryBudgetTotal = primaryBudget ? Number(primaryBudget.totalCost) : null;
   const primaryBudgetLabel = typeof primaryBudgetTotal === "number" && Number.isFinite(primaryBudgetTotal)
