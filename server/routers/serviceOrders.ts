@@ -285,6 +285,7 @@ export const serviceOrdersRouter = router({
         estimatedDelivery: z.string().optional(),
         warrantyDays: z.number().default(90),
         initialBudgetValue: z.number().min(0).optional(),
+        initialBudgetApproved: z.boolean().optional(),
         checklist: z.array(z.string()).optional(),
       })
     )
@@ -305,10 +306,11 @@ export const serviceOrdersRouter = router({
       }
       const osNumber = await generateOsNumber(ctx.user.tenantId!);
       const publicToken = nanoid(32);
-      const { checklist, brand, model, imei, serialNumber, deviceType, deviceId, initialBudgetValue, ...osData } = input;
+      const { checklist, brand, model, imei, serialNumber, deviceType, deviceId, initialBudgetValue, initialBudgetApproved, ...osData } = input;
       const hasInitialBudget = typeof initialBudgetValue === "number" && initialBudgetValue > 0;
+      const isInitialBudgetApproved = hasInitialBudget && initialBudgetApproved === true;
       const initialBudgetAmount = hasInitialBudget ? initialBudgetValue.toFixed(2) : null;
-      const initialStatus = hasInitialBudget ? "aguardando_aprovacao" : "recebido_na_assistencia";
+      const initialStatus = hasInitialBudget ? (isInitialBudgetApproved ? "aprovado" : "aguardando_aprovacao") : "recebido_na_assistencia";
 
       let resolvedDeviceId = deviceId ?? null;
       if (resolvedDeviceId) {
@@ -353,6 +355,7 @@ export const serviceOrdersRouter = router({
         publicToken,
         origin: "balcao",
         status: initialStatus,
+        totalAmount: isInitialBudgetApproved && initialBudgetAmount ? initialBudgetAmount : undefined,
         attendantId: ctx.user.id,
         estimatedDelivery: input.estimatedDelivery ? new Date(input.estimatedDelivery) : undefined,
       });
@@ -363,7 +366,9 @@ export const serviceOrdersRouter = router({
         serviceOrderId: osId,
         status: initialStatus,
         notes: hasInitialBudget && initialBudgetAmount
-          ? `OS aberta no balcão com orçamento inicial: R$ ${initialBudgetAmount.replace(".", ",")}`
+          ? isInitialBudgetApproved
+            ? `OS aberta no balcão com orçamento inicial já aprovado: R$ ${initialBudgetAmount.replace(".", ",")}`
+            : `OS aberta no balcão com orçamento inicial: R$ ${initialBudgetAmount.replace(".", ",")}`
           : "OS aberta no balcão",
         changedById: ctx.user.id,
         changedByName: ctx.user.name ?? "Atendente",
@@ -378,16 +383,19 @@ export const serviceOrdersRouter = router({
           laborCost: initialBudgetAmount,
           partsCost: "0.00",
           totalCost: initialBudgetAmount,
-          status: "pending",
+          status: isInitialBudgetApproved ? "approved" : "pending",
           validUntil,
+          approvedAt: isInitialBudgetApproved ? new Date() : undefined,
           createdById: ctx.user.id,
         });
 
         await db.insert(osStatusHistory).values({
           tenantId: ctx.user.tenantId!,
           serviceOrderId: osId,
-          status: "aguardando_aprovacao",
-          notes: `Orçamento inicial enviado para aprovação: R$ ${initialBudgetAmount.replace(".", ",")}`,
+          status: isInitialBudgetApproved ? "aprovado" : "aguardando_aprovacao",
+          notes: isInitialBudgetApproved
+            ? `Orçamento inicial aprovado no balcão: R$ ${initialBudgetAmount.replace(".", ",")}`
+            : `Orçamento inicial enviado para aprovação: R$ ${initialBudgetAmount.replace(".", ",")}`,
           changedById: ctx.user.id,
           changedByName: ctx.user.name ?? "Atendente",
         });
@@ -412,7 +420,7 @@ export const serviceOrdersRouter = router({
         origin: ctx.req?.headers?.origin ?? null,
       }).catch((err) => console.warn("[createBalcao] Falha na comunicação automática da OS aberta:", err));
 
-      if (hasInitialBudget) {
+      if (hasInitialBudget && !isInitialBudgetApproved) {
         triggerAutoCommunication({
           tenantId: ctx.user.tenantId!,
           serviceOrderId: osId,

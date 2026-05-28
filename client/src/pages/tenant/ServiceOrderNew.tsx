@@ -325,8 +325,9 @@ export default function ServiceOrderNew() {
   const [deviceMode, setDeviceMode] = useState<"select" | "new">("select");
   const [devicesHistoryOpen, setDevicesHistoryOpen] = useState(false);
 
-  // ── Chip e modal de impressão pós-criação ─────────────────────────────────
+  // ── Chip, aprovação no balcão e modal de impressão pós-criação ─────────────
   const [deliveredChip, setDeliveredChip] = useState(false);
+  const [initialBudgetApproved, setInitialBudgetApproved] = useState(false);
   const [printChoiceOpen, setPrintChoiceOpen] = useState(false);
   const [createdOs, setCreatedOs] = useState<{ id: number; osNumber: string } | null>(null);
 
@@ -570,6 +571,10 @@ export default function ServiceOrderNew() {
       toast.error("Informe um valor de orçamento válido ou deixe o campo em branco.");
       return;
     }
+    if (initialBudgetApproved && !initialBudgetValue) {
+      toast.error("Para marcar como aprovado no balcão, informe o valor do orçamento inicial.");
+      return;
+    }
 
     try {
       const result = await createOs.mutateAsync({
@@ -587,6 +592,7 @@ export default function ServiceOrderNew() {
         internalNotes: form.internalNotes || undefined,
         warrantyDays: parseInt(form.warrantyDays),
         initialBudgetValue,
+        initialBudgetApproved,
         checklist: selectedChecklist,
       });
       toast.success(`OS ${result.osNumber} criada com sucesso!`);
@@ -1258,21 +1264,42 @@ export default function ServiceOrderNew() {
                 />
               </div>
               <div className="grid grid-cols-1 md:grid-cols-[1fr_220px] gap-3">
-                <div>
-                  <Label>Orçamento inicial</Label>
-                  <Input
-                    className="mt-1.5"
-                    inputMode="decimal"
-                    value={form.initialBudgetValue}
-                    onChange={(e) => update("initialBudgetValue", e.target.value)}
-                    placeholder="0,00"
-                  />
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    Use este campo quando o diagnóstico for feito no balcão e o cliente puder aprovar na hora.
-                  </p>
+                <div className="space-y-3">
+                  <div>
+                    <Label>Orçamento inicial</Label>
+                    <Input
+                      className="mt-1.5"
+                      inputMode="decimal"
+                      value={form.initialBudgetValue}
+                      onChange={(e) => update("initialBudgetValue", e.target.value)}
+                      placeholder="0,00"
+                    />
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Use este campo quando o diagnóstico for feito no balcão e o cliente puder aprovar na hora.
+                    </p>
+                  </div>
+                  <label
+                    htmlFor="initial-budget-approved"
+                    className="flex cursor-pointer items-start gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-950"
+                  >
+                    <Checkbox
+                      id="initial-budget-approved"
+                      checked={initialBudgetApproved}
+                      onCheckedChange={(v) => setInitialBudgetApproved(!!v)}
+                      className="mt-0.5 shrink-0"
+                    />
+                    <span>
+                      <span className="block font-medium">Orçamento já aprovado no balcão</span>
+                      <span className="block text-xs text-emerald-800">
+                        Marque quando o cliente já autorizou o serviço na abertura da OS.
+                      </span>
+                    </span>
+                  </label>
                 </div>
                 <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-900">
-                  Se preenchido, a OS será criada em <strong>aguardando aprovação</strong>.
+                  {initialBudgetApproved
+                    ? "Com aprovação marcada, a OS será criada como aprovado."
+                    : <>Se preenchido, a OS será criada em <strong>aguardando aprovação</strong>.</>}
                 </div>
               </div>
               <div className="rounded-xl border border-border bg-muted/20 p-3 space-y-3">
