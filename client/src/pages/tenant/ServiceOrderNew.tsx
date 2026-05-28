@@ -323,6 +323,7 @@ export default function ServiceOrderNew() {
   // ── Estado de aparelho selecionado ──────────────────────────────────────
   const [selectedDeviceId, setSelectedDeviceId] = useState<number | null>(null);
   const [deviceMode, setDeviceMode] = useState<"select" | "new">("select");
+  const [devicesHistoryOpen, setDevicesHistoryOpen] = useState(false);
 
   // ── Chip e modal de impressão pós-criação ─────────────────────────────────
   const [deliveredChip, setDeliveredChip] = useState(false);
@@ -538,12 +539,14 @@ export default function ServiceOrderNew() {
       serialNumber: device.serialNumber ?? "",
     }));
     setDeviceMode("select");
+    setDevicesHistoryOpen(false);
   };
 
   const handleNewDevice = () => {
     setSelectedDeviceId(null);
     setForm((f) => ({ ...f, brand: "", model: "", deviceType: "Smartphone", color: "", imei: "", serialNumber: "" }));
     setDeviceMode("new");
+    setDevicesHistoryOpen(false);
   };
 
   const parseInitialBudgetValue = () => {
@@ -663,8 +666,9 @@ export default function ServiceOrderNew() {
     { key: "customer", label: "Cliente", icon: UserPlus },
     { key: "device", label: "Aparelho", icon: Smartphone },
     { key: "os", label: "OS", icon: ClipboardCheck },
-  ];
+  ] as const;
   const currentStepIdx = stepOrder.indexOf(step);
+  const visibleStepLabels = stepLabels.filter((s) => s.key !== "customer" || step === "customer");
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
@@ -712,11 +716,9 @@ export default function ServiceOrderNew() {
 
         {/* Steps indicator */}
         <div className="flex items-center gap-1.5 text-sm overflow-x-auto pb-1">
-          {stepLabels.map((s, idx) => {
+          {visibleStepLabels.map((s, idx) => {
             const isActive = step === s.key;
-            const isDone = currentStepIdx > idx;
-            // Ocultar step "customer" quando veio pelo step 0 (não é necessário mostrar)
-            if (s.key === "customer" && step !== "customer") return null;
+            const isDone = currentStepIdx > stepOrder.indexOf(s.key);
             return (
               <div key={s.key} className="flex items-center gap-1.5 shrink-0">
                 <div
@@ -733,7 +735,7 @@ export default function ServiceOrderNew() {
                 <span className={isActive ? "font-medium text-foreground" : "text-muted-foreground"}>
                   {s.label}
                 </span>
-                {idx < stepLabels.length - 1 && <div className="h-px w-6 bg-border" />}
+                {idx < visibleStepLabels.length - 1 && <div className="h-px w-6 bg-border" />}
               </div>
             );
           })}
@@ -1007,86 +1009,109 @@ export default function ServiceOrderNew() {
 
               {/* ─ Histórico de aparelhos do cliente ─ */}
               {customerId && (
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <p className="text-sm font-medium flex items-center gap-1.5">
-                      <History className="h-4 w-4 text-muted-foreground" />
-                      Aparelhos anteriores
-                    </p>
-                    <button
-                      type="button"
-                      className="text-xs text-primary hover:underline flex items-center gap-1"
-                      onClick={handleNewDevice}
-                    >
-                      <PlusCircle className="h-3 w-3" /> Novo aparelho
-                    </button>
-                  </div>
-
+                <div className="space-y-3">
                   {devicesLoading && (
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
-                      <Loader2 className="h-4 w-4 animate-spin" /> Carregando aparelhos...
+                    <div className="flex items-center gap-2 rounded-xl border border-dashed border-border bg-muted/30 px-3 py-3 text-sm text-muted-foreground">
+                      <Loader2 className="h-4 w-4 animate-spin" /> Carregando aparelhos anteriores...
                     </div>
                   )}
 
                   {!devicesLoading && customerDevices && customerDevices.length > 0 && (
-                    <div className="grid gap-2">
-                      {customerDevices.map((device) => {
-                        const isSelected = selectedDeviceId === device.id && deviceMode === "select";
-                        return (
-                          <button
-                            key={device.id}
-                            type="button"
-                            onClick={() => handleSelectDevice(device)}
-                            className={`w-full text-left rounded-lg border p-3 transition-all ${
-                              isSelected
-                                ? "border-primary bg-primary/5 ring-1 ring-primary"
-                                : "border-border hover:border-primary/50 hover:bg-muted/40"
-                            }`}
-                          >
-                            <div className="flex items-start gap-3">
-                              <div className={`flex h-9 w-9 items-center justify-center rounded-full shrink-0 ${
-                                isSelected ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
-                              }`}>
-                                <Cpu className="h-4 w-4" />
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2 flex-wrap">
-                                  <span className="font-medium text-sm text-foreground">{device.brand} {device.model}</span>
-                                  {device.type && (
-                                    <Badge variant="secondary" className="text-xs h-5">{device.type}</Badge>
-                                  )}
-                                  {isSelected && (
-                                    <Badge className="text-xs h-5 bg-primary/10 text-primary border-0 ml-auto">
-                                      <CheckCircle2 className="h-3 w-3 mr-1" /> Selecionado
-                                    </Badge>
-                                  )}
+                    <div className="rounded-xl border border-border bg-muted/20 overflow-hidden">
+                      <button
+                        type="button"
+                        className="flex w-full items-center gap-3 px-3 py-3 text-left"
+                        onClick={() => setDevicesHistoryOpen((v) => !v)}
+                        aria-expanded={devicesHistoryOpen}
+                      >
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-background text-primary ring-1 ring-border">
+                          <History className="h-4 w-4" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-semibold text-foreground">
+                            Ver {customerDevices.length} {customerDevices.length === 1 ? "aparelho anterior" : "aparelhos anteriores"}
+                          </p>
+                          <p className="truncate text-xs text-muted-foreground">
+                            Histórico oculto para manter o cadastro mais rápido no balcão.
+                          </p>
+                        </div>
+                        <ChevronRight
+                          className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform ${
+                            devicesHistoryOpen ? "rotate-90" : ""
+                          }`}
+                        />
+                      </button>
+
+                      {devicesHistoryOpen && (
+                        <div className="grid gap-2 border-t border-border bg-background p-2">
+                          {customerDevices.map((device) => {
+                            const isSelected = selectedDeviceId === device.id && deviceMode === "select";
+                            return (
+                              <button
+                                key={device.id}
+                                type="button"
+                                onClick={() => handleSelectDevice(device)}
+                                className={`w-full text-left rounded-lg border p-3 transition-all ${
+                                  isSelected
+                                    ? "border-primary bg-primary/5 ring-1 ring-primary"
+                                    : "border-border hover:border-primary/50 hover:bg-muted/40"
+                                }`}
+                              >
+                                <div className="flex items-start gap-3">
+                                  <div className={`flex h-9 w-9 items-center justify-center rounded-full shrink-0 ${
+                                    isSelected ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
+                                  }`}>
+                                    <Cpu className="h-4 w-4" />
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                      <span className="font-medium text-sm text-foreground">{device.brand} {device.model}</span>
+                                      {device.type && (
+                                        <Badge variant="secondary" className="text-xs h-5">{device.type}</Badge>
+                                      )}
+                                      {isSelected && (
+                                        <Badge className="text-xs h-5 bg-primary/10 text-primary border-0 ml-auto">
+                                          <CheckCircle2 className="h-3 w-3 mr-1" /> Selecionado
+                                        </Badge>
+                                      )}
+                                    </div>
+                                    <div className="flex gap-3 mt-0.5 flex-wrap">
+                                      {device.color && (
+                                        <span className="text-xs text-muted-foreground">{device.color}</span>
+                                      )}
+                                      {device.imei && (
+                                        <span className="text-xs text-muted-foreground font-mono">IMEI: {device.imei}</span>
+                                      )}
+                                      {device.serialNumber && (
+                                        <span className="text-xs text-muted-foreground font-mono">SN: {device.serialNumber}</span>
+                                      )}
+                                    </div>
+                                  </div>
                                 </div>
-                                <div className="flex gap-3 mt-0.5 flex-wrap">
-                                  {device.color && (
-                                    <span className="text-xs text-muted-foreground">{device.color}</span>
-                                  )}
-                                  {device.imei && (
-                                    <span className="text-xs text-muted-foreground font-mono">IMEI: {device.imei}</span>
-                                  )}
-                                  {device.serialNumber && (
-                                    <span className="text-xs text-muted-foreground font-mono">SN: {device.serialNumber}</span>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                          </button>
-                        );
-                      })}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
                   )}
 
                   {!devicesLoading && (!customerDevices || customerDevices.length === 0) && (
-                    <div className="rounded-lg border border-dashed border-border p-4 text-center">
+                    <div className="rounded-xl border border-dashed border-border bg-muted/20 p-4 text-center">
                       <Smartphone className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
                       <p className="text-sm text-muted-foreground">Nenhum aparelho cadastrado para este cliente.</p>
                       <p className="text-xs text-muted-foreground mt-0.5">Preencha os dados abaixo para cadastrar o primeiro.</p>
                     </div>
                   )}
+
+                  <button
+                    type="button"
+                    className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-primary/30 bg-primary/5 px-3 py-2.5 text-sm font-medium text-primary transition-colors hover:bg-primary/10"
+                    onClick={handleNewDevice}
+                  >
+                    <PlusCircle className="h-4 w-4" />
+                    Cadastrar novo aparelho
+                  </button>
 
                   <Separator />
                 </div>
@@ -1246,11 +1271,13 @@ export default function ServiceOrderNew() {
                     Use este campo quando o diagnóstico for feito no balcão e o cliente puder aprovar na hora.
                   </p>
                 </div>
-                <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
-                  Se preenchido, a OS será criada em <strong>aguardando aprovação</strong> e o orçamento ficará disponível nos detalhes da OS.
+                <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-900">
+                  Se preenchido, a OS será criada em <strong>aguardando aprovação</strong>.
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="rounded-xl border border-border bg-muted/20 p-3 space-y-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Detalhes adicionais</p>
+                <div className="grid grid-cols-2 gap-3">
                 <div>
                   <Label>Estado físico</Label>
                   <Input
@@ -1269,16 +1296,17 @@ export default function ServiceOrderNew() {
                     placeholder="Carregador, cabo"
                   />
                 </div>
-              </div>
-              <div>
-                <Label>Observações internas</Label>
-                <Textarea
-                  className="mt-1.5"
-                  value={form.internalNotes}
-                  onChange={(e) => update("internalNotes", e.target.value)}
-                  placeholder="Notas para a equipe técnica..."
-                  rows={2}
-                />
+                </div>
+                <div>
+                  <Label>Observações internas</Label>
+                  <Textarea
+                    className="mt-1.5"
+                    value={form.internalNotes}
+                    onChange={(e) => update("internalNotes", e.target.value)}
+                    placeholder="Notas para a equipe técnica..."
+                    rows={2}
+                  />
+                </div>
               </div>
 
               <Separator />
@@ -1291,21 +1319,24 @@ export default function ServiceOrderNew() {
                     </span>
                   )}
                 </div>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   {activeChecklistItems.length === 0 && (
                     <p className="text-sm text-muted-foreground col-span-2">Nenhum item de checklist configurado.</p>
                   )}
                   {activeChecklistItems.map((item) => (
-                    <div key={item.id} className="flex items-center gap-2">
+                    <label
+                      key={item.id}
+                      htmlFor={`cl-${item.id}`}
+                      className="flex min-h-10 cursor-pointer items-center gap-2 rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground"
+                    >
                       <Checkbox
                         id={`cl-${item.id}`}
                         checked={selectedChecklist.includes(item.label)}
                         onCheckedChange={() => toggleChecklist(item.label)}
+                        className="shrink-0"
                       />
-                      <label htmlFor={`cl-${item.id}`} className="text-sm text-foreground cursor-pointer">
-                        {item.label}
-                      </label>
-                    </div>
+                      <span>{item.label}</span>
+                    </label>
                   ))}
                 </div>
               </div>
@@ -1314,9 +1345,9 @@ export default function ServiceOrderNew() {
 
               {/* Confirmação de entrega do chip */}
               <div
-                className={`flex items-start gap-3 rounded-lg border-2 p-4 transition-colors cursor-pointer ${
+                className={`flex items-start gap-3 rounded-xl border px-3 py-3 transition-colors cursor-pointer ${
                   deliveredChip
-                    ? "border-emerald-400 bg-emerald-50"
+                    ? "border-emerald-300 bg-emerald-50"
                     : "border-amber-300 bg-amber-50"
                 }`}
                 onClick={() => setDeliveredChip((v) => !v)}
