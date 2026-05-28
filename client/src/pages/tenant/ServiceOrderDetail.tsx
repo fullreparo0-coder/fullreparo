@@ -150,6 +150,7 @@ export default function ServiceOrderDetail() {
     onSuccess: (data) => {
       toast.success("Status atualizado");
       utils.serviceOrders.getById.invalidate({ id: osId });
+      utils.budgets.getByOs.invalidate({ serviceOrderId: osId });
       utils.warranties.getByOs.invalidate({ serviceOrderId: osId });
       setNewStatus("");
       setStatusNotes("");
@@ -542,12 +543,26 @@ export default function ServiceOrderDetail() {
   const isClosingBudgetReady = closeOutcome !== "finalizado" || totalAmountCents > 0 || !closingHasSinglePendingBudget || !!selectedClosingBudget;
   const isClosingPaymentMethodValid = closeOutcome !== "finalizado" || closingBalanceCents === 0 || !!closePaymentMethod;
   const isClosingFullPaymentValid = closeOutcome !== "finalizado" || closingHasMultiplePendingBudgets === false && isClosingBudgetReady && isClosingPaymentMethodValid && (closingBalanceCents === 0 || closingPaymentAmountCents === closingBalanceCents);
-  const primaryBudget = budgetList.find((budget: any) => budget.status === "pending") ?? budgetList[0] ?? null;
+  const displayPrimaryBudget =
+    budgetList.find((budget: any) => budget.status === "approved" && moneyToCents(budget.totalCost) > 0) ??
+    budgetList.find((budget: any) => ["pending", "approved"].includes(budget.status) && moneyToCents(budget.totalCost) > 0) ??
+    budgetList[0] ??
+    null;
+  const isBudgetEffectivelyApproved = (budget: any) => {
+    if (!budget) return false;
+    if (budget.status === "approved") return true;
+    const budgetCents = moneyToCents(budget.totalCost);
+    const matchesOsTotal = administrativeTotalCents > 0 && budgetCents === administrativeTotalCents;
+    const osIsClosedOrPaid = os.status === "finalizado" || (administrativeTotalCents > 0 && administrativeBalanceCents === 0);
+    return budget.status === "pending" && matchesOsTotal && osIsClosedOrPaid;
+  };
+  const primaryBudget = displayPrimaryBudget;
   const primaryBudgetTotal = primaryBudget ? Number(primaryBudget.totalCost) : null;
   const primaryBudgetLabel = typeof primaryBudgetTotal === "number" && Number.isFinite(primaryBudgetTotal)
     ? `R$ ${primaryBudgetTotal.toFixed(2)}`
     : "Sem orçamento";
-  const primaryBudgetStatusLabel = primaryBudget?.status === "approved"
+  const isPrimaryBudgetApproved = isBudgetEffectivelyApproved(primaryBudget);
+  const primaryBudgetStatusLabel = isPrimaryBudgetApproved
     ? "Aprovado"
     : primaryBudget?.status === "rejected"
       ? "Recusado"
@@ -1379,7 +1394,7 @@ export default function ServiceOrderDetail() {
                         <p className="text-xs font-medium text-emerald-700 dark:text-emerald-300">Orçamento principal da OS</p>
                         <div className="mt-1 flex items-center justify-between gap-3">
                           <span className="text-xl font-bold text-emerald-900 dark:text-emerald-100">{primaryBudgetLabel}</span>
-                          <Badge variant={primaryBudget.status === "approved" ? "default" : primaryBudget.status === "rejected" ? "destructive" : "secondary"}>
+                          <Badge variant={isPrimaryBudgetApproved ? "default" : primaryBudget.status === "rejected" ? "destructive" : "secondary"}>
                             {primaryBudgetStatusLabel}
                           </Badge>
                         </div>
@@ -1388,7 +1403,9 @@ export default function ServiceOrderDetail() {
                         </p>
                       </div>
                     )}
-                    {budgetList.map((b) => (
+                    {budgetList.map((b) => {
+                      const isApprovedForDisplay = isBudgetEffectivelyApproved(b);
+                      return (
                       <div key={b.id} className="p-3 rounded-lg bg-muted/50 text-sm">
                         <div className="flex justify-between items-start gap-2 mb-1">
                           <div>
@@ -1396,10 +1413,10 @@ export default function ServiceOrderDetail() {
                             {b.description && <p className="text-xs text-muted-foreground mt-0.5">{b.description}</p>}
                           </div>
                           <div className="flex items-center gap-2 shrink-0">
-                            <Badge variant={b.status === "approved" ? "default" : b.status === "rejected" ? "destructive" : "secondary"}>
-                              {b.status === "approved" ? "Aprovado" : b.status === "rejected" ? "Recusado" : "Pendente"}
+                            <Badge variant={isApprovedForDisplay ? "default" : b.status === "rejected" ? "destructive" : "secondary"}>
+                              {isApprovedForDisplay ? "Aprovado" : b.status === "rejected" ? "Recusado" : "Pendente"}
                             </Badge>
-                            {b.status === "pending" && (
+                            {b.status === "pending" && !isApprovedForDisplay && (
                               <Button
                                 size="sm"
                                 variant="outline"
@@ -1417,7 +1434,8 @@ export default function ServiceOrderDetail() {
                           </p>
                         )}
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 ) : (
                   <p className="text-xs text-muted-foreground">Nenhum orçamento criado</p>
