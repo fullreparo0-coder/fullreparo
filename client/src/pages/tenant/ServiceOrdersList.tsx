@@ -430,7 +430,7 @@ export default function ServiceOrdersList() {
                 )}
               </div>
             ) : (
-              <div className="divide-y divide-border">
+              <div className="grid grid-cols-2 gap-2 p-2 sm:block sm:divide-y sm:divide-border sm:p-0">
                 {/* Header */}
                 <div className="hidden sm:grid grid-cols-[1fr_1.4fr_2fr_1.5fr_1fr_auto] gap-4 px-5 py-2.5 text-xs font-medium text-muted-foreground bg-muted/30">
                   <span>Número</span>
@@ -444,28 +444,28 @@ export default function ServiceOrdersList() {
                   <button
                     key={os.id}
                     onClick={() => navigate(`/painel/os/${os.id}`)}
-                    className="group w-full grid grid-cols-1 sm:grid-cols-[1fr_1.4fr_2fr_1.5fr_1fr_auto] gap-1.5 sm:gap-4 px-4 sm:px-5 py-3 sm:py-4 hover:bg-muted/35 active:bg-muted/60 transition-colors text-left sm:items-center"
+                    className="group min-w-0 w-full rounded-2xl border border-border/70 bg-background px-3 py-2.5 text-left shadow-sm transition-colors hover:bg-muted/25 active:bg-muted/45 sm:grid sm:grid-cols-[1fr_1.4fr_2fr_1.5fr_1fr_auto] sm:items-center sm:gap-4 sm:rounded-none sm:border-0 sm:px-5 sm:py-4 sm:shadow-none"
                   >
                     <div className="flex items-start sm:items-center gap-2 min-w-0">
                       <div className="hidden sm:flex h-8 w-8 items-center justify-center rounded-lg bg-muted shrink-0">
                         <Wrench className="h-3.5 w-3.5 text-muted-foreground" />
                       </div>
                       <div className="min-w-0 w-full sm:w-auto">
-                        <div className="flex items-center justify-between gap-2 sm:block">
-                          <span className="block text-[13px] sm:text-sm font-semibold text-foreground tracking-tight truncate">{os.osNumber}</span>
-                          <StatusBadge
-                            status={os.status}
-                            size="sm"
-                            className="sm:hidden max-w-[52%] px-2 py-0.5 text-[10px] leading-4 shadow-none truncate"
-                          />
-                        </div>
-                        <span className="block sm:hidden text-[13px] font-semibold text-foreground/85 leading-5 truncate mt-0.5">
+                        <span className="block text-[12px] sm:text-sm font-semibold text-foreground tracking-tight truncate">{os.osNumber}</span>
+                        <span className="block sm:hidden text-[12px] font-semibold text-foreground/85 leading-4 truncate mt-0.5">
                           {os.customerName ?? "Cliente não informado"}
                         </span>
                       </div>
                     </div>
                     <p className="hidden sm:block text-sm font-medium text-foreground/80 truncate">{os.customerName ?? "Cliente não informado"}</p>
-                    <p className="text-xs sm:text-sm text-muted-foreground leading-5 sm:leading-normal truncate">{os.reportedDefect}</p>
+                    <div className="sm:hidden mt-1.5 min-w-0">
+                      <StatusBadge
+                        status={os.status}
+                        size="sm"
+                        className="max-w-full px-1.5 py-0 text-[9px] leading-4 shadow-none truncate"
+                      />
+                    </div>
+                    <p className="mt-1 sm:mt-0 text-[11px] sm:text-sm text-muted-foreground leading-4 sm:leading-normal truncate">{os.reportedDefect}</p>
                     <StatusBadge status={os.status} size="sm" className="hidden sm:inline-flex" />
                     <span className="hidden sm:inline text-xs text-muted-foreground">
                       {new Date(os.createdAt).toLocaleDateString("pt-BR")}
@@ -473,10 +473,10 @@ export default function ServiceOrdersList() {
                     <Badge variant="outline" className="hidden sm:inline-flex text-[10px] h-5 px-1.5 w-fit">
                       {os.origin === "coleta" ? "Coleta" : "Balcão"}
                     </Badge>
-                    <div className="sm:hidden flex items-center gap-2 text-[11px] leading-4 text-muted-foreground">
+                    <div className="sm:hidden mt-1.5 flex items-center gap-1.5 text-[10px] leading-3 text-muted-foreground">
                       <span>{new Date(os.createdAt).toLocaleDateString("pt-BR")}</span>
                       <span className="h-1 w-1 rounded-full bg-muted-foreground/35" />
-                      <span>{os.origin === "coleta" ? "Coleta" : "Balcão"}</span>
+                      <span className="truncate">{os.origin === "coleta" ? "Coleta" : "Balcão"}</span>
                     </div>
                   </button>
                 ))}
