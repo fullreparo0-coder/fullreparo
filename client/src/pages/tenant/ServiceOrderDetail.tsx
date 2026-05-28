@@ -57,7 +57,7 @@ export default function ServiceOrderDetail() {
   const [closeWarrantyDays, setCloseWarrantyDays] = useState<number>(90);
   const [closeOutcome, setCloseOutcome] = useState<"finalizado" | "encerrado_sem_reparo" | "encerrado_condenado">("finalizado");
   const [closeNotes, setCloseNotes] = useState("");
-  const [closePaymentMethod, setClosePaymentMethod] = useState<ClosingPaymentMethod>("pix");
+  const [closePaymentMethod, setClosePaymentMethod] = useState<ClosingPaymentMethod | "">("");
   const [closePaymentAmount, setClosePaymentAmount] = useState("");
   const [closeApproveBudgetId, setCloseApproveBudgetId] = useState<number | null>(null);
   const [budgetOpen, setBudgetOpen] = useState(false);
@@ -145,7 +145,7 @@ export default function ServiceOrderDetail() {
       setCloseModal(false);
       setCloseOutcome("finalizado");
       setCloseNotes("");
-      setClosePaymentMethod("pix");
+      setClosePaymentMethod("");
       setClosePaymentAmount("");
       utils.payments.getByOs.invalidate({ serviceOrderId: osId });
       if (data?.whatsappNotification) {
@@ -256,7 +256,7 @@ export default function ServiceOrderDetail() {
       const balanceCents = Math.max(0, effectiveTotalCents - paidCents);
       setCloseApproveBudgetId(autoSyncBudget ? Number(autoSyncBudget.id) : null);
       setClosePaymentAmount(balanceCents > 0 ? (balanceCents / 100).toFixed(2) : "");
-      setClosePaymentMethod("pix");
+      setClosePaymentMethod("");
       setCloseModal(true);
     } else {
       setNewStatus(status);
@@ -326,7 +326,7 @@ export default function ServiceOrderDetail() {
       warrantyDays: closeOutcome === "finalizado" ? closeWarrantyDays : 0,
       approveClosingBudgetId: closeOutcome === "finalizado" && selectedClosingBudget ? Number(selectedClosingBudget.id) : undefined,
       closingPayment: closeOutcome === "finalizado" && balanceCents > 0
-        ? { method: closePaymentMethod, amount: balanceCents / 100 }
+        ? { method: closePaymentMethod as ClosingPaymentMethod, amount: balanceCents / 100 }
         : undefined,
     });
   };
