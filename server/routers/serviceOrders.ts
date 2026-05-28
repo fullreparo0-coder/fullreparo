@@ -285,7 +285,8 @@ export const serviceOrdersRouter = router({
         estimatedDelivery: z.string().optional(),
         warrantyDays: z.number().default(90),
         initialBudgetValue: z.number().min(0).optional(),
-        initialBudgetApproved: z.boolean().optional(),
+        initialBudgetApproved: z.union([z.boolean(), z.literal("true"), z.literal("approved")]).optional(),
+        initialBudgetStatus: z.enum(["pending", "approved"]).optional(),
         checklist: z.array(z.string()).optional(),
       })
     )
@@ -306,9 +307,9 @@ export const serviceOrdersRouter = router({
       }
       const osNumber = await generateOsNumber(ctx.user.tenantId!);
       const publicToken = nanoid(32);
-      const { checklist, brand, model, imei, serialNumber, deviceType, deviceId, initialBudgetValue, initialBudgetApproved, ...osData } = input;
+      const { checklist, brand, model, imei, serialNumber, deviceType, deviceId, initialBudgetValue, initialBudgetApproved, initialBudgetStatus, ...osData } = input;
       const hasInitialBudget = typeof initialBudgetValue === "number" && initialBudgetValue > 0;
-      const isInitialBudgetApproved = hasInitialBudget && initialBudgetApproved === true;
+      const isInitialBudgetApproved = hasInitialBudget && (initialBudgetApproved === true || initialBudgetApproved === "true" || initialBudgetApproved === "approved" || initialBudgetStatus === "approved");
       const initialBudgetAmount = hasInitialBudget ? initialBudgetValue.toFixed(2) : null;
       const initialStatus = hasInitialBudget ? (isInitialBudgetApproved ? "aprovado" : "aguardando_aprovacao") : "recebido_na_assistencia";
 

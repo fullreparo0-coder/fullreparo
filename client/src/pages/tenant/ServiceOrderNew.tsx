@@ -328,6 +328,11 @@ export default function ServiceOrderNew() {
   // ── Chip, aprovação no balcão e modal de impressão pós-criação ─────────────
   const [deliveredChip, setDeliveredChip] = useState(false);
   const [initialBudgetApproved, setInitialBudgetApproved] = useState(false);
+  const initialBudgetApprovedRef = useRef(false);
+  const setInitialBudgetApprovedValue = (checked: boolean) => {
+    initialBudgetApprovedRef.current = checked;
+    setInitialBudgetApproved(checked);
+  };
   const [printChoiceOpen, setPrintChoiceOpen] = useState(false);
   const [createdOs, setCreatedOs] = useState<{ id: number; osNumber: string } | null>(null);
 
@@ -571,7 +576,8 @@ export default function ServiceOrderNew() {
       toast.error("Informe um valor de orçamento válido ou deixe o campo em branco.");
       return;
     }
-    if (initialBudgetApproved && !initialBudgetValue) {
+    const shouldApproveInitialBudget = initialBudgetApprovedRef.current || initialBudgetApproved;
+    if (shouldApproveInitialBudget && !initialBudgetValue) {
       toast.error("Para marcar como aprovado no balcão, informe o valor do orçamento inicial.");
       return;
     }
@@ -592,7 +598,8 @@ export default function ServiceOrderNew() {
         internalNotes: form.internalNotes || undefined,
         warrantyDays: parseInt(form.warrantyDays),
         initialBudgetValue,
-        initialBudgetApproved,
+        initialBudgetApproved: shouldApproveInitialBudget,
+        initialBudgetStatus: shouldApproveInitialBudget ? "approved" : undefined,
         checklist: selectedChecklist,
       });
       toast.success(`OS ${result.osNumber} criada com sucesso!`);
@@ -1285,7 +1292,7 @@ export default function ServiceOrderNew() {
                     <Checkbox
                       id="initial-budget-approved"
                       checked={initialBudgetApproved}
-                      onCheckedChange={(v) => setInitialBudgetApproved(!!v)}
+                      onCheckedChange={(v) => setInitialBudgetApprovedValue(!!v)}
                       className="mt-0.5 shrink-0"
                     />
                     <span>
