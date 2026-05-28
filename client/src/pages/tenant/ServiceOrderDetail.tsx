@@ -538,6 +538,8 @@ export default function ServiceOrderDetail() {
   const closingBalance = closingBalanceCents / 100;
   const closingPaymentAmountCents = moneyToCents(closePaymentAmount.replace(",", "."));
   const closingHasSinglePendingBudget = totalAmountCents === 0 && pendingClosingBudgets.length === 1;
+  const singlePendingClosingBudgetCents = closingHasSinglePendingBudget ? moneyToCents(pendingClosingBudgets[0].totalCost) : 0;
+  const isSinglePendingClosingBudgetPaid = singlePendingClosingBudgetCents > 0 && totalPaidCents >= singlePendingClosingBudgetCents;
   const closingHasMultiplePendingBudgets = totalAmountCents === 0 && pendingClosingBudgets.length > 1;
   const closingHasSingleApprovedBudgetToSync = totalAmountCents === 0 && pendingClosingBudgets.length === 0 && approvedClosingBudgets.length === 1;
   const isClosingBudgetReady = closeOutcome !== "finalizado" || totalAmountCents > 0 || !closingHasSinglePendingBudget || !!selectedClosingBudget;
@@ -1832,7 +1834,7 @@ export default function ServiceOrderDetail() {
                   </div>
                 </div>
 
-                {totalAmountCents === 0 && closingHasSinglePendingBudget && !selectedClosingBudget && (
+                {totalAmountCents === 0 && closingHasSinglePendingBudget && !selectedClosingBudget && !isSinglePendingClosingBudgetPaid && (
                   <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-3 text-xs text-amber-800 space-y-2">
                     <p>
                       Existe um orçamento pendente de <strong>{toCurrency(moneyToCents(pendingClosingBudgets[0].totalCost) / 100)}</strong>. Para encerrar como Entregue reparado, aprove o orçamento e use este valor no fechamento.
