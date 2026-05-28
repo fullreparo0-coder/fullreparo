@@ -60,14 +60,14 @@ export default function TenantDashboard() {
 
   const kpis = [
     {
-      label: "Total de OS",
+      label: "Total",
       value: metrics?.total ?? 0,
       icon: ClipboardList,
       color: "text-primary",
       bg: "bg-primary/10",
     },
     {
-      label: "OS em Aberto",
+      label: "Abertas",
       value: metrics?.open ?? 0,
       icon: Clock,
       color: "text-amber-600",
@@ -84,7 +84,7 @@ export default function TenantDashboard() {
 
   return (
     <TenantLayout title="Dashboard">
-      <div className="space-y-6">
+      <div className="space-y-4 sm:space-y-6 pb-4">
         {/* Banner de limite atingido */}
         {usage?.isAtLimit && (
           <div className="flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3">
@@ -128,17 +128,17 @@ export default function TenantDashboard() {
           </div>
         )}
         {/* KPIs */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="grid grid-cols-3 gap-2 sm:gap-4">
           {kpis.map((kpi) => (
-            <Card key={kpi.label} className="border border-border">
-              <CardContent className="p-5">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-xs font-medium text-muted-foreground mb-1">{kpi.label}</p>
-                    <p className="text-3xl font-bold text-foreground font-display">{kpi.value}</p>
+            <Card key={kpi.label} className="rounded-2xl border border-border/70 bg-card/95 shadow-sm">
+              <CardContent className="p-3 sm:p-5">
+                <div className="flex min-h-[76px] flex-col justify-between gap-3 sm:min-h-0 sm:flex-row sm:items-center">
+                  <div className="min-w-0">
+                    <p className="truncate text-[11px] font-medium leading-tight text-muted-foreground sm:mb-1 sm:text-xs">{kpi.label}</p>
+                    <p className="font-display text-2xl font-bold leading-none tracking-tight text-foreground sm:text-3xl">{kpi.value}</p>
                   </div>
-                  <div className={`flex h-11 w-11 items-center justify-center rounded-xl ${kpi.bg}`}>
-                    <kpi.icon className={`h-5 w-5 ${kpi.color}`} />
+                  <div className={`flex h-8 w-8 items-center justify-center rounded-xl ${kpi.bg} sm:h-11 sm:w-11`}>
+                    <kpi.icon className={`h-4 w-4 sm:h-5 sm:w-5 ${kpi.color}`} />
                   </div>
                 </div>
               </CardContent>
@@ -175,38 +175,38 @@ export default function TenantDashboard() {
         )}
 
         {/* Quick Actions */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
           <Button
             variant="default"
-            className="h-auto py-4 flex-col gap-2"
+            className="h-16 rounded-2xl py-3 flex-col gap-1.5 shadow-sm sm:h-auto sm:py-4 sm:gap-2"
             onClick={() => navigate("/painel/os/nova")}
           >
-            <Plus className="h-5 w-5" />
-            <span className="text-xs">Nova OS</span>
+            <Plus className="h-4 w-4 sm:h-5 sm:w-5" />
+            <span className="text-xs font-medium">Nova OS</span>
           </Button>
           <Button
             variant="outline"
-            className="h-auto py-4 flex-col gap-2"
+            className="h-16 rounded-2xl py-3 flex-col gap-1.5 bg-card/80 sm:h-auto sm:py-4 sm:gap-2"
             onClick={() => navigate("/painel/os")}
           >
-            <ClipboardList className="h-5 w-5" />
-            <span className="text-xs">Ver OS</span>
+            <ClipboardList className="h-4 w-4 sm:h-5 sm:w-5" />
+            <span className="text-xs font-medium">Ver OS</span>
           </Button>
           <Button
             variant="outline"
-            className="h-auto py-4 flex-col gap-2"
+            className="h-16 rounded-2xl py-3 flex-col gap-1.5 bg-card/80 sm:h-auto sm:py-4 sm:gap-2"
             onClick={() => navigate("/painel/clientes")}
           >
-            <Users className="h-5 w-5" />
-            <span className="text-xs">Clientes</span>
+            <Users className="h-4 w-4 sm:h-5 sm:w-5" />
+            <span className="text-xs font-medium">Clientes</span>
           </Button>
           <Button
             variant="outline"
-            className="h-auto py-4 flex-col gap-2"
+            className="h-16 rounded-2xl py-3 flex-col gap-1.5 bg-card/80 sm:h-auto sm:py-4 sm:gap-2"
             onClick={() => navigate("/painel/estoque")}
           >
-            <Wrench className="h-5 w-5" />
-            <span className="text-xs">Estoque</span>
+            <Wrench className="h-4 w-4 sm:h-5 sm:w-5" />
+            <span className="text-xs font-medium">Estoque</span>
           </Button>
         </div>
 
@@ -215,7 +215,7 @@ export default function TenantDashboard() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {/* Gráfico de barras: OS por status */}
             {byStatusData.length > 0 && (
-              <Card className="border border-border">
+              <Card className="rounded-2xl border border-border/70 shadow-sm">
                 <CardHeader className="pb-2">
                   <div className="flex items-center gap-2">
                     <BarChart2 className="h-4 w-4 text-muted-foreground" />
@@ -262,7 +262,7 @@ export default function TenantDashboard() {
             )}
 
             {/* Gráfico de área: OS criadas por dia */}
-            <Card className="border border-border">
+            <Card className="rounded-2xl border border-border/70 shadow-sm">
               <CardHeader className="pb-2">
                 <div className="flex items-center gap-2">
                   <TrendingUp className="h-4 w-4 text-muted-foreground" />
@@ -314,10 +314,10 @@ export default function TenantDashboard() {
         )}
 
         {/* Recent OS */}
-        <Card className="border border-border">
-          <CardHeader className="flex flex-row items-center justify-between pb-3">
-            <CardTitle className="text-base font-semibold">Ordens de Serviço Recentes</CardTitle>
-            <Button variant="ghost" size="sm" onClick={() => navigate("/painel/os")}>
+        <Card className="rounded-2xl border border-border/70 shadow-sm">
+          <CardHeader className="flex flex-row items-center justify-between px-4 pb-2 pt-4 sm:px-5 sm:pb-3">
+            <CardTitle className="text-base font-semibold leading-tight">Ordens de Serviço Recentes</CardTitle>
+            <Button variant="ghost" size="sm" className="h-8 px-2 text-xs" onClick={() => navigate("/painel/os")}>
               Ver todas <ArrowRight className="ml-1 h-3.5 w-3.5" />
             </Button>
           </CardHeader>
@@ -331,30 +331,35 @@ export default function TenantDashboard() {
                 </Button>
               </div>
             ) : (
-              <div className="divide-y divide-border">
+              <div className="divide-y divide-border/70">
                 {recent.map((os) => (
                   <button
                     key={os.id}
                     onClick={() => navigate(`/painel/os/${os.id}`)}
-                    className="w-full flex items-center gap-3 px-5 py-3.5 hover:bg-muted/50 transition-colors text-left"
+                    className="w-full px-4 py-3 text-left transition-colors hover:bg-muted/40 sm:px-5 sm:py-3.5"
                   >
-                    <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted shrink-0">
-                      <Wrench className="h-4 w-4 text-muted-foreground" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-0.5">
-                        <span className="text-sm font-semibold text-foreground">{os.osNumber}</span>
-                        <Badge variant="outline" className="text-[10px] h-4 px-1.5">
-                          {os.origin === "coleta" ? "Coleta" : "Balcão"}
-                        </Badge>
+                    <div className="flex items-start gap-2.5">
+                      <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-muted/80">
+                        <Wrench className="h-3.5 w-3.5 text-muted-foreground" />
                       </div>
-                      <p className="text-xs text-muted-foreground truncate">{os.reportedDefect}</p>
-                    </div>
-                    <div className="flex flex-col items-end gap-1 shrink-0">
-                      <StatusBadge status={os.status} size="sm" />
-                      <span className="text-[10px] text-muted-foreground">
-                        {new Date(os.createdAt).toLocaleDateString("pt-BR")}
-                      </span>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex min-w-0 items-center gap-1.5">
+                          <span className="truncate text-[13px] font-semibold leading-tight text-foreground">{os.osNumber}</span>
+                          <Badge variant="outline" className="h-4 shrink-0 rounded-full px-1.5 text-[9px] font-medium leading-none">
+                            {os.origin === "coleta" ? "Coleta" : "Balcão"}
+                          </Badge>
+                        </div>
+                        {os.customerName && (
+                          <p className="mt-0.5 truncate text-xs font-medium leading-tight text-foreground/80">{os.customerName}</p>
+                        )}
+                        <p className="mt-0.5 truncate text-[11px] leading-tight text-muted-foreground">{os.reportedDefect}</p>
+                      </div>
+                      <div className="flex shrink-0 flex-col items-end gap-1">
+                        <StatusBadge status={os.status} size="sm" />
+                        <span className="text-[10px] leading-none text-muted-foreground">
+                          {new Date(os.createdAt).toLocaleDateString("pt-BR")}
+                        </span>
+                      </div>
                     </div>
                   </button>
                 ))}
