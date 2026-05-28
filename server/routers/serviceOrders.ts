@@ -670,7 +670,7 @@ export const serviceOrdersRouter = router({
         id: z.number(),
         status: z.enum(OS_STATUSES),
         notes: z.string().optional(),
-        /** Dias de garantia a aplicar quando o encerramento for Feito (status=finalizado). Sobrescreve o valor da OS. */
+        /** Dias de garantia a aplicar quando o encerramento for Entregue reparado (status=finalizado). Sobrescreve o valor da OS. */
         warrantyDays: z.number().int().min(0).max(3650).optional(),
         /** Pagamento manual obrigatório quando finaliza uma OS com saldo em aberto. */
         closingPayment: closePaymentSchema.optional(),

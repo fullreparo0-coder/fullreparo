@@ -265,7 +265,7 @@ export default function ServiceOrderDetail() {
 
   const handleConfirmClose = () => {
     const outcomeLabels: Record<typeof closeOutcome, string> = {
-      finalizado: "Feito",
+      finalizado: "Entregue reparado",
       encerrado_sem_reparo: "Encerrado sem reparo",
       encerrado_condenado: "Encerrado condenado",
     };
@@ -1562,7 +1562,7 @@ export default function ServiceOrderDetail() {
 
       {/* Modal de Encerramento de OS */}
       <Dialog open={closeModal} onOpenChange={(open) => { if (!open) { setCloseModal(false); setNewStatus(""); } }}>
-        <DialogContent className="max-w-lg p-0 overflow-hidden">
+        <DialogContent className="max-w-lg p-0 overflow-hidden max-h-[calc(100dvh-1rem)] sm:max-h-[calc(100dvh-2rem)] grid grid-rows-[auto_minmax(0,1fr)]">
           {/* DialogTitle oculto para acessibilidade (Radix obrigatório) */}
           <DialogHeader className="sr-only">
             <DialogTitle>Encerrar Ordem de Serviço</DialogTitle>
@@ -1581,14 +1581,14 @@ export default function ServiceOrderDetail() {
           </div>
 
           {/* Corpo */}
-          <div className="px-6 py-5 space-y-5">
+          <div className="px-4 py-4 space-y-4 overflow-y-auto min-h-0 overscroll-contain sm:px-6 sm:py-5 sm:space-y-5">
 
             {/* Resultado do encerramento */}
             <div className="space-y-2">
               <Label className="text-sm font-medium">Resultado do encerramento</Label>
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
                 {([
-                  { value: "finalizado", label: "Feito", description: "Serviço realizado, com opção de garantia." },
+                  { value: "finalizado", label: "Entregue reparado", description: "Aparelho entregue reparado, com opção de garantia." },
                   { value: "encerrado_sem_reparo", label: "Sem reparo", description: "OS encerrada sem executar reparo." },
                   { value: "encerrado_condenado", label: "Condenado", description: "Aparelho inviável para reparo." },
                 ] as const).map((option) => (
@@ -1816,7 +1816,7 @@ export default function ServiceOrderDetail() {
             )}
 
             {/* Ações */}
-            <div className="flex gap-2 pt-1">
+            <div className="sticky bottom-0 z-10 -mx-4 flex gap-2 border-t bg-background/95 px-4 pb-4 pt-3 backdrop-blur sm:-mx-6 sm:px-6">
               <Button
                 className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold h-11"
                 onClick={handleConfirmClose}
