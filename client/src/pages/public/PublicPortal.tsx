@@ -636,7 +636,7 @@ export default function PublicPortal() {
         }
       `}</style>
 
-      <main className="flex-1 max-w-6xl mx-auto w-full px-4 py-4 space-y-5 sm:py-6 sm:space-y-7 md:py-8 md:space-y-8">
+      <main className="flex-1 max-w-6xl mx-auto w-full box-border px-4 py-4 space-y-5 sm:py-6 sm:space-y-7 md:py-8 md:space-y-8">
 
         {/* CTA de cadastro — visível apenas para visitantes não logados */}
         {!user && (
