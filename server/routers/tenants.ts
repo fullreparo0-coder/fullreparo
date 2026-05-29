@@ -848,7 +848,7 @@ export const tenantsRouter = router({
         name: z.string().optional(),
         phone: z.string().optional(),
         whatsappNumber: z.string().optional(),
-        businessHours: z.string().max(100).optional(),
+        businessHours: z.string().max(2000).optional(),
         address: z.string().optional(),
         city: z.string().optional(),
         state: z.string().optional(),

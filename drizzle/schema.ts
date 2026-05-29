@@ -55,7 +55,7 @@ export const tenants = mysqlTable("tenants", {
   notifyStatuses: text("notifyStatuses"), // JSON: string[] — lista de status que disparam notificação ao cliente
   notifyMessages: text("notifyMessages"), // JSON: Record<string, string> — mensagens customizadas por status
   deviceSpecialties: text("deviceSpecialties"), // JSON: { [tipo: string]: string[] }
-  businessHours: varchar("businessHours", { length: 100 }),
+  businessHours: text("businessHours"),
   planId: int("planId").notNull().default(1),
   status: mysqlEnum("status", ["active", "blocked", "suspended", "trial"]).notNull().default("trial"),
   trialEndsAt: timestamp("trialEndsAt"),
