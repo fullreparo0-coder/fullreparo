@@ -1,6 +1,6 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, gte, sql } from "drizzle-orm";
 import { getDb } from "../db";
 import { protectedProcedure, router } from "../_core/trpc";
 import { whatsappIntegrations, whatsappMessageLogs } from "../../drizzle/schema";
@@ -104,6 +104,38 @@ export const whatsappRouter = router({
         .where(eq(whatsappMessageLogs.tenantId, input.tenantId))
         .orderBy(desc(whatsappMessageLogs.createdAt))
         .limit(input.limit);
+    }),
+
+  getTenantStats: superAdminProcedure
+    .input(z.object({ tenantId: z.number().int().positive() }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+
+      const now = new Date();
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      const countExpr = sql<number>`COUNT(*)`;
+
+      const [totalSent, monthSent, monthFailed, totalFailed, lastSent] = await Promise.all([
+        db.select({ count: countExpr }).from(whatsappMessageLogs).where(and(eq(whatsappMessageLogs.tenantId, input.tenantId), eq(whatsappMessageLogs.status, "sent"))),
+        db.select({ count: countExpr }).from(whatsappMessageLogs).where(and(eq(whatsappMessageLogs.tenantId, input.tenantId), eq(whatsappMessageLogs.status, "sent"), gte(whatsappMessageLogs.createdAt, startOfMonth))),
+        db.select({ count: countExpr }).from(whatsappMessageLogs).where(and(eq(whatsappMessageLogs.tenantId, input.tenantId), eq(whatsappMessageLogs.status, "failed"), gte(whatsappMessageLogs.createdAt, startOfMonth))),
+        db.select({ count: countExpr }).from(whatsappMessageLogs).where(and(eq(whatsappMessageLogs.tenantId, input.tenantId), eq(whatsappMessageLogs.status, "failed"))),
+        db
+          .select({ sentAt: whatsappMessageLogs.sentAt, createdAt: whatsappMessageLogs.createdAt })
+          .from(whatsappMessageLogs)
+          .where(and(eq(whatsappMessageLogs.tenantId, input.tenantId), eq(whatsappMessageLogs.status, "sent")))
+          .orderBy(desc(whatsappMessageLogs.sentAt), desc(whatsappMessageLogs.createdAt))
+          .limit(1),
+      ]);
+
+      return {
+        totalSent: Number(totalSent[0]?.count ?? 0),
+        monthSent: Number(monthSent[0]?.count ?? 0),
+        monthFailed: Number(monthFailed[0]?.count ?? 0),
+        totalFailed: Number(totalFailed[0]?.count ?? 0),
+        lastSentAt: lastSent[0]?.sentAt ?? lastSent[0]?.createdAt ?? null,
+      };
     }),
 
   listMineLogs: tenantAdminProcedure

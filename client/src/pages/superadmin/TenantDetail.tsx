@@ -36,6 +36,10 @@ export default function SuperAdminTenantDetail() {
     { tenantId: tenantId!, limit: 5 },
     { enabled: !!tenantId }
   );
+  const { data: whatsappStats } = trpc.whatsapp.getTenantStats.useQuery(
+    { tenantId: tenantId! },
+    { enabled: !!tenantId }
+  );
 
   const update = trpc.tenants.update.useMutation({
     onSuccess: () => {
@@ -67,6 +71,7 @@ export default function SuperAdminTenantDetail() {
       toast.success("Configuração WhatsApp atualizada");
       utils.whatsapp.getByTenant.invalidate({ tenantId: tenantId! });
       utils.whatsapp.listLogsByTenant.invalidate({ tenantId: tenantId!, limit: 5 });
+      utils.whatsapp.getTenantStats.invalidate({ tenantId: tenantId! });
       setWhatsappForm((f) => ({ ...f, accessToken: "" }));
     },
     onError: (err) => toast.error(err.message || "Erro ao atualizar WhatsApp"),
@@ -194,6 +199,12 @@ export default function SuperAdminTenantDetail() {
   const whatsappConfigured = Boolean(whatsappStatus?.integration?.hasAccessToken && whatsappStatus.integration.phoneNumberId);
   const whatsappTokenPreview = whatsappStatus?.integration?.accessTokenPreview;
   const whatsappHealthLabel = whatsappStatus?.integration?.lastHealthStatus || "não verificado";
+  const formatWhatsappDate = (value?: string | Date | null) => {
+    if (!value) return "—";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "—";
+    return date.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit" });
+  };
 
   return (
     <TenantLayout title={`Detalhes: ${tenant.name}`}>
@@ -419,6 +430,25 @@ export default function SuperAdminTenantDetail() {
                     <Badge variant={whatsappStatus?.integration?.lastHealthStatus === "error" ? "destructive" : whatsappConfigured ? "default" : "outline"} className="mt-2">
                       {whatsappHealthLabel}
                     </Badge>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                  <div className="rounded-lg border p-3">
+                    <p className="text-xs text-muted-foreground uppercase">Enviadas no mês</p>
+                    <p className="mt-2 text-2xl font-semibold">{whatsappStats?.monthSent ?? 0}</p>
+                  </div>
+                  <div className="rounded-lg border p-3">
+                    <p className="text-xs text-muted-foreground uppercase">Total enviadas</p>
+                    <p className="mt-2 text-2xl font-semibold">{whatsappStats?.totalSent ?? 0}</p>
+                  </div>
+                  <div className="rounded-lg border p-3">
+                    <p className="text-xs text-muted-foreground uppercase">Falhas no mês</p>
+                    <p className="mt-2 text-2xl font-semibold">{whatsappStats?.monthFailed ?? 0}</p>
+                  </div>
+                  <div className="rounded-lg border p-3">
+                    <p className="text-xs text-muted-foreground uppercase">Último envio</p>
+                    <p className="mt-2 text-sm font-semibold">{formatWhatsappDate(whatsappStats?.lastSentAt)}</p>
                   </div>
                 </div>
 
