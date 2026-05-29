@@ -1707,7 +1707,7 @@ export default function ServiceOrderDetail() {
 
       {/* Modal de Encerramento de OS */}
       <Dialog open={closeModal} onOpenChange={(open) => { if (!open) { setCloseModal(false); setNewStatus(""); } }}>
-        <DialogContent className="max-w-lg p-0 overflow-hidden max-h-[calc(100dvh-1rem)] sm:max-h-[calc(100dvh-2rem)] grid grid-rows-[auto_minmax(0,1fr)]">
+        <DialogContent className="max-w-lg p-0 overflow-hidden max-h-[calc(100dvh-1rem)] sm:max-h-[calc(100dvh-2rem)] grid grid-rows-[auto_minmax(0,1fr)_auto]">
           {/* DialogTitle oculto para acessibilidade (Radix obrigatório) */}
           <DialogHeader className="sr-only">
             <DialogTitle>Encerrar Ordem de Serviço</DialogTitle>
@@ -1960,26 +1960,27 @@ export default function ServiceOrderDetail() {
               </details>
             )}
 
-            {/* Ações */}
-            <div className="sticky bottom-0 z-10 -mx-4 flex gap-2 border-t bg-background/95 px-4 pb-4 pt-3 backdrop-blur sm:-mx-6 sm:px-6">
-              <Button
-                className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold h-11"
-                onClick={handleConfirmClose}
-                disabled={updateStatus.isPending || !isClosingFullPaymentValid}
-              >
-                {updateStatus.isPending
-                  ? <><span className="animate-spin mr-2">⏳</span> Encerrando...</>
-                  : <><Shield className="h-4 w-4 mr-2" /> Confirmar {STATUS_LABELS[closeOutcome]}</>}
-              </Button>
-              <Button
-                variant="outline"
-                className="h-11 px-5"
-                onClick={() => { setCloseModal(false); setNewStatus(""); }}
-                disabled={updateStatus.isPending}
-              >
-                Cancelar
-              </Button>
-            </div>
+          </div>
+
+          {/* Ações */}
+          <div className="flex gap-2 border-t bg-background px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-3 sm:px-6 sm:pb-4">
+            <Button
+              className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold h-11"
+              onClick={handleConfirmClose}
+              disabled={updateStatus.isPending || !isClosingFullPaymentValid}
+            >
+              {updateStatus.isPending
+                ? <><span className="animate-spin mr-2">⏳</span> Encerrando...</>
+                : <><Shield className="h-4 w-4 mr-2" /> Confirmar {STATUS_LABELS[closeOutcome]}</>}
+            </Button>
+            <Button
+              variant="outline"
+              className="h-11 px-5"
+              onClick={() => { setCloseModal(false); setNewStatus(""); }}
+              disabled={updateStatus.isPending}
+            >
+              Cancelar
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
