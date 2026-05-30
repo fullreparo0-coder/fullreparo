@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
-import { Plus, Building2, Lock, Unlock, LogIn, Eye, KeyRound, Copy } from "lucide-react";
+import { Plus, Building2, Lock, Unlock, LogIn, Eye, KeyRound, Copy, AlertTriangle, Clock3 } from "lucide-react";
 import { useLocation } from "wouter";
 
 type ProvisionalPasswordResult = {
@@ -18,6 +18,27 @@ type ProvisionalPasswordResult = {
   adminEmail: string;
   plainPassword: string;
   loginUrl: string;
+};
+
+const formatDate = (value?: string | Date | null) => {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
+  return new Intl.DateTimeFormat("pt-BR", { dateStyle: "short" }).format(date);
+};
+
+const daysUntil = (value?: string | Date | null) => {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return Math.ceil((date.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+};
+
+const statusLabel: Record<string, string> = {
+  active: "Ativo",
+  trial: "Teste",
+  suspended: "Suspenso",
+  blocked: "Bloqueado",
 };
 
 export default function SuperAdminTenants() {
@@ -174,27 +195,40 @@ export default function SuperAdminTenants() {
               </div>
             ) : (
               <div className="divide-y divide-border">
-                <div className="hidden sm:grid grid-cols-[2fr_1fr_1fr_1fr_auto] gap-4 px-5 py-2.5 text-xs font-medium text-muted-foreground bg-muted/30">
+                <div className="hidden lg:grid grid-cols-[1.6fr_0.9fr_1fr_1.1fr_1.3fr_auto] gap-4 px-5 py-2.5 text-xs font-medium text-muted-foreground bg-muted/30">
                   <span>Nome</span>
                   <span>Slug</span>
                   <span>Plano</span>
                   <span>Status</span>
+                  <span>Governança</span>
                   <span>Ações</span>
                 </div>
                 {tenants.map((t) => {
                   const isBetaTenant = !!betaPlan && t.planId === betaPlan.id;
+                  const trialDays = daysUntil(t.trialEndsAt);
+                  const subscriptionDays = daysUntil(t.subscriptionEndsAt);
+                  const needsWhatsapp = !t.whatsappNumber;
+                  const isExpiring = (t.status === "trial" && trialDays !== null && trialDays <= 3) || (t.status === "active" && subscriptionDays !== null && subscriptionDays <= 7);
                   return (
-                  <div key={t.id} className="grid grid-cols-1 sm:grid-cols-[2fr_1fr_1fr_1fr_auto] gap-2 sm:gap-4 px-5 py-4 items-center">
+                  <div key={t.id} className="grid grid-cols-1 lg:grid-cols-[1.6fr_0.9fr_1fr_1.1fr_1.3fr_auto] gap-2 lg:gap-4 px-5 py-4 items-center">
                     <div>
                       <p className="text-sm font-semibold">{t.name}</p>
                       {t.email && <p className="text-xs text-muted-foreground">{t.email}</p>}
                     </div>
                     <span className="text-xs font-mono text-muted-foreground">{t.slug}</span>
                     <span className="text-xs text-muted-foreground">{getPlanName(t.planId)}</span>
-                    <Badge variant={isBetaTenant ? "secondary" : t.status === "active" ? "default" : "destructive"} className="w-fit text-xs">
-                      {isBetaTenant ? "Beta" : t.status === "active" ? "Ativo" : t.status === "blocked" ? "Bloqueado" : t.status}
-                    </Badge>
-	                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap gap-1.5">
+                      <Badge variant={isBetaTenant ? "secondary" : t.status === "active" || t.status === "trial" ? "default" : "destructive"} className="w-fit text-xs">
+                        {isBetaTenant ? "Beta" : statusLabel[t.status] ?? t.status}
+                      </Badge>
+                      {isExpiring && <Badge variant="outline" className="w-fit text-xs"><Clock3 className="h-3 w-3 mr-1" /> Vencimento próximo</Badge>}
+                    </div>
+                    <div className="text-xs text-muted-foreground space-y-1">
+                      <p>Teste: {formatDate(t.trialEndsAt)}</p>
+                      <p>Assinatura: {formatDate(t.subscriptionEndsAt)}</p>
+                      {needsWhatsapp && <p className="flex items-center text-amber-700"><AlertTriangle className="h-3 w-3 mr-1" /> WhatsApp sem número</p>}
+                    </div>
+	                    <div className="flex items-center gap-2 flex-wrap justify-start lg:justify-end">
 	                      <Button
 	                        size="sm"
 	                        variant="outline"

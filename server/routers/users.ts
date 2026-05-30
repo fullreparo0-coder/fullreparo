@@ -1,11 +1,12 @@
-import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { getDb, getUsersByTenant } from "../db";
 import { users } from "../../drizzle/schema";
 import { protectedProcedure, router } from "../_core/trpc";
+import { TRPCError } from "@trpc/server";
 import { and, eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { validatePassword } from "../../shared/passwordRules";
+import { assertTenantOperational, getTenantSubscriptionSnapshot } from "../_core/subscription";
 
 const tenantAdminProcedure = protectedProcedure.use(({ ctx, next }) => {
   if (ctx.user.role !== "tenant_admin") {
@@ -38,6 +39,18 @@ export const usersRouter = router({
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
       if (!ctx.user.tenantId) throw new TRPCError({ code: "FORBIDDEN" });
+
+      const subscription = await getTenantSubscriptionSnapshot(ctx.user.tenantId);
+      assertTenantOperational(subscription);
+      const tenantUsers = await getUsersByTenant(ctx.user.tenantId);
+      const activeOperationalUsers = tenantUsers.filter((user) => user.isActive && user.role !== "cliente").length;
+      const hasUserLimit = typeof subscription?.maxUsers === "number" && subscription.maxUsers > 0;
+      if (hasUserLimit && activeOperationalUsers >= subscription.maxUsers) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: `Limite de usuários do plano atingido (${subscription.maxUsers}). Altere o plano no Super Admin para adicionar mais membros.`,
+        });
+      }
 
       if (input.password !== input.confirmPassword) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "A confirmação de senha não confere." });
