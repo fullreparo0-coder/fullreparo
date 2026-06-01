@@ -43,6 +43,23 @@ function dateFromMillis(value: number, field: string) {
   return date;
 }
 
+function addOneMonth(date: Date) {
+  const next = new Date(date);
+  next.setMonth(next.getMonth() + 1);
+  return next;
+}
+
+function resolvePaidSubscriptionEndsAt(dueDate: Date) {
+  const now = new Date();
+  let nextDueDate = new Date(dueDate);
+
+  while (nextDueDate.getTime() <= now.getTime()) {
+    nextDueDate = addOneMonth(nextDueDate);
+  }
+
+  return nextDueDate;
+}
+
 async function ensureTenantExists(db: Awaited<ReturnType<typeof getDb>>, tenantId: number) {
   if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Serviço indisponível" });
   const [tenant] = await db.select().from(tenants).where(eq(tenants.id, tenantId)).limit(1);
@@ -55,7 +72,7 @@ async function syncTenantSubscription(
   input: { tenantId: number; planId?: number | null; status: z.infer<typeof billingStatusSchema>; dueDate: Date }
 ) {
   const updateData: Partial<typeof tenants.$inferInsert> = {
-    subscriptionEndsAt: input.dueDate,
+    subscriptionEndsAt: input.status === "paid" ? resolvePaidSubscriptionEndsAt(input.dueDate) : input.dueDate,
   };
 
   if (input.planId) updateData.planId = input.planId;
