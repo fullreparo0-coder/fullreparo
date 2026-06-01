@@ -90,6 +90,15 @@ export default function SuperAdminTenantDetail() {
     onError: (err) => toast.error(err.message || "Erro ao registrar cobrança"),
   });
 
+  const updateBilling = trpc.tenantBilling.update.useMutation({
+    onSuccess: () => {
+      toast.success("Cobrança atualizada com sucesso");
+      utils.tenantBilling.listByTenant.invalidate({ tenantId: tenantId!, limit: 6 });
+      utils.tenants.getById.invalidate({ id: tenantId! });
+    },
+    onError: (err) => toast.error(err.message || "Erro ao atualizar cobrança"),
+  });
+
   const [form, setForm] = useState({
     name: "",
     email: "",
@@ -243,6 +252,40 @@ export default function SuperAdminTenantDetail() {
       method: billingForm.method || null,
       notes: billingForm.notes || null,
       syncTenant: billingForm.syncTenant,
+    });
+  };
+
+  const handleMarkBillingPaid = (record: NonNullable<typeof billing>["records"][number]) => {
+    if (!window.confirm("Confirmar recebimento e marcar esta cobrança como paga?")) return;
+
+    updateBilling.mutate({
+      id: record.id,
+      tenantId: tenantId!,
+      planId: record.planId ?? (form.planId ? parseInt(form.planId) : null),
+      amount: String(record.amount || "0.00"),
+      status: "paid",
+      dueDate: new Date(record.dueDate).getTime(),
+      paidAt: Date.now(),
+      method: record.method || billingForm.method || null,
+      notes: record.notes || null,
+      syncTenant: true,
+    });
+  };
+
+  const handleCancelBilling = (record: NonNullable<typeof billing>["records"][number]) => {
+    if (!window.confirm("Cancelar este lançamento de cobrança?")) return;
+
+    updateBilling.mutate({
+      id: record.id,
+      tenantId: tenantId!,
+      planId: record.planId ?? (form.planId ? parseInt(form.planId) : null),
+      amount: String(record.amount || "0.00"),
+      status: "cancelled",
+      dueDate: new Date(record.dueDate).getTime(),
+      paidAt: record.paidAt ? new Date(record.paidAt).getTime() : null,
+      method: record.method || null,
+      notes: record.notes || null,
+      syncTenant: false,
     });
   };
 
@@ -451,15 +494,41 @@ export default function SuperAdminTenantDetail() {
                 <div className="border-t pt-4 space-y-2">
                   <p className="text-xs font-semibold uppercase text-muted-foreground">Histórico recente</p>
                   {billing?.records?.length ? billing.records.map((record) => (
-                    <div key={record.id} className="rounded-lg border p-3 text-xs">
+                    <div key={record.id} className="rounded-lg border p-3 text-xs space-y-2">
                       <div className="flex items-center justify-between gap-2">
                         <span className="font-semibold">R$ {record.amount}</span>
                         <Badge variant={record.status === "paid" ? "default" : record.status === "overdue" ? "destructive" : "outline"}>
                           {record.status === "paid" ? "Pago" : record.status === "overdue" ? "Vencido" : record.status === "cancelled" ? "Cancelado" : "Pendente"}
                         </Badge>
                       </div>
-                      <p className="mt-1 text-muted-foreground">Vence em {new Date(record.dueDate).toLocaleDateString("pt-BR")}</p>
-                      {record.method && <p className="text-muted-foreground">Método: {record.method}</p>}
+                      <div className="space-y-1">
+                        <p className="text-muted-foreground">Vence em {new Date(record.dueDate).toLocaleDateString("pt-BR")}</p>
+                        {record.paidAt && <p className="text-muted-foreground">Pago em {new Date(record.paidAt).toLocaleDateString("pt-BR")}</p>}
+                        {record.method && <p className="text-muted-foreground">Método: {record.method}</p>}
+                      </div>
+                      {record.status !== "paid" && record.status !== "cancelled" && (
+                        <div className="grid grid-cols-2 gap-2 pt-1">
+                          <Button
+                            type="button"
+                            size="sm"
+                            className="h-8 text-xs"
+                            onClick={() => handleMarkBillingPaid(record)}
+                            disabled={updateBilling.isPending}
+                          >
+                            Marcar pago
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="h-8 text-xs"
+                            onClick={() => handleCancelBilling(record)}
+                            disabled={updateBilling.isPending}
+                          >
+                            Cancelar
+                          </Button>
+                        </div>
+                      )}
                     </div>
                   )) : (
                     <p className="text-xs text-muted-foreground">Nenhuma cobrança manual registrada ainda.</p>
