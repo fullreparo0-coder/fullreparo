@@ -27,7 +27,14 @@ const billingInputSchema = z.object({
 });
 
 function normalizeMoney(value: string) {
-  const normalized = value.replace(/\./g, "").replace(",", ".").trim();
+  const raw = value.trim();
+  const hasComma = raw.includes(",");
+  const hasDot = raw.includes(".");
+  const normalized = hasComma
+    ? raw.replace(/\./g, "").replace(",", ".")
+    : hasDot
+      ? raw
+      : raw;
   const amount = Number(normalized);
   if (!Number.isFinite(amount) || amount < 0) {
     throw new TRPCError({ code: "BAD_REQUEST", message: "Valor da cobrança inválido." });
