@@ -27,6 +27,7 @@ import { notificationsRouter } from "./routers/notifications";
 import { customerAuthRouter } from "./routers/customerAuth";
 import { whatsappRouter } from "./routers/whatsapp";
 import { pushRouter } from "./routers/push";
+import { tenantBillingRouter } from "./routers/tenantBilling";
 
 function sanitizeAuthUser<T extends { passwordHash?: unknown } | null | undefined>(user: T) {
   if (!user) return null;
@@ -143,6 +144,7 @@ export const appRouter = router({
   customerAuth: customerAuthRouter,
   whatsapp: whatsappRouter,
   push: pushRouter,
+  tenantBilling: tenantBillingRouter,
 });
 
 export type AppRouter = typeof appRouter;

@@ -81,6 +81,22 @@ export const tenants = mysqlTable("tenants", {
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
 
+// ─── TENANT BILLING RECORDS (cobrança manual da assinatura) ──────────────────
+export const tenantBillingRecords = mysqlTable("tenant_billing_records", {
+  id: int("id").autoincrement().primaryKey(),
+  tenantId: int("tenantId").notNull(),
+  planId: int("planId"),
+  amount: decimal("amount", { precision: 10, scale: 2 }).notNull().default("0.00"),
+  status: mysqlEnum("status", ["pending", "paid", "overdue", "cancelled"]).notNull().default("pending"),
+  dueDate: timestamp("dueDate").notNull(),
+  paidAt: timestamp("paidAt"),
+  method: varchar("method", { length: 60 }),
+  notes: text("notes"),
+  createdById: int("createdById"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
 // ─── USERS ────────────────────────────────────────────────────────────────────
 export const users = mysqlTable("users", {
   id: int("id").autoincrement().primaryKey(),
@@ -479,6 +495,8 @@ export type InsertUser = typeof users.$inferInsert;
 export type Tenant = typeof tenants.$inferSelect;
 export type InsertTenant = typeof tenants.$inferInsert;
 export type Plan = typeof plans.$inferSelect;
+export type TenantBillingRecord = typeof tenantBillingRecords.$inferSelect;
+export type InsertTenantBillingRecord = typeof tenantBillingRecords.$inferInsert;
 export type WhatsappIntegration = typeof whatsappIntegrations.$inferSelect;
 export type WhatsappMessageLog = typeof whatsappMessageLogs.$inferSelect;
 export type Customer = typeof customers.$inferSelect;

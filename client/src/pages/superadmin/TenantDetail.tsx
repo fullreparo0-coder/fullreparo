@@ -13,7 +13,7 @@ import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import { 
   Building2, ArrowLeft, Save, MapPin, Mail, Phone, 
-  FileText, ShieldCheck, Users, Globe, Lock, Unlock, MessageCircle, Activity 
+  FileText, ShieldCheck, Users, Globe, Lock, Unlock, MessageCircle, Activity, DollarSign 
 } from "lucide-react";
 
 export default function SuperAdminTenantDetail() {
@@ -38,6 +38,10 @@ export default function SuperAdminTenantDetail() {
   );
   const { data: whatsappStats } = trpc.whatsapp.getTenantStats.useQuery(
     { tenantId: tenantId! },
+    { enabled: !!tenantId }
+  );
+  const { data: billing } = trpc.tenantBilling.listByTenant.useQuery(
+    { tenantId: tenantId!, limit: 6 },
     { enabled: !!tenantId }
   );
 
@@ -77,6 +81,15 @@ export default function SuperAdminTenantDetail() {
     onError: (err) => toast.error(err.message || "Erro ao atualizar WhatsApp"),
   });
 
+  const createBilling = trpc.tenantBilling.create.useMutation({
+    onSuccess: () => {
+      toast.success("Cobrança manual registrada");
+      utils.tenantBilling.listByTenant.invalidate({ tenantId: tenantId!, limit: 6 });
+      utils.tenants.getById.invalidate({ id: tenantId! });
+    },
+    onError: (err) => toast.error(err.message || "Erro ao registrar cobrança"),
+  });
+
   const [form, setForm] = useState({
     name: "",
     email: "",
@@ -103,6 +116,16 @@ export default function SuperAdminTenantDetail() {
     budgetTemplateName: "fullreparo_orcamento_disponivel",
     readyTemplateName: "fullreparo_os_pronta",
     templateLanguage: "pt_BR",
+  });
+
+  const [billingForm, setBillingForm] = useState({
+    amount: "",
+    status: "pending",
+    dueDate: "",
+    paidAt: "",
+    method: "",
+    notes: "",
+    syncTenant: true,
   });
 
   const toDateTimeLocal = (value?: string | Date | null) => {
@@ -146,8 +169,19 @@ export default function SuperAdminTenantDetail() {
         trialEndsAt: toDateTimeLocal((tenant as any).trialEndsAt),
         subscriptionEndsAt: toDateTimeLocal((tenant as any).subscriptionEndsAt)
       });
+      setBillingForm((current) => ({
+        ...current,
+        dueDate: current.dueDate || toDateTimeLocal((tenant as any).subscriptionEndsAt),
+      }));
     }
   }, [tenant]);
+
+  useEffect(() => {
+    const selectedPlan = plans?.find((p) => String(p.id) === form.planId);
+    if (selectedPlan?.price && !billingForm.amount) {
+      setBillingForm((current) => ({ ...current, amount: String(selectedPlan.price) }));
+    }
+  }, [plans, form.planId, billingForm.amount]);
 
   if (isLoading) {
     return (
@@ -190,6 +224,25 @@ export default function SuperAdminTenantDetail() {
       phoneNumberId: whatsappForm.phoneNumberId || null,
       phoneNumber: whatsappForm.phoneNumber || null,
       accessToken: whatsappForm.accessToken || null,
+    });
+  };
+
+  const handleCreateBilling = () => {
+    if (!billingForm.dueDate) {
+      toast.error("Informe o vencimento da cobrança.");
+      return;
+    }
+
+    createBilling.mutate({
+      tenantId: tenantId!,
+      planId: form.planId ? parseInt(form.planId) : null,
+      amount: billingForm.amount || "0.00",
+      status: billingForm.status as "pending" | "paid" | "overdue" | "cancelled",
+      dueDate: new Date(billingForm.dueDate).getTime(),
+      paidAt: billingForm.paidAt ? new Date(billingForm.paidAt).getTime() : null,
+      method: billingForm.method || null,
+      notes: billingForm.notes || null,
+      syncTenant: billingForm.syncTenant,
     });
   };
 
@@ -333,6 +386,84 @@ export default function SuperAdminTenantDetail() {
                   <p className="text-xs text-muted-foreground mt-1">
                     Criado em: {new Date(tenant.createdAt!).toLocaleDateString("pt-BR")}
                   </p>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-sm font-semibold flex items-center">
+                  <DollarSign className="h-4 w-4 mr-2 text-primary" /> Cobrança manual
+                </CardTitle>
+                <CardDescription>Registre vencimento, pagamento e observações da assinatura.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label>Valor</Label>
+                    <Input value={billingForm.amount} onChange={e => setBillingForm(f => ({ ...f, amount: e.target.value }))} placeholder="0,00" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Status</Label>
+                    <Select value={billingForm.status} onValueChange={(status) => setBillingForm(f => ({ ...f, status }))}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="pending">Pendente</SelectItem>
+                        <SelectItem value="paid">Pago</SelectItem>
+                        <SelectItem value="overdue">Vencido</SelectItem>
+                        <SelectItem value="cancelled">Cancelado</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Vencimento</Label>
+                  <Input type="datetime-local" value={billingForm.dueDate} onChange={e => setBillingForm(f => ({ ...f, dueDate: e.target.value }))} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Data de pagamento</Label>
+                  <Input type="datetime-local" value={billingForm.paidAt} onChange={e => setBillingForm(f => ({ ...f, paidAt: e.target.value }))} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Método/Referência</Label>
+                  <Input value={billingForm.method} onChange={e => setBillingForm(f => ({ ...f, method: e.target.value }))} placeholder="Pix, transferência, dinheiro..." />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Observações</Label>
+                  <textarea
+                    className="min-h-[88px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    value={billingForm.notes}
+                    onChange={e => setBillingForm(f => ({ ...f, notes: e.target.value }))}
+                    placeholder="Ex.: combinado com responsável, comprovante recebido, exceção comercial..."
+                  />
+                </div>
+                <div className="flex items-center justify-between rounded-lg border p-3">
+                  <div>
+                    <Label>Sincronizar assinatura</Label>
+                    <p className="text-xs text-muted-foreground">Atualiza plano, vencimento e status operacional quando aplicável.</p>
+                  </div>
+                  <Switch checked={billingForm.syncTenant} onCheckedChange={(syncTenant) => setBillingForm(f => ({ ...f, syncTenant }))} />
+                </div>
+                <Button className="w-full" size="sm" onClick={handleCreateBilling} disabled={createBilling.isPending}>
+                  {createBilling.isPending ? "Registrando..." : "Registrar cobrança"}
+                </Button>
+
+                <div className="border-t pt-4 space-y-2">
+                  <p className="text-xs font-semibold uppercase text-muted-foreground">Histórico recente</p>
+                  {billing?.records?.length ? billing.records.map((record) => (
+                    <div key={record.id} className="rounded-lg border p-3 text-xs">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-semibold">R$ {record.amount}</span>
+                        <Badge variant={record.status === "paid" ? "default" : record.status === "overdue" ? "destructive" : "outline"}>
+                          {record.status === "paid" ? "Pago" : record.status === "overdue" ? "Vencido" : record.status === "cancelled" ? "Cancelado" : "Pendente"}
+                        </Badge>
+                      </div>
+                      <p className="mt-1 text-muted-foreground">Vence em {new Date(record.dueDate).toLocaleDateString("pt-BR")}</p>
+                      {record.method && <p className="text-muted-foreground">Método: {record.method}</p>}
+                    </div>
+                  )) : (
+                    <p className="text-xs text-muted-foreground">Nenhuma cobrança manual registrada ainda.</p>
+                  )}
                 </div>
               </CardContent>
             </Card>
