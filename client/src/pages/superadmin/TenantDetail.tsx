@@ -99,6 +99,25 @@ export default function SuperAdminTenantDetail() {
     onError: (err) => toast.error(err.message || "Erro ao atualizar cobrança"),
   });
 
+  const approveProof = trpc.tenantBilling.approveProof.useMutation({
+    onSuccess: () => {
+      toast.success("Comprovante aprovado e assinatura renovada.");
+      utils.tenantBilling.listByTenant.invalidate({ tenantId: tenantId!, limit: 6 });
+      utils.tenantBilling.listPendingReviews.invalidate();
+      utils.tenants.getById.invalidate({ id: tenantId! });
+    },
+    onError: (err) => toast.error(err.message || "Erro ao aprovar comprovante"),
+  });
+
+  const rejectProof = trpc.tenantBilling.rejectProof.useMutation({
+    onSuccess: () => {
+      toast.success("Comprovante recusado.");
+      utils.tenantBilling.listByTenant.invalidate({ tenantId: tenantId!, limit: 6 });
+      utils.tenantBilling.listPendingReviews.invalidate();
+    },
+    onError: (err) => toast.error(err.message || "Erro ao recusar comprovante"),
+  });
+
   const [form, setForm] = useState({
     name: "",
     email: "",
@@ -287,6 +306,17 @@ export default function SuperAdminTenantDetail() {
       notes: record.notes || null,
       syncTenant: false,
     });
+  };
+
+  const handleApproveProof = (record: NonNullable<typeof billing>["records"][number]) => {
+    if (!window.confirm("Aprovar este comprovante, marcar a cobrança como paga e renovar a assinatura?")) return;
+    approveProof.mutate({ id: record.id, reviewNotes: null });
+  };
+
+  const handleRejectProof = (record: NonNullable<typeof billing>["records"][number]) => {
+    const reviewNotes = window.prompt("Informe o motivo da recusa para auditoria (opcional):") ?? "";
+    if (!window.confirm("Confirmar recusa deste comprovante?")) return;
+    rejectProof.mutate({ id: record.id, reviewNotes: reviewNotes.trim() || null });
   };
 
   const betaPlan = plans?.find((p) => p.slug === "beta" || p.name.toLowerCase() === "beta");
@@ -505,8 +535,44 @@ export default function SuperAdminTenantDetail() {
                         <p className="text-muted-foreground">Vence em {new Date(record.dueDate).toLocaleDateString("pt-BR")}</p>
                         {record.paidAt && <p className="text-muted-foreground">Pago em {new Date(record.paidAt).toLocaleDateString("pt-BR")}</p>}
                         {record.method && <p className="text-muted-foreground">Método: {record.method}</p>}
+                        {record.proofSubmittedAt && <p className="text-muted-foreground">Comprovante enviado em {new Date(record.proofSubmittedAt).toLocaleString("pt-BR")}</p>}
+                        {record.notes && <p className="text-muted-foreground">Observação do tenant: {record.notes}</p>}
+                        {record.reviewStatus && record.reviewStatus !== "none" && (
+                          <Badge variant={record.reviewStatus === "pending_review" ? "destructive" : record.reviewStatus === "approved" ? "default" : "outline"}>
+                            {record.reviewStatus === "pending_review" ? "Aguardando análise" : record.reviewStatus === "approved" ? "Comprovante aprovado" : "Comprovante recusado"}
+                          </Badge>
+                        )}
+                        {record.proofUrl && (
+                          <a className="block text-primary underline" href={record.proofUrl} target="_blank" rel="noreferrer">
+                            Abrir comprovante{record.proofOriginalName ? ` (${record.proofOriginalName})` : ""}
+                          </a>
+                        )}
+                        {record.reviewNotes && <p className="text-muted-foreground">Parecer: {record.reviewNotes}</p>}
                       </div>
-                      {record.status !== "paid" && record.status !== "cancelled" && (
+                      {record.reviewStatus === "pending_review" && (
+                        <div className="grid grid-cols-2 gap-2 pt-1">
+                          <Button
+                            type="button"
+                            size="sm"
+                            className="h-8 text-xs"
+                            onClick={() => handleApproveProof(record)}
+                            disabled={approveProof.isPending || rejectProof.isPending}
+                          >
+                            Aprovar comprovante
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="h-8 text-xs"
+                            onClick={() => handleRejectProof(record)}
+                            disabled={approveProof.isPending || rejectProof.isPending}
+                          >
+                            Recusar
+                          </Button>
+                        </div>
+                      )}
+                      {record.status !== "paid" && record.status !== "cancelled" && record.reviewStatus !== "pending_review" && (
                         <div className="grid grid-cols-2 gap-2 pt-1">
                           <Button
                             type="button"

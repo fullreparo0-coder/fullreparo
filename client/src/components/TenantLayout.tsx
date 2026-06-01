@@ -3,6 +3,14 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { useLocation } from "wouter";
 import { getLoginUrl } from "@/const";
@@ -15,6 +23,7 @@ import {
   HelpCircle
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
+import { toast } from "sonner";
 import { PwaInstallButton } from "@/components/PwaInstallButton";
 import { PushNotificationButton } from "@/components/PushNotificationButton";
 
@@ -63,6 +72,10 @@ export function TenantLayout({ children, title }: TenantLayoutProps) {
   const { user, isAuthenticated, loading, logout } = useAuth();
   const [location, navigate] = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
+  const [proofFile, setProofFile] = useState<File | null>(null);
+  const [proofNotes, setProofNotes] = useState("");
+  const utils = trpc.useUtils();
 
   const { data: tenant } = trpc.tenants.getMine.useQuery(undefined, {
     enabled: isAuthenticated && !!user?.tenantId,
@@ -73,6 +86,49 @@ export function TenantLayout({ children, title }: TenantLayoutProps) {
     refetchInterval: 60_000, // atualiza a cada 1 min
   });
   const pendingPickup = metrics?.pendingPickup ?? 0;
+
+  const submitProofMutation = trpc.tenantBilling.submitProof.useMutation({
+    onSuccess: () => {
+      toast.success("Comprovante enviado para análise do Super Admin.");
+      setPaymentDialogOpen(false);
+      setProofFile(null);
+      setProofNotes("");
+      utils.tenants.getMine.invalidate();
+    },
+    onError: (err) => toast.error(err.message || "Não foi possível enviar o comprovante."),
+  });
+
+  const handleSubmitProof = async () => {
+    if (!proofFile) {
+      toast.error("Selecione o comprovante de pagamento.");
+      return;
+    }
+
+    const allowedTypes = ["image/png", "image/jpeg", "image/webp", "application/pdf"];
+    if (!allowedTypes.includes(proofFile.type)) {
+      toast.error("Envie um arquivo PNG, JPG, WebP ou PDF.");
+      return;
+    }
+
+    if (proofFile.size > 10 * 1024 * 1024) {
+      toast.error("O comprovante deve ter no máximo 10MB.");
+      return;
+    }
+
+    const fileBase64 = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result || ""));
+      reader.onerror = () => reject(new Error("Falha ao ler o comprovante."));
+      reader.readAsDataURL(proofFile);
+    });
+
+    submitProofMutation.mutate({
+      fileBase64,
+      mimeType: proofFile.type as "image/png" | "image/jpeg" | "image/webp" | "application/pdf",
+      originalName: proofFile.name,
+      notes: proofNotes.trim() || null,
+    });
+  };
 
   // Rotas operacionais que exigem tenantId (todas sob /painel)
   const requiresTenant = location === "/painel" || location.startsWith("/painel/");
@@ -287,7 +343,7 @@ export function TenantLayout({ children, title }: TenantLayoutProps) {
               tenant?.status === "trial" ? "border-amber-200 bg-amber-50 text-amber-900" : "border-red-200 bg-red-50 text-red-900"
             )}>
               <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
-              <div>
+              <div className="flex-1 min-w-0">
                 <p className="font-semibold">
                   {tenant?.status === "trial" ? "Teste grátis em andamento" : tenant?.status === "blocked" ? "Assistência bloqueada" : "Assinatura ou teste vencido"}
                 </p>
@@ -299,8 +355,70 @@ export function TenantLayout({ children, title }: TenantLayoutProps) {
                     : `O acesso operacional pode ser limitado até regularização. ${subscriptionEndsAt ? `Assinatura venceu em ${subscriptionEndsAt.toLocaleString("pt-BR")}.` : ""}`}
                 </p>
               </div>
+              {tenant?.status !== "trial" && (
+                <Button
+                  size="sm"
+                  className="shrink-0 bg-red-700 text-white hover:bg-red-800"
+                  onClick={() => setPaymentDialogOpen(true)}
+                >
+                  Pagar agora
+                </Button>
+              )}
             </div>
           )}
+          <Dialog open={paymentDialogOpen} onOpenChange={setPaymentDialogOpen}>
+            <DialogContent className="sm:max-w-xl">
+              <DialogHeader>
+                <DialogTitle>Enviar comprovante de pagamento</DialogTitle>
+                <DialogDescription>
+                  Anexe o comprovante para que o Super Admin valide manualmente a regularização da assinatura.
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="space-y-4 text-sm">
+                <div className="rounded-lg border bg-muted/40 p-3 space-y-1">
+                  <p><span className="font-semibold">Assistência:</span> {tenant?.name ?? "Não informada"}</p>
+                  <p><span className="font-semibold">Vencimento:</span> {subscriptionEndsAt ? subscriptionEndsAt.toLocaleDateString("pt-BR") : "não informado"}</p>
+                  <p><span className="font-semibold">Situação:</span> {tenant?.status ?? "não informada"}</p>
+                </div>
+
+                <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-amber-900">
+                  Realize o pagamento conforme as instruções repassadas pelo Super Admin, como Pix, transferência ou outro meio combinado. Depois, envie aqui o comprovante em PNG, JPG, WebP ou PDF.
+                </div>
+
+                <label className="block space-y-2">
+                  <span className="font-medium">Comprovante</span>
+                  <input
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp,application/pdf"
+                    className="block w-full text-sm file:mr-3 file:rounded-md file:border-0 file:bg-primary file:px-3 file:py-2 file:text-sm file:font-medium file:text-primary-foreground hover:file:bg-primary/90"
+                    onChange={(event) => setProofFile(event.target.files?.[0] ?? null)}
+                  />
+                  <span className="text-xs text-muted-foreground">Tamanho máximo: 10MB.</span>
+                </label>
+
+                <label className="block space-y-2">
+                  <span className="font-medium">Observação opcional</span>
+                  <textarea
+                    value={proofNotes}
+                    onChange={(event) => setProofNotes(event.target.value)}
+                    rows={3}
+                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+                    placeholder="Informe, se desejar, dados como banco, data do pagamento ou identificação do Pix."
+                  />
+                </label>
+              </div>
+
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setPaymentDialogOpen(false)} disabled={submitProofMutation.isPending}>
+                  Cancelar
+                </Button>
+                <Button onClick={handleSubmitProof} disabled={submitProofMutation.isPending}>
+                  {submitProofMutation.isPending ? "Enviando..." : "Enviar comprovante"}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
           {children}
         </main>
       </div>

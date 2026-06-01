@@ -119,6 +119,7 @@ export default function SuperAdminDashboard() {
   const [, navigate] = useLocation();
   const { data: tenants } = trpc.tenants.list.useQuery();
   const { data: plans } = trpc.plans.list.useQuery();
+  const { data: pendingProofs } = trpc.tenantBilling.listPendingReviews.useQuery({ limit: 10 });
 
   const active = tenants?.filter((t) => t.status === "active").length ?? 0;
   const trial = tenants?.filter((t) => t.status === "trial").length ?? 0;
@@ -126,6 +127,7 @@ export default function SuperAdminDashboard() {
   const blocked = tenants?.filter((t) => t.status === "blocked").length ?? 0;
   const attention = suspended + blocked;
   const whatsappPending = tenants?.filter((t) => !t.whatsappNumber).length ?? 0;
+  const pendingProofsCount = pendingProofs?.total ?? 0;
 
   const tenantsRequiringAttention = tenants
     ?.filter((t) => {
@@ -172,11 +174,12 @@ export default function SuperAdminDashboard() {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
             <MetricCard label="Total de Assistências" value={tenants?.length ?? 0} icon={Building2} />
             <MetricCard label="Ativas" value={active} icon={Users} tone="success" />
             <MetricCard label="Em teste" value={trial} icon={Clock3} tone="info" />
             <MetricCard label="Suspensas/Bloqueadas" value={attention} icon={AlertTriangle} tone="danger" />
+            <MetricCard label="Comprovantes pendentes" value={pendingProofsCount} icon={Clock3} tone={pendingProofsCount > 0 ? "danger" : "secondary"} />
             <MetricCard label="Planos ativos" value={plans?.filter((p) => p.isActive).length ?? 0} icon={Package} tone="secondary" />
           </div>
         </section>
@@ -247,8 +250,16 @@ export default function SuperAdminDashboard() {
                 <span>Bloqueados manualmente</span>
                 <Badge variant={blocked > 0 ? "destructive" : "secondary"}>{blocked}</Badge>
               </div>
+              <button
+                type="button"
+                className="flex w-full items-center justify-between rounded-lg border p-2.5 text-left hover:bg-muted/50"
+                onClick={() => navigate("/superadmin/tenants")}
+              >
+                <span>Comprovantes para análise</span>
+                <Badge variant={pendingProofsCount > 0 ? "destructive" : "secondary"}>{pendingProofsCount}</Badge>
+              </button>
               <div className="rounded-lg bg-muted/50 p-3 text-xs leading-relaxed text-foreground/75">
-                Próxima etapa: cobrança manual com vencimento, status de pagamento e histórico antes da automação de gateway.
+                Próxima etapa: revisar comprovantes enviados pelos tenants e aprovar a renovação manualmente, sem gateway automático.
               </div>
             </CardContent>
           </Card>
