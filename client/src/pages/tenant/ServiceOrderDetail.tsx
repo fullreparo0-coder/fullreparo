@@ -326,21 +326,25 @@ export default function ServiceOrderDetail() {
     const selectedClosingBudget = closeApproveBudgetId
       ? payableBudgets.find((budget: any) => Number(budget.id) === closeApproveBudgetId)
       : null;
+    const singlePendingBudget = totalCents === 0 && pendingPayableBudgets.length === 1 ? pendingPayableBudgets[0] : null;
+    const singlePendingBudgetCents = singlePendingBudget ? moneyToCents(singlePendingBudget.totalCost) : 0;
+    const isSinglePendingBudgetAlreadyPaid = singlePendingBudgetCents > 0 && paidCents >= singlePendingBudgetCents;
+    const effectiveSelectedClosingBudget = selectedClosingBudget ?? (isSinglePendingBudgetAlreadyPaid ? singlePendingBudget : null);
 
     if (closeOutcome === "finalizado" && totalCents === 0 && pendingPayableBudgets.length > 1) {
       toast.error("Existe mais de um orçamento pendente. Revise os orçamentos antes de encerrar.");
       return;
     }
 
-    if (closeOutcome === "finalizado" && totalCents === 0 && pendingPayableBudgets.length === 1 && !selectedClosingBudget) {
+    if (closeOutcome === "finalizado" && totalCents === 0 && pendingPayableBudgets.length === 1 && !effectiveSelectedClosingBudget) {
       toast.error("Aprove o orçamento pendente no modal antes de encerrar a OS.");
       return;
     }
 
     const effectiveTotalCents = totalCents > 0
       ? totalCents
-      : selectedClosingBudget
-        ? moneyToCents(selectedClosingBudget.totalCost)
+      : effectiveSelectedClosingBudget
+        ? moneyToCents(effectiveSelectedClosingBudget.totalCost)
         : 0;
     const balanceCents = Math.max(0, effectiveTotalCents - paidCents);
     const paymentCents = moneyToCents(closePaymentAmount.replace(",", "."));
@@ -365,7 +369,7 @@ export default function ServiceOrderDetail() {
       status: closeOutcome as any,
       notes,
       warrantyDays: closeOutcome === "finalizado" ? closeWarrantyDays : 0,
-      approveClosingBudgetId: closeOutcome === "finalizado" && selectedClosingBudget ? Number(selectedClosingBudget.id) : undefined,
+      approveClosingBudgetId: closeOutcome === "finalizado" && effectiveSelectedClosingBudget ? Number(effectiveSelectedClosingBudget.id) : undefined,
       closingPayment: closeOutcome === "finalizado" && balanceCents > 0
         ? { method: closePaymentMethod as ClosingPaymentMethod, amount: balanceCents / 100 }
         : undefined,
@@ -533,16 +537,22 @@ export default function ServiceOrderDetail() {
     ? payableClosingBudgets.find((budget: any) => Number(budget.id) === closeApproveBudgetId) ?? null
     : null;
   const selectedClosingBudgetCents = selectedClosingBudget ? moneyToCents(selectedClosingBudget.totalCost) : 0;
-  const effectiveClosingTotalCents = totalAmountCents > 0 ? totalAmountCents : selectedClosingBudgetCents;
-  const closingBalanceCents = Math.max(0, effectiveClosingTotalCents - totalPaidCents);
-  const closingBalance = closingBalanceCents / 100;
   const closingPaymentAmountCents = moneyToCents(closePaymentAmount.replace(",", "."));
   const closingHasSinglePendingBudget = totalAmountCents === 0 && pendingClosingBudgets.length === 1;
   const singlePendingClosingBudgetCents = closingHasSinglePendingBudget ? moneyToCents(pendingClosingBudgets[0].totalCost) : 0;
   const isSinglePendingClosingBudgetPaid = singlePendingClosingBudgetCents > 0 && totalPaidCents >= singlePendingClosingBudgetCents;
+  const effectiveClosingTotalCents = totalAmountCents > 0
+    ? totalAmountCents
+    : selectedClosingBudgetCents > 0
+      ? selectedClosingBudgetCents
+      : isSinglePendingClosingBudgetPaid
+        ? singlePendingClosingBudgetCents
+        : 0;
+  const closingBalanceCents = Math.max(0, effectiveClosingTotalCents - totalPaidCents);
+  const closingBalance = closingBalanceCents / 100;
   const closingHasMultiplePendingBudgets = totalAmountCents === 0 && pendingClosingBudgets.length > 1;
   const closingHasSingleApprovedBudgetToSync = totalAmountCents === 0 && pendingClosingBudgets.length === 0 && approvedClosingBudgets.length === 1;
-  const isClosingBudgetReady = closeOutcome !== "finalizado" || totalAmountCents > 0 || !closingHasSinglePendingBudget || !!selectedClosingBudget;
+  const isClosingBudgetReady = closeOutcome !== "finalizado" || totalAmountCents > 0 || !closingHasSinglePendingBudget || !!selectedClosingBudget || isSinglePendingClosingBudgetPaid;
   const isClosingPaymentMethodValid = closeOutcome !== "finalizado" || closingBalanceCents === 0 || !!closePaymentMethod;
   const isClosingFullPaymentValid = closeOutcome !== "finalizado" || closingHasMultiplePendingBudgets === false && isClosingBudgetReady && isClosingPaymentMethodValid && (closingBalanceCents === 0 || closingPaymentAmountCents === closingBalanceCents);
   const displayPrimaryBudget =

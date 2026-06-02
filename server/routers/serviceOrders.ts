@@ -706,6 +706,15 @@ export const serviceOrdersRouter = router({
 
       if (input.status === "finalizado") {
         let totalCents = moneyToCents(os.totalAmount);
+        const paidRows = await db
+          .select({ amount: payments.amount })
+          .from(payments)
+          .where(and(
+            eq(payments.tenantId, tenantId),
+            eq(payments.serviceOrderId, input.id),
+            eq(payments.status, "paid"),
+          ));
+        const paidCents = paidRows.reduce((sum, payment) => sum + moneyToCents(payment.amount), 0);
 
         if (totalCents === 0) {
           const budgetRows = await db
@@ -750,12 +759,27 @@ export const serviceOrdersRouter = router({
               wasPending: false,
               status: approvedBudget.status,
             };
-          } else if (pendingPayableBudgets.length > 0) {
+          } else if (pendingPayableBudgets.length === 1) {
+            const prepaidBudget = pendingPayableBudgets[0];
+            const prepaidBudgetCents = moneyToCents(prepaidBudget.totalCost);
+            if (paidCents < prepaidBudgetCents) {
+              throw new TRPCError({
+                code: "BAD_REQUEST",
+                message: "Aprove o orçamento pendente no encerramento antes de finalizar a OS.",
+              });
+            }
+            totalCents = prepaidBudgetCents;
+            updatePayload.totalAmount = centsToMoney(totalCents);
+            closingBudgetApproval = {
+              id: prepaidBudget.id,
+              amountCents: totalCents,
+              wasPending: true,
+              status: prepaidBudget.status,
+            };
+          } else if (pendingPayableBudgets.length > 1) {
             throw new TRPCError({
               code: "BAD_REQUEST",
-              message: pendingPayableBudgets.length === 1
-                ? "Aprove o orçamento pendente no encerramento antes de finalizar a OS."
-                : "Existe mais de um orçamento pendente. Revise os orçamentos antes de finalizar a OS.",
+              message: "Existe mais de um orçamento pendente. Revise os orçamentos antes de finalizar a OS.",
             });
           } else if (approvedPayableBudgets.length > 1) {
             throw new TRPCError({
@@ -765,15 +789,6 @@ export const serviceOrdersRouter = router({
           }
         }
 
-        const paidRows = await db
-          .select({ amount: payments.amount })
-          .from(payments)
-          .where(and(
-            eq(payments.tenantId, tenantId),
-            eq(payments.serviceOrderId, input.id),
-            eq(payments.status, "paid"),
-          ));
-        const paidCents = paidRows.reduce((sum, payment) => sum + moneyToCents(payment.amount), 0);
         const balanceCents = Math.max(0, totalCents - paidCents);
 
         if (balanceCents > 0) {
