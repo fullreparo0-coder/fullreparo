@@ -1,7 +1,7 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { getDb } from "../db";
-import { osChecklistState, serviceOrders, checklistTemplates, tenantChecklistOverrides, devices } from "../../drizzle/schema";
+import { osChecklist, osChecklistState, serviceOrders, checklistTemplates, tenantChecklistOverrides, devices } from "../../drizzle/schema";
 import { protectedProcedure, router } from "../_core/trpc";
 import { eq, and, asc, or, isNull } from "drizzle-orm";
 
@@ -21,7 +21,8 @@ async function initChecklistForOs(
   db: NonNullable<Awaited<ReturnType<typeof getDb>>>,
   serviceOrderId: number,
   tenantId: number,
-  deviceType: string | null
+  deviceType: string | null,
+  checkedLabels = new Set<string>()
 ) {
   // 1. Templates globais ativos
   const templates = await db
@@ -72,10 +73,48 @@ async function initChecklistForOs(
     items.map((item, idx) => ({
       serviceOrderId,
       label: item.label,
-      isChecked: false,
+      isChecked: checkedLabels.has(item.label),
       sortOrder: idx,
     }))
   );
+}
+
+async function getLegacyCheckedLabels(
+  db: NonNullable<Awaited<ReturnType<typeof getDb>>>,
+  serviceOrderId: number,
+  tenantId: number
+) {
+  const rows = await db
+    .select({ item: osChecklist.item })
+    .from(osChecklist)
+    .where(and(
+      eq(osChecklist.tenantId, tenantId),
+      eq(osChecklist.serviceOrderId, serviceOrderId),
+      eq(osChecklist.checked, true)
+    ));
+
+  return new Set(rows.map((row) => row.item));
+}
+
+async function reconcileLegacyCheckedItems(
+  db: NonNullable<Awaited<ReturnType<typeof getDb>>>,
+  existing: Array<typeof osChecklistState.$inferSelect>,
+  checkedLabels: Set<string>
+) {
+  if (existing.length === 0 || checkedLabels.size === 0) return existing;
+
+  const itemsToUpdate = existing.filter((item) => !item.isChecked && checkedLabels.has(item.label));
+  if (itemsToUpdate.length === 0) return existing;
+
+  for (const item of itemsToUpdate) {
+    await db
+      .update(osChecklistState)
+      .set({ isChecked: true })
+      .where(eq(osChecklistState.id, item.id));
+  }
+
+  const updatedIds = new Set(itemsToUpdate.map((item) => item.id));
+  return existing.map((item) => updatedIds.has(item.id) ? { ...item, isChecked: true } : item);
 }
 
 export const osChecklistRouter = router({
@@ -103,6 +142,8 @@ export const osChecklistRouter = router({
 
       if (!os) throw new TRPCError({ code: "NOT_FOUND", message: "OS não encontrada." });
 
+      const checkedLabels = await getLegacyCheckedLabels(db, input.serviceOrderId, ctx.tenantId);
+
       // Verificar se já existe checklist para essa OS
       const existing = await db
         .select()
@@ -110,10 +151,10 @@ export const osChecklistRouter = router({
         .where(eq(osChecklistState.serviceOrderId, input.serviceOrderId))
         .orderBy(asc(osChecklistState.sortOrder), asc(osChecklistState.id));
 
-      if (existing.length > 0) return existing;
+      if (existing.length > 0) return reconcileLegacyCheckedItems(db, existing, checkedLabels);
 
-      // Lazy init: criar checklist a partir do template
-      await initChecklistForOs(db, input.serviceOrderId, ctx.tenantId, os.deviceType ?? null);
+      // Lazy init: criar checklist a partir do template preservando os marcados na abertura da OS
+      await initChecklistForOs(db, input.serviceOrderId, ctx.tenantId, os.deviceType ?? null, checkedLabels);
 
       // Retornar os itens recém-criados
       return db
