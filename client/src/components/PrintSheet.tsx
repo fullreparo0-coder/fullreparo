@@ -264,13 +264,6 @@ export function PrintSheetA4({ os, tenant, budgets, warranty, checklist }: Omit<
             <p className="print-a4-text">{os.reportedDefect}</p>
           </div>
 
-          {/* Notas internas */}
-          {os.internalNotes && (
-            <div className="print-a4-section">
-              <div className="print-a4-section-title" style={{ color: primary }}>OBSERVAÇÕES INTERNAS</div>
-              <p className="print-a4-text">{os.internalNotes}</p>
-            </div>
-          )}
         </div>
 
         {/* Coluna direita */}
@@ -469,13 +462,6 @@ export function PrintSheetThermal({ os, tenant, budgets, warranty, checklist, mo
       <div className="print-thermal-bold">DEFEITO</div>
       <div className="print-thermal-wrap">{os.reportedDefect || "—"}</div>
 
-      {os.internalNotes && (
-        <>
-          <div className="print-thermal-sep">{sep}</div>
-          <div className="print-thermal-bold">OBSERVACOES</div>
-          <div className="print-thermal-wrap">{os.internalNotes}</div>
-        </>
-      )}
 
       {(allBudgetItems.length > 0 || totalLabor > 0) && (
         <>
