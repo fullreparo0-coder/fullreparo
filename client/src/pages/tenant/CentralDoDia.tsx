@@ -58,6 +58,29 @@ function formatDateTime(value?: string | null) {
   return dateTime.format(new Date(value));
 }
 
+function priorityLabel(priority?: string | null) {
+  if (priority === "alta") return "Alta prioridade";
+  if (priority === "media") return "Prioridade média";
+  if (priority === "baixa") return "Baixa prioridade";
+  return "Normal";
+}
+
+function channelLabel(channel?: string | null) {
+  if (channel === "whatsapp") return "WhatsApp";
+  if (channel === "email") return "E-mail";
+  if (channel === "push_pwa") return "Push";
+  return channel ?? "Canal";
+}
+
+function ProgressBar({ value, max, tone }: { value: number; max: number; tone: string }) {
+  const percent = max > 0 ? Math.max(6, Math.min(100, Math.round((value / max) * 100))) : 0;
+  return (
+    <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-muted">
+      <div className={`h-full rounded-full ${tone}`} style={{ width: `${percent}%` }} />
+    </div>
+  );
+}
+
 function StatCard({ title, value, description, icon: Icon, tone, onClick }: {
   title: string;
   value: number | string;
@@ -81,7 +104,7 @@ function StatCard({ title, value, description, icon: Icon, tone, onClick }: {
         </div>
         {onClick && (
           <Button variant="ghost" size="sm" className="mt-2 h-7 px-0 text-[11px] font-medium sm:mt-4 sm:h-8 sm:text-xs" onClick={onClick}>
-            Ver <ArrowRight className="ml-1 h-3.5 w-3.5" />
+            Ver fila <ArrowRight className="ml-1 h-3.5 w-3.5" />
           </Button>
         )}
       </CardContent>
@@ -136,35 +159,78 @@ export default function CentralDoDia() {
   type AlertItem = NonNullable<NonNullable<typeof data.alerts>[number]>;
   const cards = data.cards;
   const financial = data.financial;
-  const alerts = (data.alerts ?? []).filter((item): item is AlertItem => item !== null);
+  const alerts = (data.alerts ?? []).filter(Boolean) as AlertItem[];
   const actionQueue = data.actionQueue ?? [];
-  const recentCommunications = data.recentCommunications ?? [];
   const statusDistribution = data.statusDistribution ?? [];
   const technicianMetrics = data.technicianMetrics ?? [];
   const actionSummary = data.actionSummary ?? { high: 0, medium: 0, normal: 0, stalled: 0 };
   const inboxByOs = data.inboxByOs ?? [];
+  const totalAttention = actionSummary.high + actionSummary.medium + actionSummary.stalled;
+  const totalCards = cards.newOrdersToday + cards.pendingBudgets + cards.overdueOrders + cards.readyForPickup;
+  const statusMax = Math.max(1, ...statusDistribution.map((item) => item.count));
+  const technicianMax = Math.max(1, ...technicianMetrics.map((item) => item.total));
 
   return (
     <TenantLayout title="Central do Dia">
       <div className="max-w-full space-y-4 overflow-x-hidden pb-4 sm:space-y-6">
-        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <div className="space-y-1">
-            <h1 className="text-xl font-bold tracking-tight sm:text-2xl">Central do Dia</h1>
-            <p className="max-w-2xl text-xs leading-relaxed text-muted-foreground sm:text-sm">
-              Prioridades, alertas e comunicações para decidir o próximo atendimento.
-            </p>
-          </div>
-          <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
-            <Button variant="outline" className="h-10 rounded-xl bg-card/80 text-xs sm:text-sm" onClick={() => refetch()} disabled={isFetching}>
-              <RefreshCw className={`mr-2 h-4 w-4 ${isFetching ? "animate-spin" : ""}`} />
-              Atualizar
-            </Button>
-            <Button className="h-10 rounded-xl text-xs shadow-sm sm:text-sm" onClick={() => navigate("/painel/os/nova")}>
-              <Plus className="mr-2 h-4 w-4" />
-              Nova OS
-            </Button>
-          </div>
-        </div>
+        <Card className="overflow-hidden rounded-3xl border-primary/20 bg-gradient-to-br from-primary/10 via-card to-background shadow-sm">
+          <CardContent className="p-4 sm:p-5 lg:p-6">
+            <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr] lg:items-center">
+              <div className="min-w-0 space-y-2">
+                <Badge variant="outline" className="w-fit rounded-full border-primary/30 bg-background/70 text-primary">Painel operacional</Badge>
+                <div>
+                  <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Central do Dia</h1>
+                  <p className="mt-1 max-w-3xl text-sm leading-relaxed text-muted-foreground">
+                    Priorize atendimento, SLA, financeiro e comunicações usando as filas que já existem no sistema.
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+                  <span className="rounded-full border bg-background/70 px-3 py-1">Atualização automática a cada 60s</span>
+                  <span className="rounded-full border bg-background/70 px-3 py-1">{actionQueue.length} OS na fila de ação</span>
+                  <span className="rounded-full border bg-background/70 px-3 py-1">{inboxByOs.length} conversas recentes</span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-2 xl:grid-cols-4">
+                <div className="rounded-2xl border border-red-200 bg-red-50 p-3 text-red-800">
+                  <p className="text-[11px] font-medium uppercase tracking-wide">Críticas</p>
+                  <strong className="mt-1 block text-2xl leading-none">{actionSummary.high}</strong>
+                </div>
+                <div className="rounded-2xl border border-purple-200 bg-purple-50 p-3 text-purple-800">
+                  <p className="text-[11px] font-medium uppercase tracking-wide">Paradas</p>
+                  <strong className="mt-1 block text-2xl leading-none">{actionSummary.stalled}</strong>
+                </div>
+                <div className="rounded-2xl border border-amber-200 bg-amber-50 p-3 text-amber-800">
+                  <p className="text-[11px] font-medium uppercase tracking-wide">Atenção</p>
+                  <strong className="mt-1 block text-2xl leading-none">{totalAttention}</strong>
+                </div>
+                <div className="rounded-2xl border bg-background/80 p-3 text-foreground">
+                  <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Resumo</p>
+                  <strong className="mt-1 block text-2xl leading-none">{totalCards}</strong>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+              <Button variant="outline" className="h-10 justify-start rounded-xl bg-background/80 text-xs sm:text-sm" onClick={() => refetch()} disabled={isFetching}>
+                <RefreshCw className={`mr-2 h-4 w-4 ${isFetching ? "animate-spin" : ""}`} />
+                Atualizar agora
+              </Button>
+              <Button className="h-10 justify-start rounded-xl text-xs shadow-sm sm:text-sm" onClick={() => navigate("/painel/os/nova")}>
+                <Plus className="mr-2 h-4 w-4" />
+                Nova OS
+              </Button>
+              <Button variant="outline" className="h-10 justify-start rounded-xl bg-background/80 text-xs sm:text-sm" onClick={() => navigate("/painel/os?status=aguardando_aprovacao")}>
+                <CalendarClock className="mr-2 h-4 w-4" />
+                Orçamentos
+              </Button>
+              <Button variant="outline" className="h-10 justify-start rounded-xl bg-background/80 text-xs sm:text-sm" onClick={() => navigate("/painel/notificacoes")}>
+                <Bell className="mr-2 h-4 w-4" />
+                Comunicações
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
 
         <div className="grid w-full max-w-full grid-cols-2 gap-2 sm:gap-4 md:grid-cols-2 xl:grid-cols-4">
           <StatCard
@@ -201,29 +267,24 @@ export default function CentralDoDia() {
           />
         </div>
 
-        <Card className="w-full min-w-0 rounded-2xl border-primary/20 bg-gradient-to-br from-primary/10 via-card to-background shadow-sm">
-          <CardHeader className="flex flex-col gap-3 p-4 sm:p-5 md:flex-row md:items-center md:justify-between">
-            <div className="min-w-0">
-              <CardTitle className="flex items-center gap-2 text-base font-semibold sm:text-lg"><Zap className="h-4 w-4 text-primary sm:h-5 sm:w-5" /> Console inteligente de ações</CardTitle>
-              <p className="mt-1 text-xs leading-relaxed text-muted-foreground sm:text-sm">Fila priorizada por urgência, SLA parado, prazo vencido e próxima melhor ação.</p>
-            </div>
-            <div className="grid grid-cols-4 gap-1.5 text-center text-[10px] leading-tight sm:gap-2 sm:text-xs">
-              <div className="rounded-xl border border-red-200 bg-red-50 px-2 py-2 text-red-700"><strong className="block text-base leading-none sm:text-lg">{actionSummary.high}</strong> alta</div>
-              <div className="rounded-xl border border-amber-200 bg-amber-50 px-2 py-2 text-amber-700"><strong className="block text-base leading-none sm:text-lg">{actionSummary.medium}</strong> média</div>
-              <div className="rounded-xl border border-slate-200 bg-slate-50 px-2 py-2 text-slate-700"><strong className="block text-base leading-none sm:text-lg">{actionSummary.normal}</strong> normal</div>
-              <div className="rounded-xl border border-purple-200 bg-purple-50 px-2 py-2 text-purple-700"><strong className="block text-base leading-none sm:text-lg">{actionSummary.stalled}</strong> paradas</div>
-            </div>
-          </CardHeader>
-        </Card>
-
-        <div className="grid w-full max-w-full gap-4 lg:grid-cols-3">
-          <Card className="rounded-2xl border border-border/70 shadow-sm lg:col-span-2">
-            <CardHeader className="flex flex-row items-start justify-between gap-2 px-4 pb-2 pt-4 sm:px-5 sm:pb-3">
+        <div className="grid w-full max-w-full gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(320px,1fr)]">
+          <Card className="rounded-2xl border border-border/70 shadow-sm">
+            <CardHeader className="flex flex-col gap-3 px-4 pb-2 pt-4 sm:px-5 sm:pb-3 md:flex-row md:items-start md:justify-between">
               <div>
-                <CardTitle className="text-base font-semibold leading-tight sm:text-lg">Fila de ação operacional</CardTitle>
-                <p className="text-xs leading-relaxed text-muted-foreground sm:text-sm">OS que pedem ação agora.</p>
+                <CardTitle className="flex items-center gap-2 text-base font-semibold leading-tight sm:text-lg">
+                  <Zap className="h-4 w-4 text-primary sm:h-5 sm:w-5" />
+                  Fila de ação operacional
+                </CardTitle>
+                <p className="mt-1 text-xs leading-relaxed text-muted-foreground sm:text-sm">
+                  OS ordenadas por urgência, SLA parado, prazo vencido e próxima ação sugerida.
+                </p>
               </div>
-              <Button variant="outline" size="sm" className="h-8 shrink-0 rounded-xl px-2 text-xs" onClick={() => navigate("/painel/os")}>Ver todas</Button>
+              <div className="grid grid-cols-4 gap-1.5 text-center text-[10px] leading-tight sm:gap-2 sm:text-xs">
+                <div className="rounded-xl border border-red-200 bg-red-50 px-2 py-2 text-red-700"><strong className="block text-base leading-none sm:text-lg">{actionSummary.high}</strong> alta</div>
+                <div className="rounded-xl border border-amber-200 bg-amber-50 px-2 py-2 text-amber-700"><strong className="block text-base leading-none sm:text-lg">{actionSummary.medium}</strong> média</div>
+                <div className="rounded-xl border border-slate-200 bg-slate-50 px-2 py-2 text-slate-700"><strong className="block text-base leading-none sm:text-lg">{actionSummary.normal}</strong> normal</div>
+                <div className="rounded-xl border border-purple-200 bg-purple-50 px-2 py-2 text-purple-700"><strong className="block text-base leading-none sm:text-lg">{actionSummary.stalled}</strong> paradas</div>
+              </div>
             </CardHeader>
             <CardContent className="space-y-2 px-3 pb-3 pt-0 sm:space-y-3 sm:px-5 sm:pb-5">
               {actionQueue.length === 0 ? (
@@ -238,8 +299,8 @@ export default function CentralDoDia() {
                   onClick={() => navigate(order.href)}
                   className="w-full rounded-2xl border bg-card/95 p-3 text-left shadow-sm transition hover:border-primary/40 hover:shadow-md sm:p-4"
                 >
-                  <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                      <div className="min-w-0 space-y-1.5">
+                  <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_240px] lg:items-center">
+                    <div className="min-w-0 space-y-2">
                       <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
                         <span className="text-sm font-semibold leading-tight">#{order.osNumber}</span>
                         <StatusBadge status={order.status} />
@@ -249,36 +310,45 @@ export default function CentralDoDia() {
                           </Badge>
                         )}
                         <Badge variant="outline" className={priorityClasses[order.priority] ?? priorityClasses.normal}>
-                          {order.priority === "alta" ? "Alta prioridade" : order.priority === "media" ? "Prioridade média" : "Normal"}
+                          {priorityLabel(order.priority)}
                         </Badge>
                       </div>
-                      <p className="truncate text-sm font-medium leading-tight">{order.customerName ?? "Cliente não informado"}</p>
-                      <p className="line-clamp-2 text-xs leading-snug text-muted-foreground">{order.deviceLabel} • {order.nextBestAction?.description ?? order.reason}</p>
+
+                      <div>
+                        <p className="truncate text-sm font-semibold leading-tight sm:text-base">{order.customerName ?? "Cliente não informado"}</p>
+                        <p className="mt-1 line-clamp-2 text-xs leading-snug text-muted-foreground sm:text-sm">
+                          {order.deviceLabel} • {order.nextBestAction?.description ?? order.reason}
+                        </p>
+                      </div>
+
+                      <div className="rounded-xl border border-primary/15 bg-primary/5 p-3">
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-primary">Próxima ação</p>
+                        <p className="mt-1 text-sm font-medium leading-snug text-foreground">
+                          {order.suggestedAction ?? order.nextBestAction?.ctaLabel ?? "Atualizar andamento"}
+                        </p>
+                      </div>
+
                       {order.orderType === "retorno_garantia" && (
                         <p className="text-[11px] font-semibold uppercase tracking-wide text-purple-700">
                           Vinculada à OS original{order.originalServiceOrderId ? ` #${order.originalServiceOrderId}` : ""}
                         </p>
                       )}
-                      <div className="mt-2 flex flex-wrap gap-1.5 text-[11px] sm:gap-2 sm:text-xs">
-                        <Badge variant="secondary" className="gap-1"><Zap className="h-3 w-3" />{order.nextBestAction?.title ?? order.reason}</Badge>
-                        <Badge variant="outline" className={order.sla?.isOverdue || order.sla?.isStageStalled ? "border-red-200 bg-red-50 text-red-700" : "border-emerald-200 bg-emerald-50 text-emerald-700"}>
-                          <Clock3 className="mr-1 h-3 w-3" />{order.sla?.label ?? "SLA em análise"}
-                        </Badge>
-                      </div>
-                      <p className="mt-2 text-[11px] font-medium text-primary sm:text-xs">Ação sugerida: {order.suggestedAction ?? order.nextBestAction?.ctaLabel ?? "Atualizar andamento"}</p>
                     </div>
-                    <div className="grid grid-cols-3 gap-2 rounded-xl bg-muted/40 p-2 text-left md:block md:shrink-0 md:bg-transparent md:p-0 md:text-right">
+
+                    <div className="grid grid-cols-3 gap-2 rounded-xl bg-muted/40 p-2 text-left lg:grid-cols-1 lg:bg-transparent lg:p-0 lg:text-right">
                       <div>
                         <p className="text-[10px] text-muted-foreground sm:text-xs">Prazo</p>
                         <p className="text-xs font-medium sm:text-sm">{formatDate(order.estimatedDelivery)}</p>
                       </div>
                       <div>
                         <p className="text-[10px] text-muted-foreground sm:text-xs">Valor</p>
-                        <p className="text-xs font-medium text-muted-foreground sm:text-sm">{currency.format(order.totalAmount ?? 0)}</p>
+                        <p className="text-xs font-medium sm:text-sm">{currency.format(order.totalAmount ?? 0)}</p>
                       </div>
                       <div>
                         <p className="text-[10px] text-muted-foreground sm:text-xs">Etapa</p>
-                        <p className="text-xs font-medium text-muted-foreground sm:text-sm">{order.sla?.statusAgeHours ?? 0}h</p>
+                        <Badge variant="outline" className={order.sla?.isOverdue || order.sla?.isStageStalled ? "mt-1 border-red-200 bg-red-50 text-red-700" : "mt-1 border-emerald-200 bg-emerald-50 text-emerald-700"}>
+                          <Clock3 className="mr-1 h-3 w-3" />{order.sla?.label ?? `${order.sla?.statusAgeHours ?? 0}h`}
+                        </Badge>
                       </div>
                     </div>
                   </div>
@@ -291,40 +361,48 @@ export default function CentralDoDia() {
             <Card className="rounded-2xl border border-border/70 shadow-sm">
               <CardHeader className="px-4 pb-2 pt-4 sm:px-5">
                 <CardTitle className="text-base font-semibold leading-tight sm:text-lg">Alertas inteligentes</CardTitle>
+                <p className="text-xs leading-relaxed text-muted-foreground sm:text-sm">Sinais que merecem conferência antes de continuar o atendimento.</p>
               </CardHeader>
               <CardContent className="space-y-2 px-3 pb-3 pt-0 sm:space-y-3 sm:px-5 sm:pb-5">
-                {alerts.map((item, idx) => {
-                  if (!item) return null;
-                  return (
-                    <button
-                      key={`${item.title}-${idx}`}
-                      onClick={() => navigate(item.href)}
-                      className={`w-full rounded-2xl border p-3 text-left transition hover:shadow-sm ${alertClasses[item.type] ?? alertClasses.warning}`}
-                    >
-                      <p className="font-semibold">{item.title}</p>
-                      <p className="mt-1 text-xs opacity-80">{item.description}</p>
-                    </button>
-                  );
-                })}
+                {alerts.length === 0 ? (
+                  <div className="rounded-xl border border-dashed p-5 text-center">
+                    <CheckCircle2 className="mx-auto h-8 w-8 text-emerald-600" />
+                    <p className="mt-2 text-sm text-muted-foreground">Nenhum alerta operacional neste momento.</p>
+                  </div>
+                ) : alerts.map((item, idx) => (
+                  <button
+                    key={`${item.title}-${idx}`}
+                    onClick={() => navigate(item.href)}
+                    className={`w-full rounded-2xl border p-3 text-left transition hover:shadow-sm ${alertClasses[item.type] ?? alertClasses.warning}`}
+                  >
+                    <p className="font-semibold">{item.title}</p>
+                    <p className="mt-1 text-xs opacity-80">{item.description}</p>
+                  </button>
+                ))}
               </CardContent>
             </Card>
 
             <Card className="rounded-2xl border border-border/70 shadow-sm">
               <CardHeader className="px-4 pb-2 pt-4 sm:px-5">
                 <CardTitle className="text-base font-semibold leading-tight sm:text-lg">Financeiro rápido</CardTitle>
+                <p className="text-xs leading-relaxed text-muted-foreground sm:text-sm">Recebidos e pendências já calculados pelo sistema.</p>
               </CardHeader>
               <CardContent className="space-y-2 px-3 pb-3 pt-0 sm:space-y-3 sm:px-5 sm:pb-5">
-                <div className="flex items-center justify-between rounded-xl bg-emerald-50 p-3 text-emerald-800">
-                  <div className="flex items-center gap-2"><Wallet className="h-4 w-4" /><span className="text-sm">Recebido hoje</span></div>
-                  <strong>{currency.format(financial.paidToday)}</strong>
+                <div className="rounded-2xl border border-amber-200 bg-amber-50 p-3 text-amber-900">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2"><AlertTriangle className="h-4 w-4" /><span className="text-sm font-medium">Pendente</span></div>
+                    <strong>{currency.format(financial.pendingAmount)}</strong>
+                  </div>
                 </div>
-                <div className="flex items-center justify-between rounded-xl bg-blue-50 p-3 text-blue-800">
-                  <div className="flex items-center gap-2"><CreditCard className="h-4 w-4" /><span className="text-sm">Recebido no mês</span></div>
-                  <strong>{currency.format(financial.paidMonth)}</strong>
-                </div>
-                <div className="flex items-center justify-between rounded-xl bg-amber-50 p-3 text-amber-800">
-                  <div className="flex items-center gap-2"><AlertTriangle className="h-4 w-4" /><span className="text-sm">Pendente</span></div>
-                  <strong>{currency.format(financial.pendingAmount)}</strong>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="rounded-xl bg-emerald-50 p-3 text-emerald-800">
+                    <div className="flex items-center gap-2"><Wallet className="h-4 w-4" /><span className="text-xs">Hoje</span></div>
+                    <strong className="mt-1 block text-sm">{currency.format(financial.paidToday)}</strong>
+                  </div>
+                  <div className="rounded-xl bg-blue-50 p-3 text-blue-800">
+                    <div className="flex items-center gap-2"><CreditCard className="h-4 w-4" /><span className="text-xs">Mês</span></div>
+                    <strong className="mt-1 block text-sm">{currency.format(financial.paidMonth)}</strong>
+                  </div>
                 </div>
                 <Button variant="outline" className="h-10 w-full rounded-xl text-xs sm:text-sm" onClick={() => navigate("/painel/relatorios")}>Abrir relatórios</Button>
               </CardContent>
@@ -342,9 +420,12 @@ export default function CentralDoDia() {
               {statusDistribution.length === 0 ? (
                 <p className="text-sm text-muted-foreground">Nenhum status encontrado.</p>
               ) : statusDistribution.map((item) => (
-                <button key={item.status} onClick={() => navigate(`/painel/os?status=${item.status}`)} className="flex w-full items-center justify-between rounded-xl border bg-card/80 p-3 text-left transition hover:border-primary/40 hover:shadow-sm">
-                  <div className="flex items-center gap-2"><StatusBadge status={item.status} /><span className="text-xs text-muted-foreground">abrir fila</span></div>
-                  <strong>{item.count}</strong>
+                <button key={item.status} onClick={() => navigate(`/painel/os?status=${item.status}`)} className="w-full rounded-xl border bg-card/80 p-3 text-left transition hover:border-primary/40 hover:shadow-sm">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2"><StatusBadge status={item.status} /><span className="text-xs text-muted-foreground">abrir fila</span></div>
+                    <strong>{item.count}</strong>
+                  </div>
+                  <ProgressBar value={item.count} max={statusMax} tone="bg-primary" />
                 </button>
               ))}
             </CardContent>
@@ -361,7 +442,8 @@ export default function CentralDoDia() {
               ) : technicianMetrics.map((item) => (
                 <div key={`${item.technicianId ?? "none"}-${item.technicianName}`} className="rounded-xl border bg-card/80 p-3">
                   <div className="flex items-center justify-between gap-2"><p className="font-semibold">{item.technicianName}</p><Badge variant={item.overdueCount > 0 ? "destructive" : "secondary"}>{item.total} OS</Badge></div>
-                  <div className="mt-2 grid grid-cols-3 gap-2 text-center text-xs text-muted-foreground">
+                  <ProgressBar value={item.total} max={technicianMax} tone={item.overdueCount > 0 ? "bg-red-500" : "bg-emerald-500"} />
+                  <div className="mt-3 grid grid-cols-3 gap-2 text-center text-xs text-muted-foreground">
                     <span><strong className="block text-foreground">{item.openCount}</strong> abertas</span>
                     <span><strong className="block text-foreground">{item.finishedCount}</strong> concluídas</span>
                     <span><strong className="block text-foreground">{item.overdueCount}</strong> atrasadas</span>
@@ -375,7 +457,7 @@ export default function CentralDoDia() {
         <Card className="rounded-2xl border border-border/70 shadow-sm">
           <CardHeader className="flex flex-row items-start justify-between gap-2 px-4 pb-2 pt-4 sm:px-5 sm:pb-3">
             <div>
-              <CardTitle className="text-base font-semibold leading-tight sm:text-lg">Inbox operacional por OS</CardTitle>
+              <CardTitle className="text-base font-semibold leading-tight sm:text-lg">Comunicação recente por OS</CardTitle>
               <p className="text-xs leading-relaxed text-muted-foreground sm:text-sm">Mensagens recentes para retomar o atendimento certo.</p>
             </div>
             <Button variant="outline" size="sm" className="h-8 shrink-0 rounded-xl px-2 text-xs" onClick={() => navigate("/painel/notificacoes")}>Histórico</Button>
@@ -397,7 +479,7 @@ export default function CentralDoDia() {
                       className="rounded-2xl border bg-card/95 p-3 text-left shadow-sm transition hover:border-primary/40 hover:shadow-md sm:p-4"
                     >
                       <div className="flex items-center justify-between gap-2">
-                        <Badge variant="secondary" className="gap-1"><Icon className="h-3 w-3" />{item.channel}</Badge>
+                        <Badge variant="secondary" className="gap-1"><Icon className="h-3 w-3" />{channelLabel(item.channel)}</Badge>
                         <span className="text-xs text-muted-foreground">{formatDateTime(item.sentAt)}</span>
                       </div>
                       <p className="mt-3 text-sm font-medium">OS #{item.osNumber ?? item.osId}</p>
