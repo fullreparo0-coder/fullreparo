@@ -142,16 +142,23 @@ function receiptLine(label: string, value: string | number | null | undefined): 
   return `${cleanLabel.padEnd(12, ".")}: ${cleanValue}`;
 }
 
+function hasWarrantyReturnDefectPrefix(os: OsData): boolean {
+  return (os.reportedDefect ?? "").trim().toLowerCase().startsWith("retorno em garantia");
+}
+
 function isWarrantyReturn(os: OsData): boolean {
-  return os.orderType === "retorno_garantia" || Boolean(os.originalServiceOrderId);
+  return os.orderType === "retorno_garantia" || Boolean(os.originalServiceOrderId) || hasWarrantyReturnDefectPrefix(os);
 }
 
 function originalOsLabel(os: OsData): string {
-  return os.originalServiceOrder?.osNumber
-    ? `OS ${os.originalServiceOrder.osNumber}`
-    : os.originalServiceOrderId
-      ? `OS #${os.originalServiceOrderId}`
-      : "OS original";
+  if (os.originalServiceOrder?.osNumber) return `OS ${os.originalServiceOrder.osNumber}`;
+  if (os.originalServiceOrderId) return `OS #${os.originalServiceOrderId}`;
+
+  const text = (os.reportedDefect ?? "").trim();
+  const match = text.match(/OS[-\s#]*([0-9]{4}-[0-9]+)/i);
+  if (match?.[1]) return `OS-${match[1]}`;
+
+  return "OS original";
 }
 
 function warrantyReturnProblemLabel(os: OsData): string {
@@ -568,10 +575,8 @@ export function PrintSheetArgox({ os, tenant }: Omit<PrintSheetProps, "mode">) {
           <div className="print-argox-device">{truncateText(deviceLabel, 34)}</div>
           {warrantyReturn ? (
             <div className="print-argox-return-box">
-              <div className="print-argox-return-title">RETORNO GARANTIA</div>
-              <div className="print-argox-return-origin">{truncateText(originalReference, 30)}</div>
-              <div className="print-argox-return-problem-label">PROBLEMA:</div>
-              <div className="print-argox-return-problem">{truncateText(warrantyReturnProblem, 88)}</div>
+              <div className="print-argox-return-title">RETORNO GARANTIA {truncateText(originalReference, 22)}</div>
+              <div className="print-argox-return-problem">PROBLEMA: {truncateText(warrantyReturnProblem, 92)}</div>
             </div>
           ) : (
             <div className="print-argox-defect">{truncateText(os.reportedDefect, 42)}</div>
