@@ -661,6 +661,56 @@
   letter-spacing: -0.02em;
 }
 
+.print-argox-return-box {
+  display: flex;
+  flex-direction: column;
+  max-width: 100%;
+  margin-top: 0.6mm;
+  padding: 0.6mm 0.9mm;
+  border: 0.25mm solid #000;
+  line-height: 1.05;
+  overflow: hidden;
+}
+
+.print-argox-return-title {
+  font-size: 6.7pt;
+  font-weight: 900;
+  text-align: center;
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+}
+
+.print-argox-return-origin {
+  font-size: 5.7pt;
+  font-weight: 800;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.print-argox-return-problem-label {
+  margin-top: 0.45mm;
+  font-size: 5.8pt;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.print-argox-return-problem {
+  display: -webkit-box;
+  max-width: 100%;
+  font-size: 6.2pt;
+  font-weight: 800;
+  line-height: 1.08;
+  letter-spacing: -0.025em;
+  white-space: normal;
+  word-break: normal;
+  overflow-wrap: break-word;
+  overflow: hidden;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
 .print-argox-date {
   font-size: 6.7pt;
   font-weight: 800;

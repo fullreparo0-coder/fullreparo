@@ -154,6 +154,20 @@ function originalOsLabel(os: OsData): string {
       : "OS original";
 }
 
+function warrantyReturnProblemLabel(os: OsData): string {
+  const text = (os.reportedDefect ?? "").trim();
+  if (!text) return "—";
+
+  if (!isWarrantyReturn(os)) return text;
+
+  const prefixEnd = text.indexOf(":");
+  if (text.toLowerCase().startsWith("retorno em garantia") && prefixEnd >= 0) {
+    return text.slice(prefixEnd + 1).trim() || "—";
+  }
+
+  return text;
+}
+
 // ─── A4 Layout ───────────────────────────────────────────────────────────────
 
 export function PrintSheetA4({ os, tenant, budgets, warranty, checklist }: Omit<PrintSheetProps, "mode">) {
@@ -164,6 +178,7 @@ export function PrintSheetA4({ os, tenant, budgets, warranty, checklist }: Omit<
   const totalLabor = budgets?.reduce((s, b) => s + Number(b.laborCost ?? 0), 0) ?? 0;
   const warrantyReturn = isWarrantyReturn(os);
   const originalReference = originalOsLabel(os);
+  const warrantyReturnProblem = warrantyReturnProblemLabel(os);
 
   return (
     <div className="print-a4-sheet">
@@ -340,6 +355,8 @@ export function PrintSheetA4({ os, tenant, budgets, warranty, checklist }: Omit<
             <div className="print-a4-section" style={{ border: "1px solid #7e22ce", padding: 8, background: "#faf5ff" }}>
               <div className="print-a4-section-title" style={{ color: "#7e22ce" }}>RETORNO GARANTIA</div>
               <p className="print-a4-text" style={{ margin: 0, fontWeight: 700 }}>{`Vinculada à ${originalReference}`}</p>
+              <p className="print-a4-text" style={{ margin: "4px 0 0", fontWeight: 700 }}>Problema indicado no retorno:</p>
+              <p className="print-a4-text" style={{ margin: "2px 0 0" }}>{warrantyReturnProblem}</p>
             </div>
           )}
 
@@ -397,6 +414,7 @@ export function PrintSheetThermal({ os, tenant, budgets, warranty, checklist, mo
   const statusLabel = STATUS_LABELS[os.status as keyof typeof STATUS_LABELS] ?? os.status;
   const warrantyReturn = isWarrantyReturn(os);
   const originalReference = originalOsLabel(os);
+  const warrantyReturnProblem = warrantyReturnProblemLabel(os);
 
   return (
     <div className={`print-thermal-sheet ${width}`}>
@@ -495,6 +513,8 @@ export function PrintSheetThermal({ os, tenant, budgets, warranty, checklist, mo
           <div className="print-thermal-sep">{sep}</div>
           <div className="print-thermal-center print-thermal-bold">RETORNO GARANTIA</div>
           <div className="print-thermal-center">Vinculada a {originalReference}</div>
+          <div className="print-thermal-bold">PROBLEMA DO RETORNO</div>
+          <div className="print-thermal-wrap">{warrantyReturnProblem}</div>
         </>
       )}
 
@@ -533,6 +553,7 @@ export function PrintSheetArgox({ os, tenant }: Omit<PrintSheetProps, "mode">) {
   const statusLabel = STATUS_LABELS[os.status as keyof typeof STATUS_LABELS] ?? os.status;
   const warrantyReturn = isWarrantyReturn(os);
   const originalReference = originalOsLabel(os);
+  const warrantyReturnProblem = warrantyReturnProblemLabel(os);
 
   return (
     <div className="print-argox8040">
@@ -545,13 +566,17 @@ export function PrintSheetArgox({ os, tenant }: Omit<PrintSheetProps, "mode">) {
         <div className="print-argox-left">
           <div className="print-argox-customer">{truncateText(os.customer?.name, 32)}</div>
           <div className="print-argox-device">{truncateText(deviceLabel, 34)}</div>
-          <div className="print-argox-defect">{truncateText(os.reportedDefect, 42)}</div>
-          <div className="print-argox-date">{fmtLabelDateTime(os.createdAt)}</div>
-          {warrantyReturn && (
-            <div style={{ marginTop: 4, border: "1px solid #111", padding: "2px 4px", fontSize: 9, fontWeight: 800, lineHeight: 1.1, textAlign: "center" }}>
-              RETORNO GARANTIA<br />{truncateText(originalReference, 24)}
+          {warrantyReturn ? (
+            <div className="print-argox-return-box">
+              <div className="print-argox-return-title">RETORNO GARANTIA</div>
+              <div className="print-argox-return-origin">{truncateText(originalReference, 30)}</div>
+              <div className="print-argox-return-problem-label">PROBLEMA:</div>
+              <div className="print-argox-return-problem">{truncateText(warrantyReturnProblem, 88)}</div>
             </div>
+          ) : (
+            <div className="print-argox-defect">{truncateText(os.reportedDefect, 42)}</div>
           )}
+          <div className="print-argox-date">{fmtLabelDateTime(os.createdAt)}</div>
         </div>
 
         <div className="print-argox-right">
