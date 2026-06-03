@@ -994,6 +994,63 @@ export default function ServiceOrderDetail() {
               </Card>
             )}
 
+            {/* Checklist de Entrada */}
+            {checklistItems && checklistItems.length > 0 && (
+              <Card className="rounded-2xl border-border/70 shadow-sm">
+                <CardHeader className="pb-3">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <CardTitle className="text-base font-semibold flex items-center gap-2">
+                        <CheckSquare className="h-4 w-4 text-muted-foreground" /> Checklist de Entrada
+                      </CardTitle>
+                      <p className="mt-1 text-xs text-muted-foreground">Conferência operacional registrada na abertura da OS.</p>
+                    </div>
+                    <Badge variant={checklistItems.every((i) => i.isChecked) ? "default" : "secondary"} className="w-fit text-xs">
+                      {checklistItems.filter((i) => i.isChecked).length}/{checklistItems.length} verificados
+                    </Badge>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="h-2 overflow-hidden rounded-full bg-muted">
+                    <div
+                      className="h-full rounded-full bg-primary transition-all"
+                      style={{ width: `${Math.round((checklistItems.filter((i) => i.isChecked).length / checklistItems.length) * 100)}%` }}
+                    />
+                  </div>
+                  <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+                    {checklistItems.map((item) => (
+                      <button
+                        key={item.id}
+                        className="flex items-center gap-2.5 w-full text-left rounded-lg border border-border/60 bg-background px-3 py-2 hover:bg-muted/60 transition-colors group"
+                        onClick={() =>
+                          toggleChecklistItem.mutate({ itemId: item.id, isChecked: !item.isChecked })
+                        }
+                        disabled={toggleChecklistItem.isPending}
+                      >
+                        {item.isChecked ? (
+                          <CheckSquare className="h-4 w-4 text-primary shrink-0" />
+                        ) : (
+                          <Square className="h-4 w-4 text-muted-foreground shrink-0" />
+                        )}
+                        <span
+                          className={`text-sm ${
+                            item.isChecked ? "line-through text-muted-foreground" : "text-foreground"
+                          }`}
+                        >
+                          {item.label}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                  {checklistItems.every((i) => i.isChecked) && (
+                    <p className="text-xs text-green-600 font-medium">
+                      Todos os itens verificados
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
             {/* SLA e atualização de status */}
             <Card className="rounded-2xl border-border/70 shadow-sm">
               <CardHeader className="pb-3">
@@ -1061,6 +1118,395 @@ export default function ServiceOrderDetail() {
                       {updateStatus.isPending ? "Atualizando..." : "Atualizar Status"}
                     </Button>
                   )}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Financeiro da OS */}
+            <Card className="rounded-2xl border-border/70 shadow-sm">
+              <CardHeader className="pb-3">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <CardTitle className="text-base font-semibold flex items-center gap-2">
+                      <DollarSign className="h-4 w-4 text-muted-foreground" /> Financeiro da OS
+                    </CardTitle>
+                    <p className="mt-1 text-xs text-muted-foreground">Orçamento, pagamentos e saldo em um único fluxo visual.</p>
+                  </div>
+                  {administrativeTotalCents > 0 && administrativeBalanceCents <= 0 && (
+                    <Badge variant="default" className="w-fit bg-emerald-600 text-white hover:bg-emerald-600">Quitada</Badge>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                  <div className="rounded-xl border bg-muted/30 p-3">
+                    <p className="text-xs text-muted-foreground">Valor da OS</p>
+                    <p className="text-lg font-bold text-foreground">{toCurrency(administrativeTotalCents / 100)}</p>
+                  </div>
+                  <div className="rounded-xl border bg-emerald-50/70 p-3 dark:bg-emerald-950/20">
+                    <p className="text-xs text-emerald-700 dark:text-emerald-300">Total pago</p>
+                    <p className="text-lg font-bold text-emerald-700 dark:text-emerald-300">{toCurrency(totalPaidCents / 100)}</p>
+                  </div>
+                  <div className="rounded-xl border bg-blue-50/70 p-3 dark:bg-blue-950/20">
+                    <p className="text-xs text-blue-700 dark:text-blue-300">Saldo</p>
+                    <p className="text-lg font-bold text-blue-700 dark:text-blue-300">{toCurrency(administrativeBalanceCents / 100)}</p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+                        {/* Orçamento */}
+                        <Card className="rounded-xl border-border/70 bg-background/80 shadow-none">
+                    <CardHeader className="pb-3">
+                      <div className="flex items-center justify-between">
+                        <CardTitle className="text-base font-semibold flex items-center gap-2">
+                          <DollarSign className="h-4 w-4 text-muted-foreground" /> Orçamento
+                        </CardTitle>
+                        <Dialog open={budgetOpen} onOpenChange={setBudgetOpen}>
+                          <DialogTrigger asChild>
+                            <Button size="sm" variant="outline">
+                              <Plus className="h-3.5 w-3.5 mr-1" /> Novo
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent className="max-w-lg">
+                            <DialogHeader>
+                              <DialogTitle>Criar Orçamento</DialogTitle>
+                            </DialogHeader>
+                            <div className="space-y-4">
+                              <div>
+                                <Label>Mão de obra (R$)</Label>
+                                <Input
+                                  type="number"
+                                  className="mt-1.5"
+                                  value={laborCost}
+                                  onChange={(e) => setLaborCost(Number(e.target.value))}
+                                />
+                              </div>
+                              <div>
+                                <Label className="mb-2 block">Itens / Peças</Label>
+                                {budgetItems.map((item, idx) => (
+                                  <div key={idx} className="grid grid-cols-[2fr_1fr_1fr] gap-2 mb-2">
+                                    <Input
+                                      placeholder="Descrição"
+                                      value={item.description}
+                                      onChange={(e) => {
+                                        const updated = [...budgetItems];
+                                        updated[idx].description = e.target.value;
+                                        setBudgetItems(updated);
+                                      }}
+                                    />
+                                    <Input
+                                      type="number"
+                                      placeholder="Qtd"
+                                      value={item.quantity}
+                                      onChange={(e) => {
+                                        const updated = [...budgetItems];
+                                        updated[idx].quantity = Number(e.target.value);
+                                        setBudgetItems(updated);
+                                      }}
+                                    />
+                                    <Input
+                                      type="number"
+                                      placeholder="R$"
+                                      value={item.unitPrice}
+                                      onChange={(e) => {
+                                        const updated = [...budgetItems];
+                                        updated[idx].unitPrice = Number(e.target.value);
+                                        setBudgetItems(updated);
+                                      }}
+                                    />
+                                  </div>
+                                ))}
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => setBudgetItems([...budgetItems, { description: "", quantity: 1, unitPrice: 0, type: "part" as const }])}
+                                >
+                                  <Plus className="h-3.5 w-3.5 mr-1" /> Adicionar item
+                                </Button>
+                              </div>
+                              <div className="flex justify-between font-semibold text-sm border-t pt-3">
+                                <span>Total estimado:</span>
+                                <span>R$ {(laborCost + budgetItems.reduce((s, i) => s + i.unitPrice * i.quantity, 0)).toFixed(2)}</span>
+                              </div>
+                              <Button className="w-full" onClick={handleBudgetSubmit} disabled={createBudget.isPending}>
+                                {createBudget.isPending ? "Enviando..." : "Enviar Orçamento"}
+                              </Button>
+                            </div>
+                          </DialogContent>
+                        </Dialog>
+                        <Dialog open={editBudgetOpen} onOpenChange={setEditBudgetOpen}>
+                          <DialogContent className="max-w-lg">
+                            <DialogHeader>
+                              <DialogTitle>Editar Orçamento</DialogTitle>
+                            </DialogHeader>
+                            <div className="space-y-4">
+                              <div>
+                                <Label>Descrição</Label>
+                                <Textarea
+                                  className="mt-1.5 min-h-[70px]"
+                                  placeholder="Resumo do orçamento para o cliente"
+                                  value={editBudgetDescription}
+                                  onChange={(e) => setEditBudgetDescription(e.target.value)}
+                                />
+                              </div>
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div>
+                                  <Label>Mão de obra (R$)</Label>
+                                  <Input
+                                    type="number"
+                                    min="0"
+                                    step="0.01"
+                                    className="mt-1.5"
+                                    value={editBudgetLaborCost}
+                                    onChange={(e) => setEditBudgetLaborCost(Number(e.target.value))}
+                                  />
+                                </div>
+                                <div>
+                                  <Label>Nova validade em dias</Label>
+                                  <Input
+                                    type="number"
+                                    min="1"
+                                    className="mt-1.5"
+                                    placeholder="Manter validade atual"
+                                    value={editBudgetValidDays}
+                                    onChange={(e) => setEditBudgetValidDays(e.target.value)}
+                                  />
+                                </div>
+                              </div>
+                              <div>
+                                <Label className="mb-2 block">Itens / Peças</Label>
+                                {editBudgetItems.length === 0 && (
+                                  <p className="text-xs text-muted-foreground mb-2">Nenhum item adicional. Use mão de obra para orçamento simples.</p>
+                                )}
+                                {editBudgetItems.map((item, idx) => (
+                                  <div key={idx} className="grid grid-cols-[2fr_1fr_1fr_auto] gap-2 mb-2">
+                                    <Input
+                                      placeholder="Descrição"
+                                      value={item.description}
+                                      onChange={(e) => {
+                                        const updated = [...editBudgetItems];
+                                        updated[idx].description = e.target.value;
+                                        setEditBudgetItems(updated);
+                                      }}
+                                    />
+                                    <Input
+                                      type="number"
+                                      min="1"
+                                      placeholder="Qtd"
+                                      value={item.quantity}
+                                      onChange={(e) => {
+                                        const updated = [...editBudgetItems];
+                                        updated[idx].quantity = Number(e.target.value);
+                                        setEditBudgetItems(updated);
+                                      }}
+                                    />
+                                    <Input
+                                      type="number"
+                                      min="0"
+                                      step="0.01"
+                                      placeholder="R$"
+                                      value={item.unitPrice}
+                                      onChange={(e) => {
+                                        const updated = [...editBudgetItems];
+                                        updated[idx].unitPrice = Number(e.target.value);
+                                        setEditBudgetItems(updated);
+                                      }}
+                                    />
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="sm"
+                                      className="px-2 text-muted-foreground hover:text-destructive"
+                                      onClick={() => setEditBudgetItems(editBudgetItems.filter((_, itemIndex) => itemIndex !== idx))}
+                                    >
+                                      Remover
+                                    </Button>
+                                  </div>
+                                ))}
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => setEditBudgetItems([...editBudgetItems, { description: "", quantity: 1, unitPrice: 0, type: "part" as const }])}
+                                >
+                                  <Plus className="h-3.5 w-3.5 mr-1" /> Adicionar item
+                                </Button>
+                              </div>
+                              <div className="flex justify-between font-semibold text-sm border-t pt-3">
+                                <span>Total corrigido:</span>
+                                <span>R$ {(editBudgetLaborCost + editBudgetItems.reduce((s, i) => s + i.unitPrice * i.quantity, 0)).toFixed(2)}</span>
+                              </div>
+                              <Button className="w-full" onClick={handleBudgetUpdateSubmit} disabled={updateBudget.isPending}>
+                                {updateBudget.isPending ? "Salvando..." : "Salvar alteração do orçamento"}
+                              </Button>
+                            </div>
+                          </DialogContent>
+                        </Dialog>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      {budgetList.length > 0 ? (
+                        <div className="space-y-3">
+                          {primaryBudget && (
+                            <div className="rounded-lg border border-emerald-200 bg-emerald-50/70 p-3 text-sm dark:border-emerald-900/60 dark:bg-emerald-950/20">
+                              <p className="text-xs font-medium text-emerald-700 dark:text-emerald-300">Orçamento principal da OS</p>
+                              <div className="mt-1 flex items-center justify-between gap-3">
+                                <span className="text-xl font-bold text-emerald-900 dark:text-emerald-100">{primaryBudgetLabel}</span>
+                                <Badge variant={isPrimaryBudgetApproved ? "default" : primaryBudget.status === "rejected" ? "destructive" : "secondary"}>
+                                  {primaryBudgetStatusLabel}
+                                </Badge>
+                              </div>
+                              <p className="mt-1 text-xs text-emerald-700/80 dark:text-emerald-200/80">
+                                {primaryBudget.description || "Orçamento lançado para aprovação do cliente."}
+                              </p>
+                            </div>
+                          )}
+                          {budgetList.map((b) => {
+                            const isApprovedForDisplay = isBudgetEffectivelyApproved(b);
+                            return (
+                            <div key={b.id} className="p-3 rounded-lg bg-muted/50 text-sm">
+                              <div className="flex justify-between items-start gap-2 mb-1">
+                                <div>
+                                  <span className="font-semibold">R$ {Number(b.totalCost).toFixed(2)}</span>
+                                  {b.description && <p className="text-xs text-muted-foreground mt-0.5">{b.description}</p>}
+                                </div>
+                                <div className="flex items-center gap-2 shrink-0">
+                                  <Badge variant={isApprovedForDisplay ? "default" : b.status === "rejected" ? "destructive" : "secondary"}>
+                                    {isApprovedForDisplay ? "Aprovado" : b.status === "rejected" ? "Recusado" : "Pendente"}
+                                  </Badge>
+                                  {b.status === "pending" && !isApprovedForDisplay && (
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="h-7 px-2 text-xs"
+                                      onClick={() => handleOpenEditBudget(b)}
+                                    >
+                                      <Pencil className="h-3 w-3 mr-1" /> Editar
+                                    </Button>
+                                  )}
+                                </div>
+                              </div>
+                              {b.validUntil && (
+                                <p className="text-xs text-muted-foreground">
+                                  Válido até {new Date(b.validUntil).toLocaleDateString("pt-BR")}
+                                </p>
+                              )}
+                            </div>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <p className="text-xs text-muted-foreground">Nenhum orçamento criado</p>
+                      )}
+                    </CardContent>
+                  </Card>
+                        {/* Pagamentos */}
+                        <Card className="rounded-xl border-border/70 bg-background/80 shadow-none">
+                    <CardHeader className="pb-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <CardTitle className="text-base font-semibold flex items-center gap-2">
+                          <DollarSign className="h-4 w-4 text-muted-foreground" /> Pagamentos
+                        </CardTitle>
+                        <Dialog open={paymentOpen} onOpenChange={setPaymentOpen}>
+                          <DialogTrigger asChild>
+                            <Button size="sm" variant="outline" disabled={administrativeTotalCents > 0 && administrativeBalanceCents <= 0}>
+                              <Plus className="h-3.5 w-3.5 mr-1" /> Registrar pagamento
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent className="max-w-md">
+                            <DialogHeader>
+                              <DialogTitle>Registrar pagamento</DialogTitle>
+                            </DialogHeader>
+                            <div className="space-y-4">
+                              <div className="grid grid-cols-3 gap-2 text-xs">
+                                <div className="rounded-md bg-muted/40 p-2">
+                                  <p className="text-muted-foreground">Valor da OS</p>
+                                  <p className="font-semibold text-foreground">{toCurrency(administrativeTotalCents / 100)}</p>
+                                </div>
+                                <div className="rounded-md bg-muted/40 p-2">
+                                  <p className="text-muted-foreground">Pago</p>
+                                  <p className="font-semibold text-emerald-700">{toCurrency(totalPaidCents / 100)}</p>
+                                </div>
+                                <div className="rounded-md bg-muted/40 p-2">
+                                  <p className="text-muted-foreground">Saldo</p>
+                                  <p className="font-semibold text-blue-700">{toCurrency(administrativeBalanceCents / 100)}</p>
+                                </div>
+                              </div>
+                              <div className="space-y-1.5">
+                                <Label htmlFor="payment-amount">Valor recebido</Label>
+                                <Input
+                                  id="payment-amount"
+                                  inputMode="decimal"
+                                  placeholder="0,00"
+                                  value={paymentAmount}
+                                  onChange={(event) => setPaymentAmount(event.target.value.replace(/[^0-9,.]/g, ""))}
+                                />
+                                <p className="text-xs text-muted-foreground">Aceita pagamento parcial ou total antes da entrega.</p>
+                              </div>
+                              <div className="space-y-1.5">
+                                <Label htmlFor="payment-method">Meio de pagamento</Label>
+                                <Select value={paymentMethod} onValueChange={(value) => setPaymentMethod(value as ManualPaymentMethod)}>
+                                  <SelectTrigger id="payment-method">
+                                    <SelectValue placeholder="Selecione" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {MANUAL_PAYMENT_METHODS.map((method) => (
+                                      <SelectItem key={method.value} value={method.value}>{method.label}</SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              <div className="space-y-1.5">
+                                <Label htmlFor="payment-notes">Observação opcional</Label>
+                                <Textarea
+                                  id="payment-notes"
+                                  rows={3}
+                                  placeholder="Ex.: pagamento antecipado no balcão"
+                                  value={paymentNotes}
+                                  onChange={(event) => setPaymentNotes(event.target.value)}
+                                />
+                              </div>
+                              <div className="flex justify-end gap-2">
+                                <Button type="button" variant="outline" onClick={() => setPaymentOpen(false)}>Cancelar</Button>
+                                <Button type="button" onClick={handleRegisterPayment} disabled={registerPayment.isPending}>
+                                  {registerPayment.isPending ? "Registrando..." : "Registrar pagamento"}
+                                </Button>
+                              </div>
+                            </div>
+                          </DialogContent>
+                        </Dialog>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      {payments && payments.length > 0 ? (
+                        <div className="space-y-2">
+                          {payments.map((p) => {
+                            const paymentMethodLabel = MANUAL_PAYMENT_METHODS.find((method) => method.value === p.method)?.label ?? p.method;
+                            return (
+                              <div key={p.id} className="flex justify-between gap-3 text-sm">
+                                <span className="text-muted-foreground">{paymentMethodLabel}</span>
+                                <span className="font-semibold text-emerald-600">{toCurrency(Number(p.amount))}</span>
+                              </div>
+                            );
+                          })}
+                          <Separator />
+                          <div className="flex justify-between text-sm font-bold">
+                            <span>Total pago</span>
+                            <span className="text-emerald-600">{toCurrency(totalPaid)}</span>
+                          </div>
+                          <div className="flex justify-between text-xs text-muted-foreground">
+                            <span>Saldo atual</span>
+                            <span>{toCurrency(administrativeBalanceCents / 100)}</span>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="rounded-lg border border-dashed bg-muted/30 p-3 text-xs text-muted-foreground">
+                          <p>Nenhum pagamento registrado</p>
+                          {administrativeTotalCents > 0 && (
+                            <p className="mt-1 font-medium text-foreground">Saldo em aberto: {toCurrency(administrativeBalanceCents / 100)}</p>
+                          )}
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
                 </div>
               </CardContent>
             </Card>
@@ -1223,405 +1669,39 @@ export default function ServiceOrderDetail() {
               </Card>
             )}
 
-            {/* Checklist de Entrada */}
-            {checklistItems && checklistItems.length > 0 && (
-              <Card>
-                <CardHeader className="pb-3">
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                      <CheckSquare className="h-4 w-4 text-muted-foreground" /> Checklist de Entrada
-                    </CardTitle>
-                    <Badge variant="secondary" className="text-xs">
-                      {checklistItems.filter((i) => i.isChecked).length}/{checklistItems.length}
-                    </Badge>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-1.5">
-                  {checklistItems.map((item) => (
-                    <button
-                      key={item.id}
-                      className="flex items-center gap-2.5 w-full text-left rounded-md px-2 py-1.5 hover:bg-muted/60 transition-colors group"
-                      onClick={() =>
-                        toggleChecklistItem.mutate({ itemId: item.id, isChecked: !item.isChecked })
-                      }
-                      disabled={toggleChecklistItem.isPending}
-                    >
-                      {item.isChecked ? (
-                        <CheckSquare className="h-4 w-4 text-primary shrink-0" />
-                      ) : (
-                        <Square className="h-4 w-4 text-muted-foreground shrink-0" />
-                      )}
-                      <span
-                        className={`text-sm ${
-                          item.isChecked ? "line-through text-muted-foreground" : "text-foreground"
-                        }`}
-                      >
-                        {item.label}
-                      </span>
-                    </button>
-                  ))}
-                  {checklistItems.every((i) => i.isChecked) && (
-                    <p className="text-xs text-green-600 font-medium pt-1 text-center">
-                      Todos os itens verificados
-                    </p>
-                  )}
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Orçamento */}
+            {/* Comunicação com cliente */}
             <Card className="rounded-2xl border-border/70 shadow-sm">
               <CardHeader className="pb-3">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-base font-semibold flex items-center gap-2">
-                    <DollarSign className="h-4 w-4 text-muted-foreground" /> Orçamento
-                  </CardTitle>
-                  <Dialog open={budgetOpen} onOpenChange={setBudgetOpen}>
-                    <DialogTrigger asChild>
-                      <Button size="sm" variant="outline">
-                        <Plus className="h-3.5 w-3.5 mr-1" /> Novo
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent className="max-w-lg">
-                      <DialogHeader>
-                        <DialogTitle>Criar Orçamento</DialogTitle>
-                      </DialogHeader>
-                      <div className="space-y-4">
-                        <div>
-                          <Label>Mão de obra (R$)</Label>
-                          <Input
-                            type="number"
-                            className="mt-1.5"
-                            value={laborCost}
-                            onChange={(e) => setLaborCost(Number(e.target.value))}
-                          />
-                        </div>
-                        <div>
-                          <Label className="mb-2 block">Itens / Peças</Label>
-                          {budgetItems.map((item, idx) => (
-                            <div key={idx} className="grid grid-cols-[2fr_1fr_1fr] gap-2 mb-2">
-                              <Input
-                                placeholder="Descrição"
-                                value={item.description}
-                                onChange={(e) => {
-                                  const updated = [...budgetItems];
-                                  updated[idx].description = e.target.value;
-                                  setBudgetItems(updated);
-                                }}
-                              />
-                              <Input
-                                type="number"
-                                placeholder="Qtd"
-                                value={item.quantity}
-                                onChange={(e) => {
-                                  const updated = [...budgetItems];
-                                  updated[idx].quantity = Number(e.target.value);
-                                  setBudgetItems(updated);
-                                }}
-                              />
-                              <Input
-                                type="number"
-                                placeholder="R$"
-                                value={item.unitPrice}
-                                onChange={(e) => {
-                                  const updated = [...budgetItems];
-                                  updated[idx].unitPrice = Number(e.target.value);
-                                  setBudgetItems(updated);
-                                }}
-                              />
-                            </div>
-                          ))}
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setBudgetItems([...budgetItems, { description: "", quantity: 1, unitPrice: 0, type: "part" as const }])}
-                          >
-                            <Plus className="h-3.5 w-3.5 mr-1" /> Adicionar item
-                          </Button>
-                        </div>
-                        <div className="flex justify-between font-semibold text-sm border-t pt-3">
-                          <span>Total estimado:</span>
-                          <span>R$ {(laborCost + budgetItems.reduce((s, i) => s + i.unitPrice * i.quantity, 0)).toFixed(2)}</span>
-                        </div>
-                        <Button className="w-full" onClick={handleBudgetSubmit} disabled={createBudget.isPending}>
-                          {createBudget.isPending ? "Enviando..." : "Enviar Orçamento"}
-                        </Button>
-                      </div>
-                    </DialogContent>
-                  </Dialog>
-                  <Dialog open={editBudgetOpen} onOpenChange={setEditBudgetOpen}>
-                    <DialogContent className="max-w-lg">
-                      <DialogHeader>
-                        <DialogTitle>Editar Orçamento</DialogTitle>
-                      </DialogHeader>
-                      <div className="space-y-4">
-                        <div>
-                          <Label>Descrição</Label>
-                          <Textarea
-                            className="mt-1.5 min-h-[70px]"
-                            placeholder="Resumo do orçamento para o cliente"
-                            value={editBudgetDescription}
-                            onChange={(e) => setEditBudgetDescription(e.target.value)}
-                          />
-                        </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                          <div>
-                            <Label>Mão de obra (R$)</Label>
-                            <Input
-                              type="number"
-                              min="0"
-                              step="0.01"
-                              className="mt-1.5"
-                              value={editBudgetLaborCost}
-                              onChange={(e) => setEditBudgetLaborCost(Number(e.target.value))}
-                            />
-                          </div>
-                          <div>
-                            <Label>Nova validade em dias</Label>
-                            <Input
-                              type="number"
-                              min="1"
-                              className="mt-1.5"
-                              placeholder="Manter validade atual"
-                              value={editBudgetValidDays}
-                              onChange={(e) => setEditBudgetValidDays(e.target.value)}
-                            />
-                          </div>
-                        </div>
-                        <div>
-                          <Label className="mb-2 block">Itens / Peças</Label>
-                          {editBudgetItems.length === 0 && (
-                            <p className="text-xs text-muted-foreground mb-2">Nenhum item adicional. Use mão de obra para orçamento simples.</p>
-                          )}
-                          {editBudgetItems.map((item, idx) => (
-                            <div key={idx} className="grid grid-cols-[2fr_1fr_1fr_auto] gap-2 mb-2">
-                              <Input
-                                placeholder="Descrição"
-                                value={item.description}
-                                onChange={(e) => {
-                                  const updated = [...editBudgetItems];
-                                  updated[idx].description = e.target.value;
-                                  setEditBudgetItems(updated);
-                                }}
-                              />
-                              <Input
-                                type="number"
-                                min="1"
-                                placeholder="Qtd"
-                                value={item.quantity}
-                                onChange={(e) => {
-                                  const updated = [...editBudgetItems];
-                                  updated[idx].quantity = Number(e.target.value);
-                                  setEditBudgetItems(updated);
-                                }}
-                              />
-                              <Input
-                                type="number"
-                                min="0"
-                                step="0.01"
-                                placeholder="R$"
-                                value={item.unitPrice}
-                                onChange={(e) => {
-                                  const updated = [...editBudgetItems];
-                                  updated[idx].unitPrice = Number(e.target.value);
-                                  setEditBudgetItems(updated);
-                                }}
-                              />
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                className="px-2 text-muted-foreground hover:text-destructive"
-                                onClick={() => setEditBudgetItems(editBudgetItems.filter((_, itemIndex) => itemIndex !== idx))}
-                              >
-                                Remover
-                              </Button>
-                            </div>
-                          ))}
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setEditBudgetItems([...editBudgetItems, { description: "", quantity: 1, unitPrice: 0, type: "part" as const }])}
-                          >
-                            <Plus className="h-3.5 w-3.5 mr-1" /> Adicionar item
-                          </Button>
-                        </div>
-                        <div className="flex justify-between font-semibold text-sm border-t pt-3">
-                          <span>Total corrigido:</span>
-                          <span>R$ {(editBudgetLaborCost + editBudgetItems.reduce((s, i) => s + i.unitPrice * i.quantity, 0)).toFixed(2)}</span>
-                        </div>
-                        <Button className="w-full" onClick={handleBudgetUpdateSubmit} disabled={updateBudget.isPending}>
-                          {updateBudget.isPending ? "Salvando..." : "Salvar alteração do orçamento"}
-                        </Button>
-                      </div>
-                    </DialogContent>
-                  </Dialog>
-                </div>
+                <CardTitle className="text-base font-semibold flex items-center gap-2">
+                  <ExternalLink className="h-4 w-4 text-muted-foreground" /> Comunicação com cliente
+                </CardTitle>
+                <p className="text-xs text-muted-foreground">Atalhos para acompanhamento público e contato rápido.</p>
               </CardHeader>
-              <CardContent>
-                {budgetList.length > 0 ? (
-                  <div className="space-y-3">
-                    {primaryBudget && (
-                      <div className="rounded-lg border border-emerald-200 bg-emerald-50/70 p-3 text-sm dark:border-emerald-900/60 dark:bg-emerald-950/20">
-                        <p className="text-xs font-medium text-emerald-700 dark:text-emerald-300">Orçamento principal da OS</p>
-                        <div className="mt-1 flex items-center justify-between gap-3">
-                          <span className="text-xl font-bold text-emerald-900 dark:text-emerald-100">{primaryBudgetLabel}</span>
-                          <Badge variant={isPrimaryBudgetApproved ? "default" : primaryBudget.status === "rejected" ? "destructive" : "secondary"}>
-                            {primaryBudgetStatusLabel}
-                          </Badge>
-                        </div>
-                        <p className="mt-1 text-xs text-emerald-700/80 dark:text-emerald-200/80">
-                          {primaryBudget.description || "Orçamento lançado para aprovação do cliente."}
-                        </p>
-                      </div>
-                    )}
-                    {budgetList.map((b) => {
-                      const isApprovedForDisplay = isBudgetEffectivelyApproved(b);
-                      return (
-                      <div key={b.id} className="p-3 rounded-lg bg-muted/50 text-sm">
-                        <div className="flex justify-between items-start gap-2 mb-1">
-                          <div>
-                            <span className="font-semibold">R$ {Number(b.totalCost).toFixed(2)}</span>
-                            {b.description && <p className="text-xs text-muted-foreground mt-0.5">{b.description}</p>}
-                          </div>
-                          <div className="flex items-center gap-2 shrink-0">
-                            <Badge variant={isApprovedForDisplay ? "default" : b.status === "rejected" ? "destructive" : "secondary"}>
-                              {isApprovedForDisplay ? "Aprovado" : b.status === "rejected" ? "Recusado" : "Pendente"}
-                            </Badge>
-                            {b.status === "pending" && !isApprovedForDisplay && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="h-7 px-2 text-xs"
-                                onClick={() => handleOpenEditBudget(b)}
-                              >
-                                <Pencil className="h-3 w-3 mr-1" /> Editar
-                              </Button>
-                            )}
-                          </div>
-                        </div>
-                        {b.validUntil && (
-                          <p className="text-xs text-muted-foreground">
-                            Válido até {new Date(b.validUntil).toLocaleDateString("pt-BR")}
-                          </p>
-                        )}
-                      </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <p className="text-xs text-muted-foreground">Nenhum orçamento criado</p>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Pagamentos */}
-            <Card className="rounded-2xl border-border/70 shadow-sm">
-              <CardHeader className="pb-3">
-                <div className="flex items-center justify-between gap-3">
-                  <CardTitle className="text-base font-semibold flex items-center gap-2">
-                    <DollarSign className="h-4 w-4 text-muted-foreground" /> Pagamentos
-                  </CardTitle>
-                  <Dialog open={paymentOpen} onOpenChange={setPaymentOpen}>
-                    <DialogTrigger asChild>
-                      <Button size="sm" variant="outline" disabled={administrativeTotalCents > 0 && administrativeBalanceCents <= 0}>
-                        <Plus className="h-3.5 w-3.5 mr-1" /> Registrar pagamento
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent className="max-w-md">
-                      <DialogHeader>
-                        <DialogTitle>Registrar pagamento</DialogTitle>
-                      </DialogHeader>
-                      <div className="space-y-4">
-                        <div className="grid grid-cols-3 gap-2 text-xs">
-                          <div className="rounded-md bg-muted/40 p-2">
-                            <p className="text-muted-foreground">Valor da OS</p>
-                            <p className="font-semibold text-foreground">{toCurrency(administrativeTotalCents / 100)}</p>
-                          </div>
-                          <div className="rounded-md bg-muted/40 p-2">
-                            <p className="text-muted-foreground">Pago</p>
-                            <p className="font-semibold text-emerald-700">{toCurrency(totalPaidCents / 100)}</p>
-                          </div>
-                          <div className="rounded-md bg-muted/40 p-2">
-                            <p className="text-muted-foreground">Saldo</p>
-                            <p className="font-semibold text-blue-700">{toCurrency(administrativeBalanceCents / 100)}</p>
-                          </div>
-                        </div>
-                        <div className="space-y-1.5">
-                          <Label htmlFor="payment-amount">Valor recebido</Label>
-                          <Input
-                            id="payment-amount"
-                            inputMode="decimal"
-                            placeholder="0,00"
-                            value={paymentAmount}
-                            onChange={(event) => setPaymentAmount(event.target.value.replace(/[^0-9,.]/g, ""))}
-                          />
-                          <p className="text-xs text-muted-foreground">Aceita pagamento parcial ou total antes da entrega.</p>
-                        </div>
-                        <div className="space-y-1.5">
-                          <Label htmlFor="payment-method">Meio de pagamento</Label>
-                          <Select value={paymentMethod} onValueChange={(value) => setPaymentMethod(value as ManualPaymentMethod)}>
-                            <SelectTrigger id="payment-method">
-                              <SelectValue placeholder="Selecione" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {MANUAL_PAYMENT_METHODS.map((method) => (
-                                <SelectItem key={method.value} value={method.value}>{method.label}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="space-y-1.5">
-                          <Label htmlFor="payment-notes">Observação opcional</Label>
-                          <Textarea
-                            id="payment-notes"
-                            rows={3}
-                            placeholder="Ex.: pagamento antecipado no balcão"
-                            value={paymentNotes}
-                            onChange={(event) => setPaymentNotes(event.target.value)}
-                          />
-                        </div>
-                        <div className="flex justify-end gap-2">
-                          <Button type="button" variant="outline" onClick={() => setPaymentOpen(false)}>Cancelar</Button>
-                          <Button type="button" onClick={handleRegisterPayment} disabled={registerPayment.isPending}>
-                            {registerPayment.isPending ? "Registrando..." : "Registrar pagamento"}
-                          </Button>
-                        </div>
-                      </div>
-                    </DialogContent>
-                  </Dialog>
+              <CardContent className="space-y-3">
+                <div className="grid grid-cols-2 gap-2">
+                  <Button size="sm" variant="outline" className="w-full" onClick={copyTrackingLink}>
+                    <Copy className="h-3.5 w-3.5 mr-1" /> Copiar
+                  </Button>
+                  <Button size="sm" variant="outline" className="w-full" onClick={() => window.open(trackingUrl, "_blank")}>
+                    <ExternalLink className="h-3.5 w-3.5 mr-1" /> Abrir
+                  </Button>
                 </div>
-              </CardHeader>
-              <CardContent>
-                {payments && payments.length > 0 ? (
-                  <div className="space-y-2">
-                    {payments.map((p) => {
-                      const paymentMethodLabel = MANUAL_PAYMENT_METHODS.find((method) => method.value === p.method)?.label ?? p.method;
-                      return (
-                        <div key={p.id} className="flex justify-between gap-3 text-sm">
-                          <span className="text-muted-foreground">{paymentMethodLabel}</span>
-                          <span className="font-semibold text-emerald-600">{toCurrency(Number(p.amount))}</span>
-                        </div>
-                      );
-                    })}
-                    <Separator />
-                    <div className="flex justify-between text-sm font-bold">
-                      <span>Total pago</span>
-                      <span className="text-emerald-600">{toCurrency(totalPaid)}</span>
-                    </div>
-                    <div className="flex justify-between text-xs text-muted-foreground">
-                      <span>Saldo atual</span>
-                      <span>{toCurrency(administrativeBalanceCents / 100)}</span>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    <p className="text-xs text-muted-foreground">Nenhum pagamento registrado</p>
-                    {administrativeTotalCents > 0 && (
-                      <p className="text-xs text-muted-foreground">Saldo atual: {toCurrency(administrativeBalanceCents / 100)}</p>
-                    )}
-                  </div>
+                {(os as any).customerPhone && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="w-full bg-green-50 hover:bg-green-100 border-green-200 text-green-700 hover:text-green-800"
+                    onClick={() => {
+                      const phone = String((os as any).customerPhone).replace(/\D/g, "");
+                      window.open(`https://wa.me/55${phone}`, "_blank");
+                    }}
+                  >
+                    <MessageSquare className="h-3.5 w-3.5 mr-1" /> Chamar no WhatsApp
+                  </Button>
                 )}
+                <p className="text-[11px] text-muted-foreground break-all font-mono bg-muted px-2 py-1.5 rounded">
+                  {trackingUrl}
+                </p>
               </CardContent>
             </Card>
 
@@ -1643,27 +1723,6 @@ export default function ServiceOrderDetail() {
               </Card>
             )}
 
-            {/* Link de rastreamento */}
-            <Card className="rounded-2xl border-border/70 shadow-sm">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base font-semibold flex items-center gap-2">
-                  <ExternalLink className="h-4 w-4 text-muted-foreground" /> Link Público
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                <p className="text-xs text-muted-foreground break-all font-mono bg-muted px-2 py-1.5 rounded">
-                  {trackingUrl}
-                </p>
-                <div className="flex gap-2">
-                  <Button size="sm" variant="outline" className="flex-1" onClick={copyTrackingLink}>
-                    <Copy className="h-3.5 w-3.5 mr-1" /> Copiar
-                  </Button>
-                  <Button size="sm" variant="outline" className="flex-1" onClick={() => window.open(trackingUrl, "_blank")}>
-                    <ExternalLink className="h-3.5 w-3.5 mr-1" /> Abrir
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
           </div>
         </div>
       </div>
