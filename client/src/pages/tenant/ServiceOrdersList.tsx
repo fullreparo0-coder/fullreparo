@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Pagination } from "@/components/Pagination";
 import { trpc } from "@/lib/trpc";
 import { useLocation, useSearch } from "wouter";
-import { Plus, Search, ClipboardList, Wrench, Filter, HelpCircle, Truck, Calendar, X, Download, FileText } from "lucide-react";
+import { Plus, Search, ClipboardList, Wrench, Filter, HelpCircle, Truck, Calendar, X, Download, FileText, AlertTriangle, Clock3, UserRound, WalletCards, Smartphone, ArrowRight, CheckCircle2 } from "lucide-react";
 import { useState as useExportState } from "react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -19,6 +19,128 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 const STATUS_OPTIONS = Object.entries(STATUS_LABELS);
 const PAGE_SIZE = 20;
 const COLETAS_STATUS = "aguardando_coleta,coleta_agendada";
+
+const FINAL_STATUSES = new Set(["finalizado", "encerrado_sem_reparo", "encerrado_condenado", "cancelado", "entregue"]);
+const HIGH_TOUCH_STATUSES = new Set(["aguardando_aprovacao", "pronto", "aguardando_entrega", "aguardando_peca"]);
+const SLA_LIMIT_HOURS: Record<string, number> = {
+  solicitado: 4,
+  aguardando_coleta: 8,
+  coleta_agendada: 24,
+  coletado: 8,
+  recebido_na_assistencia: 24,
+  em_diagnostico: 48,
+  aguardando_aprovacao: 24,
+  aprovado: 12,
+  aguardando_peca: 72,
+  em_reparo: 48,
+  pronto: 24,
+  aguardando_entrega: 24,
+  saiu_para_entrega: 8,
+};
+
+function moneyToNumber(value: unknown) {
+  const number = Number(value ?? 0);
+  return Number.isFinite(number) ? number : 0;
+}
+
+function formatMoney(value: unknown) {
+  return moneyToNumber(value).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+}
+
+function toDateOrNull(value: Date | string | null | undefined) {
+  if (!value) return null;
+  const parsed = value instanceof Date ? value : new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function hoursBetween(start: Date | null, end: Date) {
+  if (!start) return 0;
+  return Math.max(0, Math.round(((end.getTime() - start.getTime()) / 36_000)) / 100);
+}
+
+function formatRelativeHours(hours: number) {
+  if (hours < 1) return "menos de 1h";
+  if (hours < 24) return `${Math.round(hours)}h`;
+  const days = Math.floor(hours / 24);
+  const remaining = Math.round(hours % 24);
+  return remaining > 0 ? `${days}d ${remaining}h` : `${days}d`;
+}
+
+function formatDate(value: Date | string | null | undefined) {
+  const date = toDateOrNull(value);
+  return date ? date.toLocaleDateString("pt-BR") : "—";
+}
+
+function formatDateTime(value: Date | string | null | undefined) {
+  const date = toDateOrNull(value);
+  return date ? date.toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" }) : "—";
+}
+
+function buildDeviceLabel(order: Record<string, unknown>) {
+  const parts = [order.deviceBrand, order.deviceModel].map((value) => String(value ?? "").trim()).filter(Boolean);
+  if (parts.length) return parts.join(" ");
+  return String(order.deviceType ?? "Aparelho não informado");
+}
+
+function buildSlaSnapshot(order: Record<string, unknown>, now = new Date()) {
+  const status = String(order.status ?? "");
+  const baseDate = toDateOrNull(order.updatedAt as Date | string | null | undefined) ?? toDateOrNull(order.createdAt as Date | string | null | undefined);
+  const estimatedDelivery = toDateOrNull(order.estimatedDelivery as Date | string | null | undefined);
+  const hoursInStage = hoursBetween(baseDate, now);
+  const limitHours = SLA_LIMIT_HOURS[status] ?? 48;
+  const isFinal = FINAL_STATUSES.has(status);
+  const isOverdue = !!estimatedDelivery && estimatedDelivery < now && !isFinal;
+  const isStageStalled = !isFinal && hoursInStage >= limitHours;
+  const remainingHours = isFinal ? null : Math.max(0, Math.round((limitHours - hoursInStage) * 100) / 100);
+
+  return {
+    statusAgeHours: hoursInStage,
+    limitHours,
+    remainingHours,
+    isOverdue,
+    isStageStalled,
+    label: isFinal
+      ? "Concluída"
+      : isOverdue
+        ? "Prazo vencido"
+        : isStageStalled
+          ? "Etapa parada"
+          : "Dentro do SLA",
+  };
+}
+
+function buildNextBestAction(order: Record<string, unknown>, sla: ReturnType<typeof buildSlaSnapshot>) {
+  const status = String(order.status ?? "");
+  const totalAmount = moneyToNumber(order.totalAmount);
+  const hasDeliveryAuthorization = !!order.deliveryAuthorizedAt;
+  const isFinal = FINAL_STATUSES.has(status);
+
+  if (isFinal) return { priority: "baixa", title: "OS concluída", ctaLabel: "Revisar OS" };
+  if (sla.isOverdue) return { priority: "alta", title: "Revisar prazo e avisar cliente", ctaLabel: "Atualizar prazo" };
+  if (status === "aguardando_aprovacao") return { priority: "alta", title: "Cobrar aprovação do orçamento", ctaLabel: "Enviar lembrete" };
+  if (status === "pronto" || status === "aguardando_entrega") {
+    return {
+      priority: totalAmount > 0 && !hasDeliveryAuthorization ? "alta" : "media",
+      title: "Combinar retirada, entrega ou pagamento",
+      ctaLabel: "Finalizar entrega",
+    };
+  }
+  if (status === "aguardando_peca") return { priority: "media", title: "Atualizar previsão da peça", ctaLabel: "Atualizar previsão" };
+  if (sla.isStageStalled || HIGH_TOUCH_STATUSES.has(status)) return { priority: "media", title: "Atualizar etapa e comunicar cliente", ctaLabel: "Registrar atualização" };
+  return { priority: "normal", title: "Acompanhar andamento", ctaLabel: "Abrir OS" };
+}
+
+function priorityClasses(priority: string) {
+  if (priority === "alta") return "border-red-200 bg-red-50 text-red-700";
+  if (priority === "media") return "border-amber-200 bg-amber-50 text-amber-700";
+  if (priority === "baixa") return "border-emerald-200 bg-emerald-50 text-emerald-700";
+  return "border-border bg-muted/40 text-muted-foreground";
+}
+
+function slaClasses(sla: ReturnType<typeof buildSlaSnapshot>) {
+  if (sla.isOverdue || sla.isStageStalled) return "border-red-200 bg-red-50 text-red-700";
+  return "border-emerald-200 bg-emerald-50 text-emerald-700";
+}
 
 export default function ServiceOrdersList() {
   const [, navigate] = useLocation();
@@ -149,6 +271,24 @@ export default function ServiceOrdersList() {
   const orders = data?.data ?? [];
   const totalCount = data?.totalCount ?? 0;
   const totalPages = data?.totalPages ?? 0;
+
+  const visibleStats = useMemo(() => {
+    return orders.reduce(
+      (acc, os) => {
+        const sla = buildSlaSnapshot(os as Record<string, unknown>);
+        const action = buildNextBestAction(os as Record<string, unknown>, sla);
+        const total = moneyToNumber(os.totalAmount);
+        const paid = moneyToNumber(os.paidAmount);
+        acc.total += 1;
+        if (action.priority === "alta" || sla.isOverdue || sla.isStageStalled) acc.attention += 1;
+        if (total > 0) acc.withValue += 1;
+        if (Math.max(total - paid, 0) > 0) acc.withBalance += 1;
+        if (os.origin === "coleta") acc.pickups += 1;
+        return acc;
+      },
+      { total: 0, attention: 0, withValue: 0, withBalance: 0, pickups: 0 },
+    );
+  }, [orders]);
 
   return (
     <TenantLayout title="Ordens de Serviço">
@@ -407,6 +547,47 @@ export default function ServiceOrdersList() {
           </div>
         )}
 
+        {/* Resumo da página atual */}
+        {!isLoading && orders.length > 0 && (
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+            <Card className="border-border/70 bg-muted/20">
+              <CardContent className="p-4">
+                <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Resultado visível</p>
+                <p className="mt-1 text-2xl font-semibold text-foreground">{visibleStats.total}</p>
+                <p className="text-xs text-muted-foreground">de {totalCount} OS filtradas</p>
+              </CardContent>
+            </Card>
+            <Card className="border-red-200/70 bg-red-50/70">
+              <CardContent className="p-4">
+                <p className="text-[11px] font-medium uppercase tracking-wide text-red-700/80">Atenção operacional</p>
+                <p className="mt-1 text-2xl font-semibold text-red-700">{visibleStats.attention}</p>
+                <p className="text-xs text-red-700/75">prazo, etapa parada ou ação alta</p>
+              </CardContent>
+            </Card>
+            <Card className="border-emerald-200/70 bg-emerald-50/70">
+              <CardContent className="p-4">
+                <p className="text-[11px] font-medium uppercase tracking-wide text-emerald-700/80">Com valor</p>
+                <p className="mt-1 text-2xl font-semibold text-emerald-700">{visibleStats.withValue}</p>
+                <p className="text-xs text-emerald-700/75">OS com valor informado</p>
+              </CardContent>
+            </Card>
+            <Card className="border-amber-200/70 bg-amber-50/70">
+              <CardContent className="p-4">
+                <p className="text-[11px] font-medium uppercase tracking-wide text-amber-700/80">Saldo em aberto</p>
+                <p className="mt-1 text-2xl font-semibold text-amber-700">{visibleStats.withBalance}</p>
+                <p className="text-xs text-amber-700/75">conforme pagamentos pagos</p>
+              </CardContent>
+            </Card>
+            <Card className="border-blue-200/70 bg-blue-50/70">
+              <CardContent className="p-4">
+                <p className="text-[11px] font-medium uppercase tracking-wide text-blue-700/80">Coletas</p>
+                <p className="mt-1 text-2xl font-semibold text-blue-700">{visibleStats.pickups}</p>
+                <p className="text-xs text-blue-700/75">origem coleta na página</p>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
         {/* List */}
         <Card className="border border-border">
           <CardContent className="p-0">
@@ -430,56 +611,124 @@ export default function ServiceOrdersList() {
                 )}
               </div>
             ) : (
-              <div className="grid grid-cols-2 gap-2 p-2 sm:block sm:divide-y sm:divide-border sm:p-0">
-                {/* Header */}
-                <div className="hidden sm:grid grid-cols-[1fr_1.4fr_2fr_1.5fr_1fr_auto] gap-4 px-5 py-2.5 text-xs font-medium text-muted-foreground bg-muted/30">
-                  <span>Número</span>
-                  <span>Cliente</span>
-                  <span>Defeito</span>
-                  <span>Status</span>
-                  <span>Data</span>
-                  <span>Origem</span>
+              <div className="divide-y divide-border">
+                <div className="hidden lg:grid grid-cols-[1.1fr_1.2fr_1.5fr_1.25fr_1.15fr_1.05fr_auto] gap-4 px-5 py-2.5 text-xs font-medium text-muted-foreground bg-muted/30">
+                  <span>OS e cliente</span>
+                  <span>Aparelho</span>
+                  <span>Próxima ação</span>
+                  <span>Status / SLA</span>
+                  <span>Financeiro</span>
+                  <span>Responsável</span>
+                  <span>Abrir</span>
                 </div>
-                {orders.map((os) => (
-                  <button
-                    key={os.id}
-                    onClick={() => navigate(`/painel/os/${os.id}`)}
-                    className="group min-w-0 w-full rounded-2xl border border-border/70 bg-background px-3 py-2.5 text-left shadow-sm transition-colors hover:bg-muted/25 active:bg-muted/45 sm:grid sm:grid-cols-[1fr_1.4fr_2fr_1.5fr_1fr_auto] sm:items-center sm:gap-4 sm:rounded-none sm:border-0 sm:px-5 sm:py-4 sm:shadow-none"
-                  >
-                    <div className="flex items-start sm:items-center gap-2 min-w-0">
-                      <div className="hidden sm:flex h-8 w-8 items-center justify-center rounded-lg bg-muted shrink-0">
-                        <Wrench className="h-3.5 w-3.5 text-muted-foreground" />
-                      </div>
-                      <div className="min-w-0 w-full sm:w-auto">
-                        <span className="block text-[12px] sm:text-sm font-semibold text-foreground tracking-tight truncate">{os.osNumber}</span>
-                        <span className="block sm:hidden text-[12px] font-semibold text-foreground/85 leading-4 truncate mt-0.5">
-                          {os.customerName ?? "Cliente não informado"}
-                        </span>
-                      </div>
-                    </div>
-                    <p className="hidden sm:block text-sm font-medium text-foreground/80 truncate">{os.customerName ?? "Cliente não informado"}</p>
-                    <div className="sm:hidden mt-1.5 min-w-0">
-                      <StatusBadge
-                        status={os.status}
-                        size="sm"
-                        className="max-w-full px-1.5 py-0 text-[9px] leading-4 shadow-none truncate"
-                      />
-                    </div>
-                    <p className="mt-1 sm:mt-0 text-[11px] sm:text-sm text-muted-foreground leading-4 sm:leading-normal truncate">{os.reportedDefect}</p>
-                    <StatusBadge status={os.status} size="sm" className="hidden sm:inline-flex" />
-                    <span className="hidden sm:inline text-xs text-muted-foreground">
-                      {new Date(os.createdAt).toLocaleDateString("pt-BR")}
-                    </span>
-                    <Badge variant="outline" className="hidden sm:inline-flex text-[10px] h-5 px-1.5 w-fit">
-                      {os.origin === "coleta" ? "Coleta" : "Balcão"}
-                    </Badge>
-                    <div className="sm:hidden mt-1.5 flex items-center gap-1.5 text-[10px] leading-3 text-muted-foreground">
-                      <span>{new Date(os.createdAt).toLocaleDateString("pt-BR")}</span>
-                      <span className="h-1 w-1 rounded-full bg-muted-foreground/35" />
-                      <span className="truncate">{os.origin === "coleta" ? "Coleta" : "Balcão"}</span>
-                    </div>
-                  </button>
-                ))}
+                <div className="grid grid-cols-1 gap-3 p-3 lg:block lg:p-0">
+                  {orders.map((os) => {
+                    const orderRecord = os as Record<string, unknown>;
+                    const sla = buildSlaSnapshot(orderRecord);
+                    const nextAction = buildNextBestAction(orderRecord, sla);
+                    const total = moneyToNumber(os.totalAmount);
+                    const paid = moneyToNumber(os.paidAmount);
+                    const balance = Math.max(total - paid, 0);
+                    const hasPendingPayment = Number(os.pendingPaymentsCount ?? 0) > 0;
+                    const deviceLabel = buildDeviceLabel(orderRecord);
+                    const technicianName = os.technicianName ?? "Sem técnico";
+
+                    return (
+                      <button
+                        key={os.id}
+                        onClick={() => navigate(`/painel/os/${os.id}`)}
+                        className="group w-full rounded-2xl border border-border/70 bg-background p-4 text-left shadow-sm transition-colors hover:bg-muted/25 active:bg-muted/45 lg:grid lg:grid-cols-[1.1fr_1.2fr_1.5fr_1.25fr_1.15fr_1.05fr_auto] lg:items-center lg:gap-4 lg:rounded-none lg:border-0 lg:px-5 lg:py-4 lg:shadow-none"
+                      >
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2">
+                            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 text-primary lg:h-8 lg:w-8">
+                              <Wrench className="h-4 w-4" />
+                            </div>
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-semibold text-foreground">{os.osNumber}</p>
+                              <p className="truncate text-xs font-medium text-muted-foreground">{os.customerName ?? "Cliente não informado"}</p>
+                            </div>
+                          </div>
+                          <div className="mt-3 flex flex-wrap items-center gap-2 lg:hidden">
+                            <Badge variant="outline" className="h-5 px-1.5 text-[10px]">
+                              {os.origin === "coleta" ? "Coleta" : "Balcão"}
+                            </Badge>
+                            <span className="text-[11px] text-muted-foreground">Criada em {formatDate(os.createdAt)}</span>
+                          </div>
+                        </div>
+
+                        <div className="mt-4 min-w-0 lg:mt-0">
+                          <div className="flex items-center gap-2 text-sm font-medium text-foreground/85">
+                            <Smartphone className="h-4 w-4 shrink-0 text-muted-foreground" />
+                            <span className="truncate">{deviceLabel}</span>
+                          </div>
+                          <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{os.reportedDefect || "Defeito não informado"}</p>
+                          {(os.deviceImei || os.deviceSerialNumber) && (
+                            <p className="mt-1 truncate text-[11px] text-muted-foreground/85">
+                              {os.deviceImei ? `IMEI ${os.deviceImei}` : `SN ${os.deviceSerialNumber}`}
+                            </p>
+                          )}
+                        </div>
+
+                        <div className="mt-4 min-w-0 lg:mt-0">
+                          <Badge variant="outline" className={`max-w-full justify-start gap-1.5 px-2 py-1 text-[11px] ${priorityClasses(nextAction.priority)}`}>
+                            {nextAction.priority === "alta" ? <AlertTriangle className="h-3.5 w-3.5 shrink-0" /> : <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />}
+                            <span className="truncate">{nextAction.title}</span>
+                          </Badge>
+                          <p className="mt-1 text-[11px] text-muted-foreground">Ação: {nextAction.ctaLabel}</p>
+                        </div>
+
+                        <div className="mt-4 min-w-0 lg:mt-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <StatusBadge status={os.status} size="sm" />
+                            <Badge variant="outline" className={`gap-1.5 px-2 py-1 text-[11px] ${slaClasses(sla)}`}>
+                              <Clock3 className="h-3.5 w-3.5" />
+                              {sla.label}
+                            </Badge>
+                          </div>
+                          <p className="mt-1 text-[11px] text-muted-foreground">
+                            {formatRelativeHours(sla.statusAgeHours)} na etapa
+                            {sla.remainingHours !== null && !sla.isStageStalled ? ` · ${formatRelativeHours(sla.remainingHours)} restantes` : ""}
+                          </p>
+                          {os.estimatedDelivery && (
+                            <p className="text-[11px] text-muted-foreground">Previsão: {formatDate(os.estimatedDelivery)}</p>
+                          )}
+                        </div>
+
+                        <div className="mt-4 min-w-0 lg:mt-0">
+                          <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                            <WalletCards className="h-4 w-4 text-muted-foreground" />
+                            {total > 0 ? formatMoney(total) : "Sem valor"}
+                          </div>
+                          <p className="mt-1 text-[11px] text-muted-foreground">
+                            Pago {formatMoney(paid)} · Saldo {formatMoney(balance)}
+                          </p>
+                          {hasPendingPayment && (
+                            <p className="text-[11px] font-medium text-amber-700">Pagamento solicitado em aberto</p>
+                          )}
+                        </div>
+
+                        <div className="mt-4 min-w-0 lg:mt-0">
+                          <div className="flex items-center gap-2 text-sm font-medium text-foreground/85">
+                            <UserRound className="h-4 w-4 text-muted-foreground" />
+                            <span className="truncate">{technicianName}</span>
+                          </div>
+                          <p className="mt-1 text-[11px] text-muted-foreground">Atualizada {formatDateTime(os.updatedAt)}</p>
+                          <Badge variant="outline" className="mt-2 hidden h-5 w-fit px-1.5 text-[10px] lg:inline-flex">
+                            {os.origin === "coleta" ? "Coleta" : "Balcão"}
+                          </Badge>
+                        </div>
+
+                        <div className="mt-4 flex items-center justify-between border-t border-border/70 pt-3 lg:mt-0 lg:block lg:border-0 lg:pt-0">
+                          <span className="text-xs font-medium text-muted-foreground lg:hidden">Abrir detalhes</span>
+                          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-muted text-muted-foreground transition-colors group-hover:bg-primary group-hover:text-primary-foreground lg:ml-auto">
+                            <ArrowRight className="h-4 w-4" />
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
             )}
           </CardContent>

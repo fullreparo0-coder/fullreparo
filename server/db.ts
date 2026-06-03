@@ -293,16 +293,47 @@ export async function getServiceOrdersByTenant(
         osNumber: serviceOrders.osNumber,
         customerId: serviceOrders.customerId,
         deviceId: serviceOrders.deviceId,
+        technicianId: serviceOrders.technicianId,
         status: serviceOrders.status,
         origin: serviceOrders.origin,
         reportedDefect: serviceOrders.reportedDefect,
         totalAmount: serviceOrders.totalAmount,
+        estimatedDelivery: serviceOrders.estimatedDelivery,
+        paymentRequestedAt: serviceOrders.paymentRequestedAt,
+        deliveryAuthorizedAt: serviceOrders.deliveryAuthorizedAt,
         createdAt: serviceOrders.createdAt,
         updatedAt: serviceOrders.updatedAt,
         customerName: customers.name,
+        customerPhone: customers.phone,
+        customerDocument: customers.document,
+        deviceBrand: devices.brand,
+        deviceModel: devices.model,
+        deviceType: devices.type,
+        deviceImei: devices.imei,
+        deviceSerialNumber: devices.serialNumber,
+        technicianName: sql<string | null>`(
+          SELECT u.name FROM users u
+          WHERE u.id = ${serviceOrders.technicianId}
+          LIMIT 1
+        )`,
+        paidAmount: sql<string>`COALESCE((
+          SELECT SUM(CAST(p.amount AS DECIMAL(10,2)))
+          FROM payments p
+          WHERE p.tenantId = ${serviceOrders.tenantId}
+            AND p.serviceOrderId = ${serviceOrders.id}
+            AND p.status = 'paid'
+        ), 0)`,
+        pendingPaymentsCount: sql<number>`(
+          SELECT COUNT(*)
+          FROM payments p
+          WHERE p.tenantId = ${serviceOrders.tenantId}
+            AND p.serviceOrderId = ${serviceOrders.id}
+            AND p.status IN ('pending', 'processing')
+        )`,
       })
       .from(serviceOrders)
       .leftJoin(customers, and(eq(serviceOrders.customerId, customers.id), eq(serviceOrders.tenantId, customers.tenantId)))
+      .leftJoin(devices, and(eq(serviceOrders.deviceId, devices.id), eq(serviceOrders.tenantId, devices.tenantId)))
       .where(where)
       .orderBy(desc(serviceOrders.createdAt))
       .limit(pageSize)
