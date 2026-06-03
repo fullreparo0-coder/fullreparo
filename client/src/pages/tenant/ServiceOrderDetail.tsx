@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, type ReactNode } from "react";
 import { TenantLayout } from "@/components/TenantLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -619,6 +619,27 @@ export default function ServiceOrderDetail() {
     ? `https://www.google.com/maps?q=${pickupLatitude},${pickupLongitude}`
     : "";
 
+
+  const DetailItem = ({ label, value, className = "" }: { label: string; value?: ReactNode; className?: string }) => (
+    <div className={`min-w-0 ${className}`}>
+      <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{label}</p>
+      <div className="mt-1 break-words text-sm font-medium leading-relaxed text-foreground">{value || "—"}</div>
+    </div>
+  );
+
+  const SectionNote = ({ label, children, tone = "default" }: { label: string; children?: ReactNode; tone?: "default" | "amber" }) => {
+    if (!children) return null;
+    const toneClass = tone === "amber"
+      ? "border-amber-200 bg-amber-50/60 text-amber-950 dark:border-amber-900/60 dark:bg-amber-950/20 dark:text-amber-100"
+      : "border-border bg-muted/30 text-foreground";
+    return (
+      <div className={`rounded-xl border p-3 ${toneClass}`}>
+        <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{label}</p>
+        <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed">{children}</p>
+      </div>
+    );
+  };
+
   const nextBestAction = (os as any).nextBestAction as { code?: string; priority?: string; title?: string; description?: string; ctaLabel?: string } | undefined;
   const sla = (os as any).sla as { statusAgeHours?: number; isOverdue?: boolean; isStageStalled?: boolean; estimatedDelivery?: string | null; overdueDays?: number } | undefined;
   const priorityClass = nextBestAction?.priority === "alta"
@@ -662,135 +683,159 @@ export default function ServiceOrderDetail() {
 
   return (
     <TenantLayout title={`OS ${os.osNumber}`}>
-      <div className="space-y-4 max-w-4xl mx-auto">
+      <div className="mx-auto max-w-7xl space-y-5">
         {/* Header */}
-        <div className="flex flex-wrap items-center gap-3">
-          <Button variant="ghost" size="sm" onClick={() => navigate("/painel/os")}>
-            <ArrowLeft className="h-4 w-4 mr-1" /> Voltar
-          </Button>
-          <div className="flex-1" />
-          <StatusBadge status={os.status} size="lg" />
-          <Badge variant="outline">{os.origin === "coleta" ? "Coleta" : "Balcão"}</Badge>
-          {isWarrantyReturn && (
-            <Badge className="bg-amber-100 text-amber-900 border border-amber-300 hover:bg-amber-100">
-              Retorno Garantia
-            </Badge>
-          )}
-          <Button variant="outline" size="sm" onClick={copyTrackingLink}>
-            <Copy className="h-3.5 w-3.5 mr-1.5" /> Link
-          </Button>
-          <Button variant="outline" size="sm" onClick={openWhatsApp}>
-            <MessageSquare className="h-3.5 w-3.5 mr-1.5" /> WhatsApp
-          </Button>
-          {os.status === "aguardando_coleta" && (
-            <Button
-              size="sm"
-              className="bg-blue-600 hover:bg-blue-700 text-white font-semibold shadow-sm"
-              onClick={() => setSchedulePickupOpen(true)}
-            >
-              <Truck className="h-3.5 w-3.5 mr-1.5" /> Agendar Coleta
-            </Button>
-          )}
-          {os.status === "coleta_agendada" && (
-            <Button
-              size="sm"
-              className="bg-violet-600 hover:bg-violet-700 text-white font-semibold shadow-sm"
-              disabled={updateStatus.isPending}
-              onClick={() =>
-                updateStatus.mutate({
-                  id: osId,
-                  status: "em_reparo",
-                  notes: "Aparelho retirado pelo técnico. Iniciando reparo.",
-                })
-              }
-            >
-              <PackageCheck className="h-3.5 w-3.5 mr-1.5" />
-              {updateStatus.isPending ? "Confirmando..." : "Confirmar Retirada"}
-            </Button>
-          )}
-          {(os.status === "aguardando_entrega" || os.status === "saiu_para_entrega") && (
-            <Button
-              size="sm"
-              className="bg-teal-600 hover:bg-teal-700 text-white font-semibold shadow-sm"
-              disabled={updateStatus.isPending}
-              onClick={() =>
-                updateStatus.mutate({
-                  id: osId,
-                  status: "entregue",
-                  notes: "Aparelho entregue ao cliente. Ciclo de entrega concluído.",
-                })
-              }
-            >
-              <PackageCheck className="h-3.5 w-3.5 mr-1.5" />
-              {updateStatus.isPending ? "Confirmando..." : "Confirmar Entrega"}
-            </Button>
-          )}
-          {os.status !== "finalizado" && os.status !== "cancelado" && (
-            <Button
-              size="sm"
-              className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold shadow-sm"
-              onClick={() => {
-                setNewStatus("finalizado");
-                setCloseWarrantyDays(os.warrantyDays ?? 90);
-                setCloseOutcome("finalizado");
-                setCloseNotes("");
-                setCloseModal(true);
-              }}
-            >
-              <Shield className="h-3.5 w-3.5 mr-1.5" /> Encerrar OS
-            </Button>
-          )}
-          {canOpenWarrantyReturn && (
-            <Button
-              size="sm"
-              variant="outline"
-              className="border-amber-300 bg-amber-50 text-amber-900 hover:bg-amber-100 font-semibold"
-              onClick={() => setWarrantyReturnOpen(true)}
-            >
-              <Shield className="h-3.5 w-3.5 mr-1.5" /> Abrir retorno em garantia
-            </Button>
-          )}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm">
-                <Printer className="h-3.5 w-3.5 mr-1.5" /> Imprimir <ChevronDown className="h-3 w-3 ml-1" />
+        <div className="rounded-2xl border border-border/70 bg-card p-4 shadow-sm sm:p-5">
+          <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+            <div className="min-w-0 space-y-3">
+              <Button variant="ghost" size="sm" className="w-fit px-0 text-muted-foreground hover:text-foreground" onClick={() => navigate("/painel/os")}>
+                <ArrowLeft className="h-4 w-4 mr-1" /> Voltar para ordens de serviço
               </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="min-w-[210px]">
-              <DropdownMenuLabel className="text-xs">Ficha da OS</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => handlePrint("a4")}>
-                <FileText className="h-3.5 w-3.5 mr-2" /> Folha A4 (completa)
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handlePrint("thermal80")}>
-                <Printer className="h-3.5 w-3.5 mr-2" /> Bobina Térmica 80mm padrão
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handlePrint("thermal58")}>
-                <Printer className="h-3.5 w-3.5 mr-2" /> Bobina 58mm legado
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handlePrint("argox8040")}>
-                <QrCode className="h-3.5 w-3.5 mr-2" /> Etiqueta Argox 78×38mm
-              </DropdownMenuItem>
-              {warranty && (
-                <>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuLabel className="text-xs">Garantia Digital</DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={handlePrintWarranty}>
-                    <Shield className="h-3.5 w-3.5 mr-2 text-emerald-600" /> Comprovante de Garantia
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => {
-                      const link = buildWarrantyWhatsApp();
-                      if (link) window.open(link, "_blank");
-                    }}
-                  >
-                    <MessageSquare className="h-3.5 w-3.5 mr-2 text-green-600" /> Enviar Garantia via WhatsApp
-                  </DropdownMenuItem>
-                </>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                <div>
+                  <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Ordem de serviço</p>
+                  <h1 className="break-words text-2xl font-bold tracking-tight text-foreground sm:text-3xl">{os.osNumber}</h1>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <StatusBadge status={os.status} size="lg" />
+                  <Badge variant="outline" className="bg-background">{os.origin === "coleta" ? "Coleta" : "Balcão"}</Badge>
+                  {isWarrantyReturn && (
+                    <Badge className="bg-amber-100 text-amber-900 border border-amber-300 hover:bg-amber-100">
+                      Retorno Garantia
+                    </Badge>
+                  )}
+                </div>
+              </div>
+              <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+                <span>Abertura: {new Date(os.createdAt).toLocaleString("pt-BR")}</span>
+                <span className="hidden sm:inline">•</span>
+                <span>{statusAgeLabel}</span>
+                <span className="hidden sm:inline">•</span>
+                <span>Orçamento: {primaryBudgetLabel} ({primaryBudgetStatusLabel})</span>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:justify-end xl:max-w-xl">
+              {os.status !== "finalizado" && os.status !== "cancelado" && (
+                <Button
+                  size="sm"
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold shadow-sm"
+                  onClick={() => {
+                    setNewStatus("finalizado");
+                    setCloseWarrantyDays(os.warrantyDays ?? 90);
+                    setCloseOutcome("finalizado");
+                    setCloseNotes("");
+                    setCloseModal(true);
+                  }}
+                >
+                  <Shield className="h-3.5 w-3.5 mr-1.5" /> Encerrar OS
+                </Button>
               )}
-            </DropdownMenuContent>
-          </DropdownMenu>
+              <Button variant="outline" size="sm" onClick={handleOpenEditInfo}>
+                <Pencil className="h-3.5 w-3.5 mr-1.5" /> Editar
+              </Button>
+              <Button variant="outline" size="sm" onClick={openWhatsApp}>
+                <MessageSquare className="h-3.5 w-3.5 mr-1.5" /> WhatsApp
+              </Button>
+              <Button variant="outline" size="sm" onClick={copyTrackingLink}>
+                <Copy className="h-3.5 w-3.5 mr-1.5" /> Link
+              </Button>
+              {os.status === "aguardando_coleta" && (
+                <Button
+                  size="sm"
+                  className="bg-blue-600 hover:bg-blue-700 text-white font-semibold shadow-sm"
+                  onClick={() => setSchedulePickupOpen(true)}
+                >
+                  <Truck className="h-3.5 w-3.5 mr-1.5" /> Agendar Coleta
+                </Button>
+              )}
+              {os.status === "coleta_agendada" && (
+                <Button
+                  size="sm"
+                  className="bg-violet-600 hover:bg-violet-700 text-white font-semibold shadow-sm"
+                  disabled={updateStatus.isPending}
+                  onClick={() =>
+                    updateStatus.mutate({
+                      id: osId,
+                      status: "em_reparo",
+                      notes: "Aparelho retirado pelo técnico. Iniciando reparo.",
+                    })
+                  }
+                >
+                  <PackageCheck className="h-3.5 w-3.5 mr-1.5" />
+                  {updateStatus.isPending ? "Confirmando..." : "Confirmar Retirada"}
+                </Button>
+              )}
+              {(os.status === "aguardando_entrega" || os.status === "saiu_para_entrega") && (
+                <Button
+                  size="sm"
+                  className="bg-teal-600 hover:bg-teal-700 text-white font-semibold shadow-sm"
+                  disabled={updateStatus.isPending}
+                  onClick={() =>
+                    updateStatus.mutate({
+                      id: osId,
+                      status: "entregue",
+                      notes: "Aparelho entregue ao cliente. Ciclo de entrega concluído.",
+                    })
+                  }
+                >
+                  <PackageCheck className="h-3.5 w-3.5 mr-1.5" />
+                  {updateStatus.isPending ? "Confirmando..." : "Confirmar Entrega"}
+                </Button>
+              )}
+              {canOpenWarrantyReturn && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="border-amber-300 bg-amber-50 text-amber-900 hover:bg-amber-100 font-semibold"
+                  onClick={() => setWarrantyReturnOpen(true)}
+                >
+                  <Shield className="h-3.5 w-3.5 mr-1.5" /> Abrir retorno em garantia
+                </Button>
+              )}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm">
+                    <Printer className="h-3.5 w-3.5 mr-1.5" /> Imprimir <ChevronDown className="h-3 w-3 ml-1" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="min-w-[210px]">
+                  <DropdownMenuLabel className="text-xs">Ficha da OS</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => handlePrint("a4")}>
+                    <FileText className="h-3.5 w-3.5 mr-2" /> Folha A4 (completa)
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handlePrint("thermal80")}>
+                    <Printer className="h-3.5 w-3.5 mr-2" /> Bobina Térmica 80mm padrão
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handlePrint("thermal58")}>
+                    <Printer className="h-3.5 w-3.5 mr-2" /> Bobina 58mm legado
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handlePrint("argox8040")}>
+                    <QrCode className="h-3.5 w-3.5 mr-2" /> Etiqueta Argox 78×38mm
+                  </DropdownMenuItem>
+                  {warranty && (
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuLabel className="text-xs">Garantia Digital</DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={handlePrintWarranty}>
+                        <Shield className="h-3.5 w-3.5 mr-2 text-emerald-600" /> Comprovante de Garantia
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => {
+                          const link = buildWarrantyWhatsApp();
+                          if (link) window.open(link, "_blank");
+                        }}
+                      >
+                        <MessageSquare className="h-3.5 w-3.5 mr-2 text-green-600" /> Enviar Garantia via WhatsApp
+                      </DropdownMenuItem>
+                    </>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          </div>
         </div>
 
         <Dialog open={warrantyReturnOpen} onOpenChange={setWarrantyReturnOpen}>
@@ -894,233 +939,136 @@ export default function ServiceOrderDetail() {
           </Card>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-3 lg:items-start">
           {/* Main info */}
-          <div className="lg:col-span-2 space-y-4">
-            {/* OS Info */}
-            <Card>
+          <div className="space-y-5 lg:col-span-2">
+            {/* Aparelho */}
+            <Card className="rounded-2xl border-border/70 shadow-sm">
               <CardHeader className="pb-3">
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                  <CardTitle className="text-sm font-semibold flex items-center gap-2 shrink-0">
-                    <FileText className="h-4 w-4 text-muted-foreground" /> Informações da OS
-                  </CardTitle>
-                  <div className="flex flex-wrap items-center gap-2 sm:justify-end">
-                    <Button
-                      size="sm"
-                      className="h-7 text-xs bg-blue-600 hover:bg-blue-700 text-white"
-                      onClick={handleOpenEditInfo}
-                    >
-                      <Pencil className="h-3 w-3 mr-1" /> Editar
-                    </Button>
-                    {os.status !== "finalizado" && os.status !== "cancelado" && (
-                      <Button
-                        size="sm"
-                        className="h-7 text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
-                        onClick={() => {
-                          setNewStatus("finalizado");
-                          setCloseWarrantyDays(os.warrantyDays ?? 90);
-                          setCloseOutcome("finalizado");
-                setCloseNotes("");
-                          setCloseModal(true);
-                        }}
-                      >
-                        <Shield className="h-3 w-3 mr-1" /> Encerrar OS
-                      </Button>
-                    )}
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <CardTitle className="text-base font-semibold flex items-center gap-2">
+                      <Smartphone className="h-4 w-4 text-muted-foreground" /> Aparelho
+                    </CardTitle>
+                    <p className="mt-1 text-xs text-muted-foreground">Dados técnicos, relato do cliente e condições registradas na entrada.</p>
                   </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="w-full sm:w-auto"
+                    onClick={handleOpenEditInfo}
+                  >
+                    <Pencil className="h-3.5 w-3.5 mr-1" /> Editar dados
+                  </Button>
                 </div>
               </CardHeader>
-              <CardContent className="space-y-3 text-sm">
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <p className="text-xs text-muted-foreground">Número</p>
-                    <p className="font-semibold">{os.osNumber}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">Abertura</p>
-                    <p>{new Date(os.createdAt).toLocaleString("pt-BR")}</p>
-                  </div>
-                  <div className="rounded-lg border border-amber-200 bg-amber-50/60 p-3 dark:border-amber-900/60 dark:bg-amber-950/20">
-                    <p className="text-xs text-amber-700 dark:text-amber-300">Orçamento atual</p>
-                    <p className="text-lg font-bold text-amber-900 dark:text-amber-100">{primaryBudgetLabel}</p>
-                  </div>
-                  <div className="rounded-lg border border-amber-200 bg-amber-50/60 p-3 dark:border-amber-900/60 dark:bg-amber-950/20">
-                    <p className="text-xs text-amber-700 dark:text-amber-300">Status do orçamento</p>
-                    <p className="font-semibold text-amber-900 dark:text-amber-100">{primaryBudgetStatusLabel}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">Marca</p>
-                    <p className="font-semibold">{(os as any).deviceBrand || "Não informada"}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">Modelo</p>
-                    <p className="font-semibold">{(os as any).deviceModel || "Não informado"}</p>
-                  </div>
-                  <div className="col-span-2">
-                    <p className="text-xs text-muted-foreground">Aparelho</p>
-                    <p className="font-semibold text-foreground">
-                      {[(os as any).deviceBrand, (os as any).deviceModel].filter(Boolean).join(" ") || "Aparelho não informado"}
-                    </p>
-                  </div>
-                  {(os as any).deviceType && (
-                    <div>
-                      <p className="text-xs text-muted-foreground">Tipo</p>
-                      <p>{(os as any).deviceType}</p>
-                    </div>
-                  )}
-                  {(os as any).deviceColor && (
-                    <div>
-                      <p className="text-xs text-muted-foreground">Cor</p>
-                      <p>{(os as any).deviceColor}</p>
-                    </div>
-                  )}
-                  {(os as any).deviceImei && (
-                    <div>
-                      <p className="text-xs text-muted-foreground">IMEI</p>
-                      <p>{(os as any).deviceImei}</p>
-                    </div>
-                  )}
-                  {(os as any).deviceSerialNumber && (
-                    <div>
-                      <p className="text-xs text-muted-foreground">Nº de série</p>
-                      <p>{(os as any).deviceSerialNumber}</p>
-                    </div>
-                  )}
-                  {(os as any).deviceNotes && (
-                    <div className="col-span-2">
-                      <p className="text-xs text-muted-foreground">Observações do aparelho</p>
-                      <p>{(os as any).deviceNotes}</p>
-                    </div>
-                  )}
-                  <div className="col-span-2">
-                    <p className="text-xs text-muted-foreground">Defeito relatado</p>
-                    <p className="font-medium">{os.reportedDefect}</p>
-                  </div>
-                  {os.physicalCondition && (
-                    <div>
-                      <p className="text-xs text-muted-foreground">Estado físico</p>
-                      <p>{os.physicalCondition}</p>
-                    </div>
-                  )}
-                  {os.accessories && (
-                    <div>
-                      <p className="text-xs text-muted-foreground">Acessórios</p>
-                      <p>{os.accessories}</p>
-                    </div>
-                  )}
-                  {os.internalNotes && (
-                    <div className="col-span-2">
-                      <p className="text-xs text-muted-foreground">Observações</p>
-                      <p className="text-muted-foreground">{os.internalNotes}</p>
-                    </div>
-                  )}
+              <CardContent className="space-y-4 text-sm">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                  <DetailItem label="Marca" value={(os as any).deviceBrand || "Não informada"} />
+                  <DetailItem label="Modelo" value={(os as any).deviceModel || "Não informado"} />
+                  <DetailItem label="Tipo" value={(os as any).deviceType || "Não informado"} />
+                  <DetailItem label="Cor" value={(os as any).deviceColor || "Não informada"} />
+                  <DetailItem label="IMEI" value={(os as any).deviceImei || "Não informado"} className="xl:col-span-2" />
+                  <DetailItem label="Nº de série" value={(os as any).deviceSerialNumber || "Não informado"} className="xl:col-span-2" />
+                </div>
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                  <SectionNote label="Defeito relatado">{os.reportedDefect}</SectionNote>
+                  <SectionNote label="Estado físico">{os.physicalCondition}</SectionNote>
+                  <SectionNote label="Acessórios">{os.accessories}</SectionNote>
+                  <SectionNote label="Observações do aparelho">{(os as any).deviceNotes}</SectionNote>
                 </div>
               </CardContent>
             </Card>
 
-            {/* Dados de Coleta — exibido apenas quando origin=coleta */}
-            {os.origin === "coleta" && (os.pickupAddress || os.preferredPickupTime) && (
-              <Card className="border-blue-200 bg-blue-50/40 dark:bg-blue-950/20 dark:border-blue-800">
+            {os.internalNotes && (
+              <Card className="rounded-2xl border-amber-200 bg-amber-50/40 shadow-sm dark:border-amber-900/60 dark:bg-amber-950/20">
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-sm font-semibold flex items-center gap-2 text-blue-700 dark:text-blue-400">
-                    <Truck className="h-4 w-4" /> Dados de Coleta
+                  <CardTitle className="text-base font-semibold flex items-center gap-2 text-amber-900 dark:text-amber-100">
+                    <FileText className="h-4 w-4" /> Observação Interna
                   </CardTitle>
+                  <p className="text-xs text-amber-800/80 dark:text-amber-200/80">Visível somente para a equipe interna; não é exibida nas impressões entregues ao cliente.</p>
                 </CardHeader>
-                <CardContent className="space-y-3 text-sm">
-                  {os.pickupAddress && (
-                    <div className="flex items-start gap-2">
-                      <MapPin className="h-4 w-4 text-blue-500 mt-0.5 shrink-0" />
-                      <div>
-                        <p className="text-xs text-muted-foreground mb-0.5">Endereço de coleta</p>
-                        <p className="font-medium">{os.pickupAddress}</p>
-                      </div>
-                    </div>
-                  )}
-                  {os.preferredPickupTime && (
-                    <div className="flex items-start gap-2">
-                      <CalendarDays className="h-4 w-4 text-blue-500 mt-0.5 shrink-0" />
-                      <div>
-                        <p className="text-xs text-muted-foreground mb-0.5">Horário preferido</p>
-                        <p className="font-medium">{os.preferredPickupTime}</p>
-                      </div>
-                    </div>
-                  )}
+                <CardContent>
+                  <p className="whitespace-pre-wrap text-sm leading-relaxed text-amber-950 dark:text-amber-100">{os.internalNotes}</p>
                 </CardContent>
               </Card>
             )}
 
-            {/* Update Status */}
-            <Card>
+            {/* SLA e atualização de status */}
+            <Card className="rounded-2xl border-border/70 shadow-sm">
               <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                  <Clock className="h-4 w-4 text-muted-foreground" /> SLA e tempo parado
-                </CardTitle>
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <CardTitle className="text-base font-semibold flex items-center gap-2">
+                      <Clock className="h-4 w-4 text-muted-foreground" /> SLA e Status
+                    </CardTitle>
+                    <p className="mt-1 text-xs text-muted-foreground">Acompanhe o tempo parado e registre a próxima movimentação da OS.</p>
+                  </div>
+                  <StatusBadge status={os.status} size="md" />
+                </div>
               </CardHeader>
-              <CardContent className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
-                <div className="rounded-lg border bg-muted/30 p-3">
-                  <p className="text-xs text-muted-foreground">Tempo na etapa</p>
-                  <p className="font-semibold">{statusAgeLabel}</p>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                  <div className="rounded-xl border bg-muted/30 p-3">
+                    <p className="text-xs text-muted-foreground">Tempo na etapa</p>
+                    <p className="font-semibold">{statusAgeLabel}</p>
+                  </div>
+                  <div className="rounded-xl border bg-muted/30 p-3">
+                    <p className="text-xs text-muted-foreground">Sinalização</p>
+                    <p className="font-semibold">{sla?.isOverdue ? "Prazo vencido" : sla?.isStageStalled ? "Etapa parada" : "Dentro do fluxo"}</p>
+                  </div>
+                  <div className="rounded-xl border bg-muted/30 p-3">
+                    <p className="text-xs text-muted-foreground">Entrega prevista</p>
+                    <p className="font-semibold">{sla?.estimatedDelivery ? new Date(sla.estimatedDelivery).toLocaleDateString("pt-BR") : os.estimatedDelivery ? new Date(os.estimatedDelivery).toLocaleDateString("pt-BR") : "Não informada"}</p>
+                  </div>
                 </div>
-                <div className="rounded-lg border bg-muted/30 p-3">
-                  <p className="text-xs text-muted-foreground">Sinalização</p>
-                  <p className="font-semibold">{sla?.isOverdue ? "Prazo vencido" : sla?.isStageStalled ? "Etapa parada" : "Dentro do fluxo"}</p>
+                <Separator />
+                <div className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
+                  <div className="space-y-3">
+                    <Select value={newStatus} onValueChange={handleStatusChange}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecionar novo status..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {STATUS_OPTIONS.map(([value, label]) => (
+                          <SelectItem key={value} value={value}>{label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {newStatus && newStatus !== "finalizado" && (
+                      <Textarea
+                        placeholder="Observação sobre a mudança (opcional)..."
+                        value={statusNotes}
+                        onChange={(e) => setStatusNotes(e.target.value)}
+                        rows={2}
+                      />
+                    )}
+                  </div>
+                  {newStatus === "finalizado" ? (
+                    <Button
+                      variant="default"
+                      className="w-full bg-emerald-600 hover:bg-emerald-700 text-white lg:w-auto"
+                      onClick={() => setCloseModal(true)}
+                    >
+                      <Shield className="h-4 w-4 mr-2" /> Encerrar OS...
+                    </Button>
+                  ) : (
+                    <Button
+                      className="w-full lg:w-auto"
+                      disabled={!newStatus || updateStatus.isPending}
+                      onClick={() => updateStatus.mutate({ id: osId, status: newStatus as any, notes: statusNotes })}
+                    >
+                      {updateStatus.isPending ? "Atualizando..." : "Atualizar Status"}
+                    </Button>
+                  )}
                 </div>
-                <div className="rounded-lg border bg-muted/30 p-3">
-                  <p className="text-xs text-muted-foreground">Entrega prevista</p>
-                  <p className="font-semibold">{sla?.estimatedDelivery ? new Date(sla.estimatedDelivery).toLocaleDateString("pt-BR") : os.estimatedDelivery ? new Date(os.estimatedDelivery).toLocaleDateString("pt-BR") : "Não informada"}</p>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                  <Clock className="h-4 w-4 text-muted-foreground" /> Atualizar Status
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <Select value={newStatus} onValueChange={handleStatusChange}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecionar novo status..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {STATUS_OPTIONS.map(([value, label]) => (
-                      <SelectItem key={value} value={value}>{label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {/* Observação só aparece para status que não sejam finalizado (finalizado tem modal próprio) */}
-                {newStatus && newStatus !== "finalizado" && (
-                  <Textarea
-                    placeholder="Observação sobre a mudança (opcional)..."
-                    value={statusNotes}
-                    onChange={(e) => setStatusNotes(e.target.value)}
-                    rows={2}
-                  />
-                )}
-                {newStatus === "finalizado" ? (
-                  <Button
-                    variant="default"
-                    className="bg-emerald-600 hover:bg-emerald-700 text-white"
-                    onClick={() => setCloseModal(true)}
-                  >
-                    <Shield className="h-4 w-4 mr-2" /> Encerrar OS...
-                  </Button>
-                ) : (
-                  <Button
-                    disabled={!newStatus || updateStatus.isPending}
-                    onClick={() => updateStatus.mutate({ id: osId, status: newStatus as any, notes: statusNotes })}
-                  >
-                    {updateStatus.isPending ? "Atualizando..." : "Atualizar Status"}
-                  </Button>
-                )}
               </CardContent>
             </Card>
 
             {/* Timeline */}
-            <Card>
+            <Card className="rounded-2xl border-border/70 shadow-sm">
               <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-semibold">Timeline da OS</CardTitle>
+                <CardTitle className="text-base font-semibold">Timeline da OS</CardTitle>
               </CardHeader>
               <CardContent>
                 {os.timeline && os.timeline.length > 0 ? (
@@ -1133,15 +1081,15 @@ export default function ServiceOrderDetail() {
           </div>
 
           {/* Sidebar */}
-          <div className="space-y-4">
+          <div className="space-y-5">
             {/* Dados do Cliente */}
-            <Card>
+            <Card className="rounded-2xl border-border/70 shadow-sm">
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                <CardTitle className="text-base font-semibold flex items-center gap-2">
                   <User className="h-4 w-4 text-muted-foreground" /> Cliente
                 </CardTitle>
               </CardHeader>
-              <CardContent className="text-sm space-y-2">
+              <CardContent className="text-sm space-y-3">
                 <p className="font-semibold">{(os as any).customerName ?? "—"}</p>
                 {(os as any).customerPhone && (
                   <div className="flex items-center gap-2 text-muted-foreground">
@@ -1322,10 +1270,10 @@ export default function ServiceOrderDetail() {
             )}
 
             {/* Orçamento */}
-            <Card>
+            <Card className="rounded-2xl border-border/70 shadow-sm">
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                  <CardTitle className="text-base font-semibold flex items-center gap-2">
                     <DollarSign className="h-4 w-4 text-muted-foreground" /> Orçamento
                   </CardTitle>
                   <Dialog open={budgetOpen} onOpenChange={setBudgetOpen}>
@@ -1568,10 +1516,10 @@ export default function ServiceOrderDetail() {
             </Card>
 
             {/* Pagamentos */}
-            <Card>
+            <Card className="rounded-2xl border-border/70 shadow-sm">
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between gap-3">
-                  <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                  <CardTitle className="text-base font-semibold flex items-center gap-2">
                     <DollarSign className="h-4 w-4 text-muted-foreground" /> Pagamentos
                   </CardTitle>
                   <Dialog open={paymentOpen} onOpenChange={setPaymentOpen}>
@@ -1696,9 +1644,9 @@ export default function ServiceOrderDetail() {
             )}
 
             {/* Link de rastreamento */}
-            <Card>
+            <Card className="rounded-2xl border-border/70 shadow-sm">
               <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                <CardTitle className="text-base font-semibold flex items-center gap-2">
                   <ExternalLink className="h-4 w-4 text-muted-foreground" /> Link Público
                 </CardTitle>
               </CardHeader>
