@@ -101,6 +101,9 @@ export default function ServiceOrderDetail() {
   const [editAccessories, setEditAccessories] = useState("");
   const [editInternalNotes, setEditInternalNotes] = useState("");
   const [editPassword, setEditPassword] = useState("");
+  const [warrantyReturnOpen, setWarrantyReturnOpen] = useState(false);
+  const [warrantyReturnReason, setWarrantyReturnReason] = useState("");
+  const [warrantyReturnNotes, setWarrantyReturnNotes] = useState("");
 
   const handlePrintWarranty = () => {
     setPrintWarranty(true);
@@ -242,6 +245,33 @@ export default function ServiceOrderDetail() {
     },
     onError: (error) => toast.error(error.message || "Erro ao registrar pagamento"),
   });
+
+  const createWarrantyReturn = trpc.serviceOrders.createWarrantyReturn.useMutation({
+    onSuccess: (createdOs) => {
+      toast.success("Retorno em garantia aberto com vínculo à OS original");
+      setWarrantyReturnOpen(false);
+      setWarrantyReturnReason("");
+      setWarrantyReturnNotes("");
+      utils.serviceOrders.getById.invalidate({ id: osId });
+      if ((createdOs as any)?.id) {
+        navigate(`/painel/os/${(createdOs as any).id}`);
+      }
+    },
+    onError: (error) => toast.error(error.message || "Erro ao abrir retorno em garantia"),
+  });
+
+  const handleCreateWarrantyReturn = () => {
+    const reason = warrantyReturnReason.trim();
+    if (reason.length < 3) {
+      toast.error("Informe o motivo do retorno relatado pelo cliente.");
+      return;
+    }
+    createWarrantyReturn.mutate({
+      originalServiceOrderId: osId,
+      reason,
+      notes: warrantyReturnNotes.trim() || undefined,
+    });
+  };
 
   const handleRegisterPayment = () => {
     const amount = Number(paymentAmount.replace(",", "."));
@@ -602,6 +632,10 @@ export default function ServiceOrderDetail() {
       : `${Math.max(1, Math.round(sla.statusAgeHours))}h nesta etapa`
     : "Tempo de etapa indisponível";
   const quickActionStatus = nextBestAction?.code === "ready_pickup" ? "pronto" : nextBestAction?.code === "delivery_ready" ? "saiu_para_entrega" : nextBestAction?.code === "diagnosis_needed" ? "em_diagnostico" : nextBestAction?.code === "approved_repair" ? "em_reparo" : null;
+  const isWarrantyReturn = (os as any).orderType === "retorno_garantia";
+  const canOpenWarrantyReturn = !isWarrantyReturn && os.status === "finalizado" && (os as any).warrantyActive;
+  const originalServiceOrder = (os as any).originalServiceOrder;
+  const warrantyReturnReference = originalServiceOrder?.osNumber ?? ((os as any).originalServiceOrderId ? `OS #${(os as any).originalServiceOrderId}` : null);
 
   // Monta link e mensagem de WhatsApp para o comprovante de garantia
   const buildWarrantyWhatsApp = () => {
@@ -637,6 +671,11 @@ export default function ServiceOrderDetail() {
           <div className="flex-1" />
           <StatusBadge status={os.status} size="lg" />
           <Badge variant="outline">{os.origin === "coleta" ? "Coleta" : "Balcão"}</Badge>
+          {isWarrantyReturn && (
+            <Badge className="bg-amber-100 text-amber-900 border border-amber-300 hover:bg-amber-100">
+              Retorno Garantia
+            </Badge>
+          )}
           <Button variant="outline" size="sm" onClick={copyTrackingLink}>
             <Copy className="h-3.5 w-3.5 mr-1.5" /> Link
           </Button>
@@ -701,6 +740,16 @@ export default function ServiceOrderDetail() {
               <Shield className="h-3.5 w-3.5 mr-1.5" /> Encerrar OS
             </Button>
           )}
+          {canOpenWarrantyReturn && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="border-amber-300 bg-amber-50 text-amber-900 hover:bg-amber-100 font-semibold"
+              onClick={() => setWarrantyReturnOpen(true)}
+            >
+              <Shield className="h-3.5 w-3.5 mr-1.5" /> Abrir retorno em garantia
+            </Button>
+          )}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="sm">
@@ -743,6 +792,69 @@ export default function ServiceOrderDetail() {
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
+
+        <Dialog open={warrantyReturnOpen} onOpenChange={setWarrantyReturnOpen}>
+          <DialogContent className="sm:max-w-lg">
+            <DialogHeader>
+              <DialogTitle>Abrir retorno em garantia</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/20 dark:text-amber-100">
+                <p className="font-semibold">Será criada uma nova OS vinculada à {os.osNumber}.</p>
+                <p className="mt-1 text-xs">A OS original continuará encerrada para preservar histórico financeiro, garantia e entrega.</p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="warranty-return-reason">Motivo informado pelo cliente</Label>
+                <Textarea
+                  id="warranty-return-reason"
+                  value={warrantyReturnReason}
+                  onChange={(event) => setWarrantyReturnReason(event.target.value)}
+                  placeholder="Ex.: aparelho voltou com o mesmo defeito após o reparo."
+                  rows={3}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="warranty-return-notes">Observações internas opcionais</Label>
+                <Textarea
+                  id="warranty-return-notes"
+                  value={warrantyReturnNotes}
+                  onChange={(event) => setWarrantyReturnNotes(event.target.value)}
+                  placeholder="Ex.: conferir peça substituída e teste de bancada."
+                  rows={2}
+                />
+              </div>
+              <div className="flex justify-end gap-2 pt-2">
+                <Button variant="outline" onClick={() => setWarrantyReturnOpen(false)} disabled={createWarrantyReturn.isPending}>Cancelar</Button>
+                <Button onClick={handleCreateWarrantyReturn} disabled={createWarrantyReturn.isPending} className="bg-amber-600 hover:bg-amber-700 text-white">
+                  {createWarrantyReturn.isPending ? "Criando..." : "Criar OS de retorno"}
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {isWarrantyReturn && (
+          <Card className="border-amber-300 bg-amber-50/70 dark:border-amber-900/70 dark:bg-amber-950/20">
+            <CardContent className="p-4 text-sm">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="font-semibold text-amber-950 dark:text-amber-100">Retorno em garantia</p>
+                  <p className="text-amber-800 dark:text-amber-200">
+                    Esta OS está vinculada à {warrantyReturnReference ?? "OS original"} e deve ser tratada separadamente da OS comum.
+                  </p>
+                </div>
+                {originalServiceOrder?.id && (
+                  <Button variant="outline" size="sm" onClick={() => navigate(`/painel/os/${originalServiceOrder.id}`)}>
+                    <ExternalLink className="h-3.5 w-3.5 mr-1.5" /> Ver OS original
+                  </Button>
+                )}
+              </div>
+              {(os as any).warrantyReturnReason && (
+                <p className="mt-3 text-amber-900 dark:text-amber-100"><strong>Motivo:</strong> {(os as any).warrantyReturnReason}</p>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         {nextBestAction && (
           <Card className={`border shadow-sm ${priorityClass}`}>

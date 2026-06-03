@@ -15,6 +15,13 @@ interface OsData {
   internalNotes?: string | null;
   estimatedDelivery?: Date | string | null;
   warrantyDays?: number | null;
+  orderType?: string | null;
+  originalServiceOrderId?: number | string | null;
+  warrantyReturnStatus?: string | null;
+  originalServiceOrder?: {
+    id?: number | string | null;
+    osNumber?: string | null;
+  } | null;
   createdAt: Date | string;
   publicToken: string;
   customer?: {
@@ -135,6 +142,18 @@ function receiptLine(label: string, value: string | number | null | undefined): 
   return `${cleanLabel.padEnd(12, ".")}: ${cleanValue}`;
 }
 
+function isWarrantyReturn(os: OsData): boolean {
+  return os.orderType === "retorno_garantia" || Boolean(os.originalServiceOrderId);
+}
+
+function originalOsLabel(os: OsData): string {
+  return os.originalServiceOrder?.osNumber
+    ? `OS ${os.originalServiceOrder.osNumber}`
+    : os.originalServiceOrderId
+      ? `OS #${os.originalServiceOrderId}`
+      : "OS original";
+}
+
 // ─── A4 Layout ───────────────────────────────────────────────────────────────
 
 export function PrintSheetA4({ os, tenant, budgets, warranty, checklist }: Omit<PrintSheetProps, "mode">) {
@@ -143,6 +162,8 @@ export function PrintSheetA4({ os, tenant, budgets, warranty, checklist }: Omit<
   const total = calcBudgetTotal(budgets);
   const allBudgetItems = budgets?.flatMap((b) => b.items ?? []) ?? [];
   const totalLabor = budgets?.reduce((s, b) => s + Number(b.laborCost ?? 0), 0) ?? 0;
+  const warrantyReturn = isWarrantyReturn(os);
+  const originalReference = originalOsLabel(os);
 
   return (
     <div className="print-a4-sheet">
@@ -314,6 +335,14 @@ export function PrintSheetA4({ os, tenant, budgets, warranty, checklist }: Omit<
             </table>
           </div>
 
+          {/* Retorno em garantia */}
+          {warrantyReturn && (
+            <div className="print-a4-section" style={{ border: "1px solid #7e22ce", padding: 8, background: "#faf5ff" }}>
+              <div className="print-a4-section-title" style={{ color: "#7e22ce" }}>RETORNO GARANTIA</div>
+              <p className="print-a4-text" style={{ margin: 0, fontWeight: 700 }}>{`Vinculada à ${originalReference}`}</p>
+            </div>
+          )}
+
           {/* QR Code */}
           <div className="print-a4-qr-block">
             <QRCodeSVG value={trackingUrl} size={80} level="M" />
@@ -366,6 +395,8 @@ export function PrintSheetThermal({ os, tenant, budgets, warranty, checklist, mo
   const sep = mode === "thermal58" ? "--------------------------------" : "------------------------------------------------";
   const qrSize = mode === "thermal58" ? 80 : 72;
   const statusLabel = STATUS_LABELS[os.status as keyof typeof STATUS_LABELS] ?? os.status;
+  const warrantyReturn = isWarrantyReturn(os);
+  const originalReference = originalOsLabel(os);
 
   return (
     <div className={`print-thermal-sheet ${width}`}>
@@ -459,6 +490,14 @@ export function PrintSheetThermal({ os, tenant, budgets, warranty, checklist, mo
         </>
       )}
 
+      {warrantyReturn && (
+        <>
+          <div className="print-thermal-sep">{sep}</div>
+          <div className="print-thermal-center print-thermal-bold">RETORNO GARANTIA</div>
+          <div className="print-thermal-center">Vinculada a {originalReference}</div>
+        </>
+      )}
+
       <div className="print-thermal-sep">{sep}</div>
       <div className="print-thermal-center print-thermal-qr">
         <QRCodeSVG value={trackingUrl} size={qrSize} level="M" />
@@ -492,6 +531,8 @@ export function PrintSheetArgox({ os, tenant }: Omit<PrintSheetProps, "mode">) {
   const internalOsUrl = `${window.location.origin}/painel/os/${os.id}`;
   const deviceLabel = [os.deviceBrand, os.deviceModel].filter(Boolean).join(" ") || "Aparelho não informado";
   const statusLabel = STATUS_LABELS[os.status as keyof typeof STATUS_LABELS] ?? os.status;
+  const warrantyReturn = isWarrantyReturn(os);
+  const originalReference = originalOsLabel(os);
 
   return (
     <div className="print-argox8040">
@@ -506,6 +547,11 @@ export function PrintSheetArgox({ os, tenant }: Omit<PrintSheetProps, "mode">) {
           <div className="print-argox-device">{truncateText(deviceLabel, 34)}</div>
           <div className="print-argox-defect">{truncateText(os.reportedDefect, 42)}</div>
           <div className="print-argox-date">{fmtLabelDateTime(os.createdAt)}</div>
+          {warrantyReturn && (
+            <div style={{ marginTop: 4, border: "1px solid #111", padding: "2px 4px", fontSize: 9, fontWeight: 800, lineHeight: 1.1, textAlign: "center" }}>
+              RETORNO GARANTIA<br />{truncateText(originalReference, 24)}
+            </div>
+          )}
         </div>
 
         <div className="print-argox-right">

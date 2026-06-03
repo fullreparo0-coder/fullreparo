@@ -1,9 +1,9 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { getDb, getServiceOrdersByTenant, getServiceOrderById, getOsTimeline, generateOsNumber, getPhotosByOs, getChecklistByOs, countOsThisMonth, getFinancialReport } from "../db";
-import { serviceOrders, osStatusHistory, osChecklist, photos, devices, payments, customers, osNotifications, users, budgets } from "../../drizzle/schema";
+import { serviceOrders, osStatusHistory, osChecklist, photos, devices, payments, customers, osNotifications, users, budgets, warranties } from "../../drizzle/schema";
 import { protectedProcedure, publicProcedure, router } from "../_core/trpc";
-import { and, eq } from "drizzle-orm";
+import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { storagePut } from "../storage";
 import { notifyOwner } from "../_core/notification";
@@ -231,13 +231,49 @@ export const serviceOrdersRouter = router({
   getById: tenantProcedure.input(z.object({ id: z.number() })).query(async ({ ctx, input }) => {
     const os = await getServiceOrderById(ctx.user.tenantId!, input.id);
     if (!os) throw new TRPCError({ code: "NOT_FOUND" });
-    const [timeline, checklistItems, photoList] = await Promise.all([
+    const db = await getDb();
+    const [timeline, checklistItems, photoList, warrantyRows, originalRows] = await Promise.all([
       getOsTimeline(ctx.user.tenantId!, input.id),
       getChecklistByOs(ctx.user.tenantId!, input.id),
       getPhotosByOs(ctx.user.tenantId!, input.id),
+      db
+        ? db
+            .select({
+              id: warranties.id,
+              warrantyCode: warranties.warrantyCode,
+              startsAt: warranties.startsAt,
+              expiresAt: warranties.expiresAt,
+              warrantyDays: warranties.warrantyDays,
+              isActive: warranties.isActive,
+            })
+            .from(warranties)
+            .where(and(eq(warranties.tenantId, ctx.user.tenantId!), eq(warranties.serviceOrderId, input.id)))
+            .limit(1)
+        : Promise.resolve([]),
+      db && (os as any).originalServiceOrderId
+        ? db
+            .select({
+              id: serviceOrders.id,
+              osNumber: serviceOrders.osNumber,
+              status: serviceOrders.status,
+              totalAmount: serviceOrders.totalAmount,
+              warrantyDays: serviceOrders.warrantyDays,
+              createdAt: serviceOrders.createdAt,
+              updatedAt: serviceOrders.updatedAt,
+            })
+            .from(serviceOrders)
+            .where(and(eq(serviceOrders.tenantId, ctx.user.tenantId!), eq(serviceOrders.id, Number((os as any).originalServiceOrderId))))
+            .limit(1)
+        : Promise.resolve([]),
     ]);
+    const warranty = warrantyRows[0] ?? null;
+    const now = new Date();
+    const warrantyActive = !!warranty && !!warranty.isActive && new Date(warranty.expiresAt).getTime() >= now.getTime();
     return {
       ...os,
+      warranty,
+      warrantyActive,
+      originalServiceOrder: originalRows[0] ?? null,
       timeline,
       checklist: checklistItems,
       photos: photoList,
@@ -245,6 +281,102 @@ export const serviceOrdersRouter = router({
       nextBestAction: buildNextBestAction(os as SmartActionContext, "tenant"),
     };
   }),
+
+  // Criar retorno em garantia vinculado a uma OS original encerrada
+  createWarrantyReturn: tenantProcedure
+    .input(
+      z.object({
+        originalServiceOrderId: z.number(),
+        reason: z.string().min(3, "Informe o motivo do retorno em garantia."),
+        notes: z.string().optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+
+      const [plan, used] = await Promise.all([
+        getTenantSubscriptionSnapshot(ctx.user.tenantId!),
+        countOsThisMonth(ctx.user.tenantId!),
+      ]);
+      assertTenantOperational(plan);
+      if (plan && plan.maxOsPerMonth > 0 && used >= plan.maxOsPerMonth) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: `Limite do plano ${plan.planName} atingido: ${used}/${plan.maxOsPerMonth} OS este mês. Faça upgrade para continuar.`,
+        });
+      }
+
+      const [original] = await db
+        .select()
+        .from(serviceOrders)
+        .where(and(eq(serviceOrders.tenantId, ctx.user.tenantId!), eq(serviceOrders.id, input.originalServiceOrderId)))
+        .limit(1);
+      if (!original) throw new TRPCError({ code: "NOT_FOUND", message: "OS original não encontrada." });
+      if ((original as any).orderType === "retorno_garantia") {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Abra o retorno a partir da OS original, não de outro retorno em garantia." });
+      }
+      if (!(["finalizado", "entregue"] as string[]).includes(original.status)) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "A OS original precisa estar encerrada/entregue para abrir retorno em garantia." });
+      }
+
+      const [activeWarranty] = await db
+        .select()
+        .from(warranties)
+        .where(and(
+          eq(warranties.tenantId, ctx.user.tenantId!),
+          eq(warranties.serviceOrderId, original.id),
+          eq(warranties.isActive, true),
+          sql`${warranties.expiresAt} >= ${new Date()}`,
+        ))
+        .limit(1);
+      if (!activeWarranty) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Esta OS não possui garantia ativa. Abra uma nova OS comum se desejar continuar o atendimento." });
+      }
+
+      const osNumber = await generateOsNumber(ctx.user.tenantId!);
+      const publicToken = nanoid(32);
+      const reason = input.reason.trim();
+      const notes = input.notes?.trim();
+      const result = await db.insert(serviceOrders).values({
+        tenantId: ctx.user.tenantId!,
+        osNumber,
+        customerId: original.customerId,
+        deviceId: original.deviceId ?? undefined,
+        origin: "balcao",
+        status: "recebido_na_assistencia",
+        reportedDefect: `Retorno em garantia da ${original.osNumber}: ${reason}`,
+        physicalCondition: original.physicalCondition ?? undefined,
+        accessories: original.accessories ?? undefined,
+        devicePassword: original.devicePassword ?? undefined,
+        internalNotes: [
+          `Retorno em garantia vinculado à ${original.osNumber}.`,
+          `Motivo informado: ${reason}`,
+          notes ? `Observações iniciais: ${notes}` : null,
+        ].filter(Boolean).join("\n"),
+        technicianId: original.technicianId ?? undefined,
+        attendantId: ctx.user.id,
+        warrantyDays: 0,
+        totalAmount: "0.00",
+        orderType: "retorno_garantia",
+        originalServiceOrderId: original.id,
+        warrantyReturnStatus: "em_analise",
+        warrantyReturnReason: reason,
+        publicToken,
+      });
+      const osId = Number((result as any)[0]?.insertId ?? (result as any).insertId);
+
+      await db.insert(osStatusHistory).values({
+        tenantId: ctx.user.tenantId!,
+        serviceOrderId: osId,
+        status: "recebido_na_assistencia",
+        notes: `Retorno em garantia aberto. Ref. OS original: ${original.osNumber}. Garantia válida até ${new Date(activeWarranty.expiresAt).toLocaleDateString("pt-BR")}.`,
+        changedById: ctx.user.id,
+        changedByName: ctx.user.name ?? "Atendente",
+      });
+
+      return { success: true, id: osId, osNumber, publicToken, originalServiceOrderId: original.id, originalOsNumber: original.osNumber, warrantyExpiresAt: activeWarranty.expiresAt };
+    }),
 
   // Consultar uso de OS do mês atual vs limite do plano
   usageStats: tenantProcedure.query(async ({ ctx }) => {
@@ -1579,6 +1711,9 @@ export const serviceOrdersRouter = router({
           reportedDefect: serviceOrders.reportedDefect,
           estimatedDelivery: serviceOrders.estimatedDelivery,
           totalAmount: serviceOrders.totalAmount,
+          orderType: serviceOrders.orderType,
+          originalServiceOrderId: serviceOrders.originalServiceOrderId,
+          warrantyReturnStatus: serviceOrders.warrantyReturnStatus,
           paymentRequestedAt: serviceOrders.paymentRequestedAt,
           deliveryAuthorizedAt: serviceOrders.deliveryAuthorizedAt,
           createdAt: serviceOrders.createdAt,

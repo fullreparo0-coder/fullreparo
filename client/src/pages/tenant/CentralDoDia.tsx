@@ -243,12 +243,22 @@ export default function CentralDoDia() {
                       <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
                         <span className="text-sm font-semibold leading-tight">#{order.osNumber}</span>
                         <StatusBadge status={order.status} />
+                        {order.orderType === "retorno_garantia" && (
+                          <Badge variant="outline" className="border-purple-200 bg-purple-50 text-purple-700">
+                            RETORNO GARANTIA
+                          </Badge>
+                        )}
                         <Badge variant="outline" className={priorityClasses[order.priority] ?? priorityClasses.normal}>
                           {order.priority === "alta" ? "Alta prioridade" : order.priority === "media" ? "Prioridade média" : "Normal"}
                         </Badge>
                       </div>
                       <p className="truncate text-sm font-medium leading-tight">{order.customerName ?? "Cliente não informado"}</p>
                       <p className="line-clamp-2 text-xs leading-snug text-muted-foreground">{order.deviceLabel} • {order.nextBestAction?.description ?? order.reason}</p>
+                      {order.orderType === "retorno_garantia" && (
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-purple-700">
+                          Vinculada à OS original{order.originalServiceOrderId ? ` #${order.originalServiceOrderId}` : ""}
+                        </p>
+                      )}
                       <div className="mt-2 flex flex-wrap gap-1.5 text-[11px] sm:gap-2 sm:text-xs">
                         <Badge variant="secondary" className="gap-1"><Zap className="h-3 w-3" />{order.nextBestAction?.title ?? order.reason}</Badge>
                         <Badge variant="outline" className={order.sla?.isOverdue || order.sla?.isStageStalled ? "border-red-200 bg-red-50 text-red-700" : "border-emerald-200 bg-emerald-50 text-emerald-700"}>
