@@ -628,7 +628,7 @@
   padding-left: 1.2mm;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
+  justify-content: flex-start;
   align-items: center;
 }
 
@@ -733,6 +733,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  align-self: center;
+  margin-top: auto;
+  margin-bottom: auto;
   line-height: 1;
 }
 
