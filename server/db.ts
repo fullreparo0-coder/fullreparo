@@ -173,16 +173,41 @@ export async function getCustomersByTenant(
   const where = and(...conditions);
   const offset = (page - 1) * pageSize;
   const pendingBalanceExpression = sql<string>`COALESCE((
-    SELECT SUM(GREATEST(CAST(so.totalAmount AS DECIMAL(10,2)) - COALESCE((
+    SELECT SUM(GREATEST((
+      CASE
+        WHEN CAST(so.totalAmount AS DECIMAL(10,2)) > 0 THEN CAST(so.totalAmount AS DECIMAL(10,2))
+        ELSE COALESCE((
+          SELECT CAST(b.totalCost AS DECIMAL(10,2))
+          FROM budgets b
+          WHERE b.tenantId = so.tenantId
+            AND b.serviceOrderId = so.id
+            AND b.status IN ('approved', 'pending')
+            AND CAST(b.totalCost AS DECIMAL(10,2)) > 0
+          ORDER BY CASE WHEN b.status = 'approved' THEN 0 ELSE 1 END, b.createdAt DESC
+          LIMIT 1
+        ), 0)
+      END
+    ) - COALESCE((
       SELECT SUM(CAST(p.amount AS DECIMAL(10,2)))
       FROM payments p
-      WHERE p.serviceOrderId = so.id
+      WHERE p.tenantId = so.tenantId
+        AND p.serviceOrderId = so.id
         AND p.status = 'paid'
     ), 0), 0))
     FROM service_orders so
     WHERE so.tenantId = ${tenantId}
       AND so.customerId = ${customers.id}
-      AND CAST(so.totalAmount AS DECIMAL(10,2)) > 0
+      AND (
+        CAST(so.totalAmount AS DECIMAL(10,2)) > 0
+        OR EXISTS (
+          SELECT 1
+          FROM budgets b
+          WHERE b.tenantId = so.tenantId
+            AND b.serviceOrderId = so.id
+            AND b.status IN ('approved', 'pending')
+            AND CAST(b.totalCost AS DECIMAL(10,2)) > 0
+        )
+      )
   ), 0)`;
 
   const [data, countResult] = await Promise.all([
