@@ -213,49 +213,52 @@ export async function getCustomersByTenant(
 
   // A listagem precisa expor o saldo devedor por cliente usando a mesma fonte
   // de verdade do fluxo de pagamentos: valor total da OS menos pagamentos com
-  // status paid. Orçamentos sem valor consolidado em totalAmount não viram dívida
-  // na lista, evitando falsos positivos como OS totalmente paga/sem cobrança ativa.
+  // status paid. O cálculo é feito com SQL explícito e alias `so` para garantir
+  // que as subconsultas de pagamentos sejam correlacionadas à OS correta.
   const customerIds = data.map((customer) => customer.id);
-  const debtRows = customerIds.length
-    ? await db
-        .select({
-          customerId: serviceOrders.customerId,
-          amountDue: sql<number>`CAST(GREATEST(COALESCE(SUM(GREATEST((
-            CAST(${serviceOrders.totalAmount} AS DECIMAL(10,2))
-          ) - COALESCE((
-            SELECT SUM(CAST(p.amount AS DECIMAL(10,2)))
-            FROM payments p
-            WHERE p.tenantId = ${serviceOrders.tenantId}
-              AND p.serviceOrderId = ${serviceOrders.id}
-              AND p.status = 'paid'
-          ), 0), 0)), 0), 0) AS DOUBLE)`,
-        })
-        .from(serviceOrders)
-        .where(and(
-          eq(serviceOrders.tenantId, tenantId),
-          inArray(serviceOrders.customerId, customerIds),
-          sql`(
-            ${serviceOrders.status} IN ('entregue', 'finalizado')
+  const customerIdList = sql.join(customerIds.map((customerId) => sql`${customerId}`), sql`, `);
+  const debtResult = customerIds.length
+    ? await db.execute(sql`
+        SELECT
+          so.customerId AS customerId,
+          CAST(GREATEST(COALESCE(SUM(GREATEST(
+            CAST(so.totalAmount AS DECIMAL(10,2)) - COALESCE((
+              SELECT SUM(CAST(p.amount AS DECIMAL(10,2)))
+              FROM payments p
+              WHERE p.tenantId = so.tenantId
+                AND p.serviceOrderId = so.id
+                AND p.status = 'paid'
+            ), 0),
+            0
+          )), 0), 0) AS DOUBLE) AS amountDue
+        FROM service_orders so
+        WHERE so.tenantId = ${tenantId}
+          AND so.customerId IN (${customerIdList})
+          AND (
+            so.status IN ('entregue', 'finalizado')
             OR EXISTS (
               SELECT 1
               FROM os_status_history h
-              WHERE h.tenantId = ${serviceOrders.tenantId}
-                AND h.serviceOrderId = ${serviceOrders.id}
+              WHERE h.tenantId = so.tenantId
+                AND h.serviceOrderId = so.id
                 AND h.status IN ('entregue', 'finalizado')
             )
             OR EXISTS (
               SELECT 1
               FROM pickups pk
-              WHERE pk.tenantId = ${serviceOrders.tenantId}
-                AND pk.serviceOrderId = ${serviceOrders.id}
+              WHERE pk.tenantId = so.tenantId
+                AND pk.serviceOrderId = so.id
                 AND pk.type = 'entrega'
                 AND pk.status = 'completed'
             )
-          )`,
-          sql`CAST(${serviceOrders.totalAmount} AS DECIMAL(10,2)) > 0`,
-        ))
-        .groupBy(serviceOrders.customerId)
+          )
+          AND CAST(so.totalAmount AS DECIMAL(10,2)) > 0
+        GROUP BY so.customerId
+      `)
     : [];
+  const debtRows = Array.isArray(debtResult)
+    ? (Array.isArray(debtResult[0]) ? debtResult[0] : debtResult)
+    : ((debtResult as { rows?: unknown[] }).rows ?? []);
   const debtByCustomerId = new Map(
     debtRows.map((row) => [Number(row.customerId), Number(row.amountDue ?? 0)])
   );
