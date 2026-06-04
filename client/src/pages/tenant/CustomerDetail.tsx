@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useParams, useLocation } from "wouter";
 import { TenantLayout } from "@/components/TenantLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -54,6 +54,8 @@ import {
   KeyRound,
   Copy,
   RefreshCw,
+  AlertTriangle,
+  CircleDollarSign,
 } from "lucide-react";
 import {
   AlertDialog,
@@ -68,6 +70,13 @@ import {
 } from "@/components/ui/alert-dialog";
 
 const PAGE_SIZE = 10;
+
+function formatCurrency(value: number) {
+  return new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  }).format(value);
+}
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 type DeviceForm = {
@@ -159,6 +168,7 @@ export default function CustomerDetail() {
   const [deviceForm, setDeviceForm] = useState<DeviceForm>(EMPTY_DEVICE);
   const [provisionalPassword, setProvisionalPassword] = useState<string | null>(null);
   const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
+  const debtOrdersRef = useRef<HTMLDivElement | null>(null);
   const customerId = Number(id);
 
   // ── Queries ──────────────────────────────────────────────────────────────────
@@ -331,8 +341,21 @@ export default function CustomerDetail() {
   // ── Derivados ─────────────────────────────────────────────────────────────────
   const devices = devicesData ?? [];
   const orders = ordersData?.data ?? [];
+  const debtOrders = ordersData?.debtOrders ?? [];
+  const totalDebtAmount = Number(ordersData?.totalDebtAmount ?? 0);
+  const debtOrderIds = new Set(debtOrders.map((order) => Number(order.id)));
+  const hasDebtOrders = debtOrders.length > 0 && totalDebtAmount > 0;
   const ordersTotalCount = ordersData?.totalCount ?? 0;
   const ordersTotalPages = ordersData?.totalPages ?? 0;
+
+  function goToDebtOrders() {
+    if (!hasDebtOrders) return;
+    if (debtOrders.length === 1) {
+      navigate(`/painel/os/${debtOrders[0].id}`);
+      return;
+    }
+    debtOrdersRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
 
   // ── Loading / Not found ───────────────────────────────────────────────────────
   if (loadingCustomer) {
@@ -583,6 +606,27 @@ export default function CustomerDetail() {
                     <InfoRow icon={FileText} label="Observações" value={customer.notes} />
                   )}
 
+                  {hasDebtOrders && (
+                    <button
+                      type="button"
+                      onClick={goToDebtOrders}
+                      className="w-full rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-left shadow-sm ring-2 ring-red-400/20 animate-pulse hover:bg-red-100 transition-colors"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-red-100 text-red-700">
+                          <CircleDollarSign className="h-4 w-4" />
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs font-semibold text-red-800">Cliente com saldo devedor</p>
+                          <p className="text-xs text-red-700">
+                            {formatCurrency(totalDebtAmount)} em {debtOrders.length} {debtOrders.length === 1 ? "OS pendente" : "OS pendentes"}. Clique para abrir.
+                          </p>
+                        </div>
+                        <AlertTriangle className="h-4 w-4 shrink-0 text-red-700" />
+                      </div>
+                    </button>
+                  )}
+
                   {/* Acesso ao portal — senha provisória */}
                   <div className="pt-2 border-t border-border">
                     <p className="text-xs text-muted-foreground mb-2 flex items-center gap-1">
@@ -775,7 +819,7 @@ export default function CustomerDetail() {
         </div>
 
         {/* Histórico de Ordens de Serviço */}
-        <Card>
+        <Card ref={debtOrdersRef}>
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-semibold flex items-center gap-2">
               <ClipboardList className="h-4 w-4 text-primary" />
@@ -804,10 +848,14 @@ export default function CustomerDetail() {
             ) : (
               <>
                 <div className="divide-y divide-border">
-                  {orders.map((os) => (
+                  {orders.map((os) => {
+                    const amountDue = Number(os.amountDue ?? 0);
+                    const hasOrderDebt = debtOrderIds.has(Number(os.id)) || amountDue > 0;
+
+                    return (
                     <div
                       key={os.id}
-                      className="flex items-center gap-3 py-3 cursor-pointer hover:bg-muted/30 -mx-2 px-2 rounded-md transition-colors"
+                      className={`flex items-center gap-3 py-3 cursor-pointer -mx-2 px-2 rounded-md transition-colors ${hasOrderDebt ? "bg-red-50 hover:bg-red-100 border border-red-200" : "hover:bg-muted/30"}`}
                       onClick={() => navigate(`/painel/os/${os.id}`)}
                       role="button"
                       tabIndex={0}
@@ -822,6 +870,11 @@ export default function CustomerDetail() {
                           <Badge variant="outline" className="text-xs font-normal capitalize">
                             {os.origin === "balcao" ? "Balcão" : "Coleta"}
                           </Badge>
+                          {hasOrderDebt && (
+                            <Badge className="bg-red-100 text-red-700 border-red-200 text-xs font-semibold hover:bg-red-100">
+                              Saldo devedor {formatCurrency(amountDue)}
+                            </Badge>
+                          )}
                         </div>
                         <p className="text-xs text-muted-foreground mt-0.5 truncate">
                           {os.reportedDefect}
@@ -832,7 +885,8 @@ export default function CustomerDetail() {
                         {new Date(os.createdAt).toLocaleDateString("pt-BR")}
                       </div>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
 
                 {ordersTotalCount > PAGE_SIZE && (

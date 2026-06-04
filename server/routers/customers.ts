@@ -1,9 +1,9 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { getDb, getCustomersByTenant, getCustomerById, getDevicesByCustomer } from "../db";
-import { customers, devices, serviceOrders } from "../../drizzle/schema";
+import { customers, devices, osStatusHistory, payments, pickups, serviceOrders } from "../../drizzle/schema";
 import { protectedProcedure, publicProcedure, router } from "../_core/trpc";
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { isValidDocument, detectDocumentType, onlyDigits } from "../../shared/cpfCnpj";
 import { resolveCustomerPortalAccess } from "../_core/customerPortalAuth";
 
@@ -303,15 +303,93 @@ export const customersRouter = router({
         eq(serviceOrders.tenantId, tenantId),
         eq(serviceOrders.customerId, customerId)
       );
-      const [data, countResult] = await Promise.all([
+      const [orders, countResult] = await Promise.all([
         db.select().from(serviceOrders).where(where)
           .orderBy(desc(serviceOrders.createdAt))
           .limit(pageSize).offset(offset),
         db.select({ count: sql<number>`COUNT(*)` }).from(serviceOrders).where(where),
       ]);
+
+      const orderIds = orders.map((order) => order.id);
+      const paymentRows = orderIds.length > 0
+        ? await db
+            .select({
+              serviceOrderId: payments.serviceOrderId,
+              paidAmount: sql<string>`COALESCE(SUM(CASE WHEN ${payments.status} = 'paid' THEN ${payments.amount} ELSE 0 END), 0)`,
+            })
+            .from(payments)
+            .where(and(eq(payments.tenantId, tenantId), inArray(payments.serviceOrderId, orderIds)))
+            .groupBy(payments.serviceOrderId)
+        : [];
+
+      const paidByOrderId = new Map(
+        paymentRows.map((row) => [Number(row.serviceOrderId), Number(row.paidAmount ?? 0)])
+      );
+
+      const decorateOrder = (order: typeof orders[number]) => {
+        const totalAmount = Number(order.totalAmount ?? 0);
+        const paidAmount = paidByOrderId.get(order.id) ?? 0;
+        const amountDue = Math.max(0, totalAmount - paidAmount);
+        return {
+          ...order,
+          totalAmount,
+          paidAmount,
+          amountDue,
+          hasDebt: amountDue > 0,
+        };
+      };
+
+      const data = orders.map(decorateOrder);
+
+      const debtRows = await db
+        .select({
+          id: serviceOrders.id,
+          osNumber: serviceOrders.osNumber,
+          totalAmount: serviceOrders.totalAmount,
+          paidAmount: sql<string>`COALESCE(SUM(CASE WHEN ${payments.status} = 'paid' THEN ${payments.amount} ELSE 0 END), 0)`,
+          amountDue: sql<string>`GREATEST(CAST(${serviceOrders.totalAmount} AS DECIMAL(10,2)) - COALESCE(SUM(CASE WHEN ${payments.status} = 'paid' THEN ${payments.amount} ELSE 0 END), 0), 0)`,
+        })
+        .from(serviceOrders)
+        .leftJoin(payments, and(eq(payments.tenantId, tenantId), eq(payments.serviceOrderId, serviceOrders.id)))
+        .where(and(
+          where,
+          sql`(
+            ${serviceOrders.status} IN ('entregue', 'finalizado')
+            OR EXISTS (
+              SELECT 1
+              FROM ${osStatusHistory} h
+              WHERE h.tenantId = ${serviceOrders.tenantId}
+                AND h.serviceOrderId = ${serviceOrders.id}
+                AND h.status IN ('entregue', 'finalizado')
+            )
+            OR EXISTS (
+              SELECT 1
+              FROM ${pickups} pk
+              WHERE pk.tenantId = ${serviceOrders.tenantId}
+                AND pk.serviceOrderId = ${serviceOrders.id}
+                AND pk.type = 'entrega'
+                AND pk.status = 'completed'
+            )
+          )`,
+          sql`CAST(${serviceOrders.totalAmount} AS DECIMAL(10,2)) > 0`
+        ))
+        .groupBy(serviceOrders.id, serviceOrders.osNumber, serviceOrders.totalAmount)
+        .having(sql`GREATEST(CAST(${serviceOrders.totalAmount} AS DECIMAL(10,2)) - COALESCE(SUM(CASE WHEN ${payments.status} = 'paid' THEN ${payments.amount} ELSE 0 END), 0), 0) > 0`)
+        .orderBy(desc(serviceOrders.createdAt));
+
+      const debtOrders = debtRows.map((row) => ({
+        id: Number(row.id),
+        osNumber: row.osNumber,
+        totalAmount: Number(row.totalAmount ?? 0),
+        paidAmount: Number(row.paidAmount ?? 0),
+        amountDue: Number(row.amountDue ?? 0),
+      }));
+
       const totalCount = Number(countResult[0]?.count ?? 0);
       return {
         data,
+        debtOrders,
+        totalDebtAmount: debtOrders.reduce((sum, order) => sum + order.amountDue, 0),
         totalCount,
         totalPages: Math.ceil(totalCount / pageSize),
         currentPage: page,
