@@ -172,8 +172,50 @@ export async function getCustomersByTenant(
   }
   const where = and(...conditions);
   const offset = (page - 1) * pageSize;
+  const pendingBalanceExpression = sql<string>`COALESCE((
+    SELECT SUM(GREATEST(CAST(so.totalAmount AS DECIMAL(10,2)) - COALESCE((
+      SELECT SUM(CAST(p.amount AS DECIMAL(10,2)))
+      FROM payments p
+      WHERE p.serviceOrderId = so.id
+        AND p.status = 'paid'
+    ), 0), 0))
+    FROM service_orders so
+    WHERE so.tenantId = ${tenantId}
+      AND so.customerId = ${customers.id}
+      AND CAST(so.totalAmount AS DECIMAL(10,2)) > 0
+  ), 0)`;
+
   const [data, countResult] = await Promise.all([
-    db.select().from(customers).where(where).orderBy(desc(customers.createdAt)).limit(pageSize).offset(offset),
+    db
+      .select({
+        id: customers.id,
+        tenantId: customers.tenantId,
+        name: customers.name,
+        email: customers.email,
+        phone: customers.phone,
+        document: customers.document,
+        address: customers.address,
+        addressNumber: customers.addressNumber,
+        addressReference: customers.addressReference,
+        neighborhood: customers.neighborhood,
+        city: customers.city,
+        state: customers.state,
+        zipCode: customers.zipCode,
+        notes: customers.notes,
+        userOpenId: customers.userOpenId,
+        passwordHash: customers.passwordHash,
+        passwordMustChange: customers.passwordMustChange,
+        localLoginEnabled: customers.localLoginEnabled,
+        lastLocalLoginAt: customers.lastLocalLoginAt,
+        createdAt: customers.createdAt,
+        updatedAt: customers.updatedAt,
+        pendingBalance: pendingBalanceExpression,
+      })
+      .from(customers)
+      .where(where)
+      .orderBy(desc(customers.createdAt))
+      .limit(pageSize)
+      .offset(offset),
     db.select({ count: sql<number>`COUNT(*)` }).from(customers).where(where),
   ]);
   const totalCount = Number(countResult[0]?.count ?? 0);

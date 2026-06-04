@@ -27,6 +27,7 @@ import {
   MessageSquare,
   Download,
   FileText,
+  AlertTriangle,
 } from "lucide-react";
 import { useState as useExportState } from "react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -444,37 +445,47 @@ export default function CustomersList() {
               </div>
             ) : (
               <div className="divide-y divide-border">
-                {customers.map((c) => (
-                  <div
-                    key={c.id}
-                    className="flex items-center gap-3 px-5 py-3.5 cursor-pointer hover:bg-muted/40 transition-colors"
-                    onClick={() => navigate(`/painel/clientes/${c.id}`)}
-                    role="button"
-                    tabIndex={0}
-                    onKeyDown={(e) => e.key === "Enter" && navigate(`/painel/clientes/${c.id}`)}
-                  >
-                    <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-primary font-bold text-sm shrink-0">
-                      {c.name[0].toUpperCase()}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-foreground">{c.name}</p>
-                      <div className="flex items-center gap-3 mt-0.5 flex-wrap">
-                        <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                          <Phone className="h-3 w-3" /> {c.phone}
-                        </span>
-                        {c.email && (
-                          <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                            <Mail className="h-3 w-3" /> {c.email}
-                          </span>
-                        )}
-                        {c.document && (
-                          <span className="text-xs text-muted-foreground font-mono">
-                            {c.document}
-                          </span>
-                        )}
+                {customers.map((c) => {
+                  const pendingBalance = Number(c.pendingBalance ?? 0);
+                  const hasPendingBalance = pendingBalance > 0.009;
+
+                  return (
+                    <div
+                      key={c.id}
+                      className="flex items-center gap-3 px-5 py-3.5 cursor-pointer hover:bg-muted/40 transition-colors"
+                      onClick={() => navigate(`/painel/clientes/${c.id}`)}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(e) => e.key === "Enter" && navigate(`/painel/clientes/${c.id}`)}
+                    >
+                      <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-primary font-bold text-sm shrink-0">
+                        {c.name[0].toUpperCase()}
                       </div>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-foreground">{c.name}</p>
+                        <div className="flex items-center gap-3 mt-0.5 flex-wrap">
+                          <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                            <Phone className="h-3 w-3" /> {c.phone}
+                          </span>
+                          {c.email && (
+                            <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                              <Mail className="h-3 w-3" /> {c.email}
+                            </span>
+                          )}
+                          {c.document && (
+                            <span className="text-xs text-muted-foreground font-mono">
+                              {c.document}
+                            </span>
+                          )}
+                          {hasPendingBalance && (
+                            <span className="inline-flex items-center gap-1 rounded-full border border-red-200 bg-red-50 px-2 py-0.5 text-[11px] font-medium text-red-700">
+                              <AlertTriangle className="h-3 w-3" />
+                              Pendência financeira
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
                       {c.phone && (
                         <Tooltip>
                           <TooltipTrigger asChild>
@@ -498,10 +509,11 @@ export default function CustomersList() {
                       <span className="text-xs text-muted-foreground">
                         {new Date(c.createdAt).toLocaleDateString("pt-BR")}
                       </span>
-                      <ChevronRight className="h-4 w-4 text-muted-foreground/50" />
+                        <ChevronRight className="h-4 w-4 text-muted-foreground/50" />
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </CardContent>

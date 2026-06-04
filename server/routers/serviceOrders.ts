@@ -923,44 +923,39 @@ export const serviceOrdersRouter = router({
 
         const balanceCents = Math.max(0, totalCents - paidCents);
 
-        if (balanceCents > 0) {
-          if (!input.closingPayment) {
+        if (balanceCents > 0 && input.closingPayment) {
+          const paymentCents = moneyToCents(input.closingPayment.amount);
+          if (paymentCents <= 0) {
             throw new TRPCError({
               code: "BAD_REQUEST",
-              message: "Informe o pagamento total do encerramento antes de finalizar a OS.",
+              message: "O pagamento do encerramento deve ser maior que zero quando informado.",
             });
           }
-
-          const paymentCents = moneyToCents(input.closingPayment.amount);
           if (paymentCents > balanceCents) {
             throw new TRPCError({
               code: "BAD_REQUEST",
               message: "O pagamento do encerramento não pode ser maior que o saldo em aberto.",
             });
           }
-          if (paymentCents < balanceCents) {
-            throw new TRPCError({
-              code: "BAD_REQUEST",
-              message: "Nesta versão, o encerramento exige pagamento total do saldo em aberto.",
-            });
-          }
 
           closingPaymentToInsert = {
             tenantId,
             serviceOrderId: input.id,
-            amount: centsToMoney(balanceCents),
+            amount: centsToMoney(paymentCents),
             method: input.closingPayment.method,
             status: "paid",
             paidAt: new Date(),
             gateway: "manual",
-            notes: input.notes ? `Pagamento registrado no encerramento da OS. Observação: ${input.notes}` : "Pagamento registrado no encerramento da OS.",
+            notes: input.notes ? `Pagamento parcial registrado no encerramento da OS. Observação: ${input.notes}` : "Pagamento parcial registrado no encerramento da OS.",
             receivedById: ctx.user.id,
             metadata: {
               source: "service_order_closure",
-              requiredFullPayment: true,
+              requiredFullPayment: false,
               totalAmount: centsToMoney(totalCents),
               paidBeforeClosure: centsToMoney(paidCents),
               balanceAtClosure: centsToMoney(balanceCents),
+              paidDuringClosure: centsToMoney(paymentCents),
+              remainingAfterClosure: centsToMoney(Math.max(0, balanceCents - paymentCents)),
               closingBudgetId: closingBudgetApproval?.id ?? null,
               budgetApprovedDuringClosure: closingBudgetApproval?.wasPending ?? false,
               closedById: ctx.user.id,

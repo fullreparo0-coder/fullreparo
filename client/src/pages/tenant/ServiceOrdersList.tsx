@@ -629,6 +629,7 @@ export default function ServiceOrdersList() {
                     const total = moneyToNumber(os.totalAmount);
                     const paid = moneyToNumber(os.paidAmount);
                     const balance = Math.max(total - paid, 0);
+                    const hasFinancialPending = balance > 0.005;
                     const hasPendingPayment = Number(os.pendingPaymentsCount ?? 0) > 0;
                     const deviceLabel = buildDeviceLabel(orderRecord);
                     const technicianName = os.technicianName ?? "Sem técnico";
@@ -700,9 +701,14 @@ export default function ServiceOrdersList() {
                             <WalletCards className="h-4 w-4 text-muted-foreground" />
                             {total > 0 ? formatMoney(total) : "Sem valor"}
                           </div>
-                          <p className="mt-1 text-[11px] text-muted-foreground">
+                          <p className={`mt-1 text-[11px] ${hasFinancialPending ? "font-medium text-red-700" : "text-muted-foreground"}`}>
                             Pago {formatMoney(paid)} · Saldo {formatMoney(balance)}
                           </p>
+                          {hasFinancialPending && (
+                            <Badge variant="outline" className="mt-1 w-fit border-red-200 bg-red-50 px-2 py-0.5 text-[10px] font-medium text-red-700 hover:bg-red-50">
+                              Valor pendente {formatMoney(balance)}
+                            </Badge>
+                          )}
                           {hasPendingPayment && (
                             <p className="text-[11px] font-medium text-amber-700">Pagamento solicitado em aberto</p>
                           )}

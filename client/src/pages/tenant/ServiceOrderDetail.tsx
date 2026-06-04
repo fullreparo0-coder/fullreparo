@@ -23,7 +23,7 @@ import {
   ArrowLeft, QrCode, Printer, MessageSquare, Clock,
   Wrench, User, Smartphone, FileText, DollarSign, Shield,
   Plus, ExternalLink, Copy, CheckSquare, Square, Send, ChevronDown,
-  Phone, Mail, MapPin, Truck, CalendarDays, PackageCheck, Pencil
+  Phone, Mail, MapPin, Truck, CalendarDays, PackageCheck, Pencil, AlertTriangle
 } from "lucide-react";
 
 const STATUS_OPTIONS = Object.entries(STATUS_LABELS);
@@ -326,7 +326,7 @@ export default function ServiceOrderDetail() {
       const effectiveTotalCents = autoSyncBudget ? moneyToCents(autoSyncBudget.totalCost) : totalCents;
       const balanceCents = Math.max(0, effectiveTotalCents - paidCents);
       setCloseApproveBudgetId(autoSyncBudget ? Number(autoSyncBudget.id) : null);
-      setClosePaymentAmount(balanceCents > 0 ? (balanceCents / 100).toFixed(2) : "");
+      setClosePaymentAmount("");
       setClosePaymentMethod("");
       setCloseModal(true);
     } else {
@@ -380,16 +380,12 @@ export default function ServiceOrderDetail() {
     const paymentCents = moneyToCents(closePaymentAmount.replace(",", "."));
 
     if (closeOutcome === "finalizado" && balanceCents > 0) {
-      if (!closePaymentMethod) {
-        toast.error("Selecione o meio de pagamento do encerramento.");
-        return;
-      }
       if (paymentCents > balanceCents) {
         toast.error("O pagamento do encerramento não pode ser maior que o saldo em aberto.");
         return;
       }
-      if (paymentCents < balanceCents) {
-        toast.error("Nesta versão, o encerramento exige pagamento total do saldo em aberto.");
+      if (paymentCents > 0 && !closePaymentMethod) {
+        toast.error("Selecione o meio de pagamento do valor recebido no encerramento.");
         return;
       }
     }
@@ -400,8 +396,8 @@ export default function ServiceOrderDetail() {
       notes,
       warrantyDays: closeOutcome === "finalizado" ? closeWarrantyDays : 0,
       approveClosingBudgetId: closeOutcome === "finalizado" && effectiveSelectedClosingBudget ? Number(effectiveSelectedClosingBudget.id) : undefined,
-      closingPayment: closeOutcome === "finalizado" && balanceCents > 0
-        ? { method: closePaymentMethod as ClosingPaymentMethod, amount: balanceCents / 100 }
+      closingPayment: closeOutcome === "finalizado" && balanceCents > 0 && paymentCents > 0
+        ? { method: closePaymentMethod as ClosingPaymentMethod, amount: paymentCents / 100 }
         : undefined,
     });
   };
@@ -560,6 +556,7 @@ export default function ServiceOrderDetail() {
   const administrativeBudgetCents = moneyToCents(budgetList.find((budget: any) => ["pending", "approved"].includes(budget.status) && moneyToCents(budget.totalCost) > 0)?.totalCost);
   const administrativeTotalCents = totalAmountCents > 0 ? totalAmountCents : administrativeBudgetCents;
   const administrativeBalanceCents = Math.max(0, administrativeTotalCents - totalPaidCents);
+  const hasFinancialPending = administrativeTotalCents > 0 && administrativeBalanceCents > 0;
   const payableClosingBudgets = budgetList.filter((budget: any) => ["pending", "approved"].includes(budget.status) && moneyToCents(budget.totalCost) > 0);
   const pendingClosingBudgets = payableClosingBudgets.filter((budget: any) => budget.status === "pending");
   const approvedClosingBudgets = payableClosingBudgets.filter((budget: any) => budget.status === "approved");
@@ -583,8 +580,8 @@ export default function ServiceOrderDetail() {
   const closingHasMultiplePendingBudgets = totalAmountCents === 0 && pendingClosingBudgets.length > 1;
   const closingHasSingleApprovedBudgetToSync = totalAmountCents === 0 && pendingClosingBudgets.length === 0 && approvedClosingBudgets.length === 1;
   const isClosingBudgetReady = closeOutcome !== "finalizado" || totalAmountCents > 0 || !closingHasSinglePendingBudget || !!selectedClosingBudget || isSinglePendingClosingBudgetPaid;
-  const isClosingPaymentMethodValid = closeOutcome !== "finalizado" || closingBalanceCents === 0 || !!closePaymentMethod;
-  const isClosingFullPaymentValid = closeOutcome !== "finalizado" || closingHasMultiplePendingBudgets === false && isClosingBudgetReady && isClosingPaymentMethodValid && (closingBalanceCents === 0 || closingPaymentAmountCents === closingBalanceCents);
+  const isClosingPaymentMethodValid = closeOutcome !== "finalizado" || closingBalanceCents === 0 || closingPaymentAmountCents === 0 || !!closePaymentMethod;
+  const isClosingPaymentValid = closeOutcome !== "finalizado" || closingHasMultiplePendingBudgets === false && isClosingBudgetReady && isClosingPaymentMethodValid && closingPaymentAmountCents <= closingBalanceCents;
   const displayPrimaryBudget =
     budgetList.find((budget: any) => budget.status === "approved" && moneyToCents(budget.totalCost) > 0) ??
     budgetList.find((budget: any) => ["pending", "approved"].includes(budget.status) && moneyToCents(budget.totalCost) > 0) ??
@@ -1135,6 +1132,11 @@ export default function ServiceOrderDetail() {
                   {administrativeTotalCents > 0 && administrativeBalanceCents <= 0 && (
                     <Badge variant="default" className="w-fit bg-emerald-600 text-white hover:bg-emerald-600">Quitada</Badge>
                   )}
+                  {hasFinancialPending && (
+                    <Badge variant="outline" className="w-fit border-red-200 bg-red-50 text-red-700 hover:bg-red-50">
+                      <AlertTriangle className="mr-1 h-3.5 w-3.5" /> Valor pendente
+                    </Badge>
+                  )}
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -1147,11 +1149,19 @@ export default function ServiceOrderDetail() {
                     <p className="text-xs text-emerald-700 dark:text-emerald-300">Total pago</p>
                     <p className="text-lg font-bold text-emerald-700 dark:text-emerald-300">{toCurrency(totalPaidCents / 100)}</p>
                   </div>
-                  <div className="rounded-xl border bg-blue-50/70 p-3 dark:bg-blue-950/20">
-                    <p className="text-xs text-blue-700 dark:text-blue-300">Saldo</p>
-                    <p className="text-lg font-bold text-blue-700 dark:text-blue-300">{toCurrency(administrativeBalanceCents / 100)}</p>
+                  <div className={`rounded-xl border p-3 ${hasFinancialPending ? "border-red-200 bg-red-50/80 dark:bg-red-950/20" : "bg-blue-50/70 dark:bg-blue-950/20"}`}>
+                    <p className={`text-xs ${hasFinancialPending ? "text-red-700 dark:text-red-300" : "text-blue-700 dark:text-blue-300"}`}>Saldo</p>
+                    <p className={`text-lg font-bold ${hasFinancialPending ? "text-red-700 dark:text-red-300" : "text-blue-700 dark:text-blue-300"}`}>{toCurrency(administrativeBalanceCents / 100)}</p>
                   </div>
                 </div>
+                {hasFinancialPending && (
+                  <div className="rounded-xl border border-red-200 bg-red-50/80 px-3 py-2 text-sm text-red-700 dark:bg-red-950/20 dark:text-red-300">
+                    <div className="flex items-start gap-2">
+                      <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                      <p><span className="font-semibold">Valor pendente: {toCurrency(administrativeBalanceCents / 100)}.</span> Cliente liberado ou em atendimento com saldo em aberto nesta OS.</p>
+                    </div>
+                  </div>
+                )}
                 <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
                         {/* Orçamento */}
                         <Card className="rounded-xl border-border/70 bg-background/80 shadow-none">
@@ -1977,7 +1987,7 @@ export default function ServiceOrderDetail() {
                         const budgetCents = moneyToCents(budget.totalCost);
                         const balanceCents = Math.max(0, budgetCents - totalPaidCents);
                         setCloseApproveBudgetId(Number(budget.id));
-                        setClosePaymentAmount(balanceCents > 0 ? (balanceCents / 100).toFixed(2) : "");
+                        setClosePaymentAmount("");
                       }}
                     >
                       Aprovar orçamento agora e usar no fechamento
@@ -2042,10 +2052,12 @@ export default function ServiceOrderDetail() {
                       </div>
                     </div>
 
-                    <div className={`rounded-lg border px-3 py-2 text-xs ${isClosingFullPaymentValid ? "border-emerald-200 bg-white text-emerald-700" : "border-amber-200 bg-amber-50 text-amber-700"}`}>
-                      {isClosingFullPaymentValid
-                        ? `Será registrado pagamento manual como quitado no valor de ${toCurrency(closingBalance)}.`
-                        : `Para esta versão, informe exatamente o saldo em aberto: ${toCurrency(closingBalance)}.`}
+                    <div className={`rounded-lg border px-3 py-2 text-xs ${isClosingPaymentValid ? "border-red-200 bg-red-50 text-red-700" : "border-amber-200 bg-amber-50 text-amber-700"}`}>
+                      {isClosingPaymentValid
+                        ? closingPaymentAmountCents > 0
+                          ? `Será registrado pagamento de ${toCurrency(closingPaymentAmountCents / 100)} e ficará pendente ${toCurrency(Math.max(0, closingBalanceCents - closingPaymentAmountCents) / 100)}.`
+                          : `A OS será liberada com valor pendente de ${toCurrency(closingBalance)} para pagamento posterior.`
+                        : `O valor recebido não pode ser maior que o saldo em aberto: ${toCurrency(closingBalance)}.`}
                     </div>
                   </div>
                 ) : (
@@ -2096,7 +2108,7 @@ export default function ServiceOrderDetail() {
             <Button
               className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold h-11"
               onClick={handleConfirmClose}
-              disabled={updateStatus.isPending || !isClosingFullPaymentValid}
+              disabled={updateStatus.isPending || !isClosingPaymentValid}
             >
               {updateStatus.isPending
                 ? <><span className="animate-spin mr-2">⏳</span> Encerrando...</>
