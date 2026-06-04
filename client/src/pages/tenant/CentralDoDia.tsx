@@ -1,3 +1,4 @@
+import { useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -42,6 +43,32 @@ const alertClasses: Record<string, string> = {
   success: "border-emerald-200 bg-emerald-50 text-emerald-800",
 };
 
+
+type QueueFilter = "all" | "critical" | "stalled" | "attention" | "new_today" | "pending_budget" | "overdue" | "ready_pickup";
+
+const filterLabels: Record<QueueFilter, string> = {
+  all: "Fila geral",
+  critical: "OS críticas",
+  stalled: "OS paradas",
+  attention: "OS em atenção",
+  new_today: "OS novas hoje",
+  pending_budget: "Orçamentos pendentes",
+  overdue: "OS atrasadas",
+  ready_pickup: "Prontas para retirada",
+};
+
+function matchesQueueFilter(order: any, filter: QueueFilter) {
+  if (filter === "all") return true;
+  if (filter === "critical") return order.priority === "alta";
+  if (filter === "stalled") return Boolean(order.sla?.isStageStalled || order.sla?.isOverdue || order.isOverdue);
+  if (filter === "attention") return order.priority === "alta" || order.priority === "media" || Boolean(order.sla?.isStageStalled || order.sla?.isOverdue || order.isOverdue);
+  if (filter === "new_today") return Boolean(order.isNewToday);
+  if (filter === "pending_budget") return Boolean(order.isPendingBudget || order.status === "aguardando_aprovacao");
+  if (filter === "overdue") return Boolean(order.isOverdue || order.sla?.isOverdue);
+  if (filter === "ready_pickup") return Boolean(order.isReadyForPickup || order.status === "pronto" || order.status === "aguardando_entrega");
+  return true;
+}
+
 const channelIcon: Record<string, React.ElementType> = {
   email: Mail,
   push_pwa: Smartphone,
@@ -81,16 +108,17 @@ function ProgressBar({ value, max, tone }: { value: number; max: number; tone: s
   );
 }
 
-function StatCard({ title, value, description, icon: Icon, tone, onClick }: {
+function StatCard({ title, value, description, icon: Icon, tone, onClick, active }: {
   title: string;
   value: number | string;
   description: string;
   icon: React.ElementType;
   tone: string;
   onClick?: () => void;
+  active?: boolean;
 }) {
-  return (
-    <Card className="w-full min-w-0 overflow-hidden rounded-2xl border border-border/70 bg-card/95 shadow-sm transition hover:shadow-md">
+  const content = (
+    <Card className={`w-full min-w-0 overflow-hidden rounded-2xl border bg-card/95 shadow-sm transition hover:shadow-md ${active ? "border-primary/60 ring-2 ring-primary/15" : "border-border/70"}`}>
       <CardContent className="p-3 sm:p-5">
         <div className="flex min-h-[112px] flex-col justify-between gap-3 sm:min-h-0 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0">
@@ -103,12 +131,19 @@ function StatCard({ title, value, description, icon: Icon, tone, onClick }: {
           </div>
         </div>
         {onClick && (
-          <Button variant="ghost" size="sm" className="mt-2 h-7 px-0 text-[11px] font-medium sm:mt-4 sm:h-8 sm:text-xs" onClick={onClick}>
+          <div className="mt-2 flex h-7 items-center text-[11px] font-medium text-primary sm:mt-4 sm:h-8 sm:text-xs">
             Ver fila <ArrowRight className="ml-1 h-3.5 w-3.5" />
-          </Button>
+          </div>
         )}
       </CardContent>
     </Card>
+  );
+
+  if (!onClick) return content;
+  return (
+    <button type="button" onClick={onClick} className="w-full min-w-0 rounded-2xl text-left focus:outline-none focus:ring-2 focus:ring-primary/30">
+      {content}
+    </button>
   );
 }
 
@@ -127,9 +162,15 @@ function LoadingGrid() {
 
 export default function CentralDoDia() {
   const [, navigate] = useLocation();
+  const [activeFilter, setActiveFilter] = useState<QueueFilter>("all");
   const { data, isLoading, isError, refetch, isFetching } = trpc.serviceOrders.centralDay.useQuery(undefined, {
     refetchInterval: 60_000,
   });
+  const actionQueueForFilter = data?.actionQueue ?? [];
+  const criticalQueue = useMemo(() => actionQueueForFilter.filter((order) => matchesQueueFilter(order, "critical")), [actionQueueForFilter]);
+  const stalledQueue = useMemo(() => actionQueueForFilter.filter((order) => matchesQueueFilter(order, "stalled")), [actionQueueForFilter]);
+  const attentionQueue = useMemo(() => actionQueueForFilter.filter((order) => matchesQueueFilter(order, "attention")), [actionQueueForFilter]);
+  const filteredActionQueue = useMemo(() => actionQueueForFilter.filter((order) => matchesQueueFilter(order, activeFilter)), [actionQueueForFilter, activeFilter]);
 
   if (isLoading) {
     return (
@@ -160,12 +201,13 @@ export default function CentralDoDia() {
   const cards = data.cards;
   const financial = data.financial;
   const alerts = (data.alerts ?? []).filter(Boolean) as AlertItem[];
-  const actionQueue = data.actionQueue ?? [];
+  const actionQueue = actionQueueForFilter;
   const statusDistribution = data.statusDistribution ?? [];
   const technicianMetrics = data.technicianMetrics ?? [];
   const actionSummary = data.actionSummary ?? { high: 0, medium: 0, normal: 0, stalled: 0 };
   const inboxByOs = data.inboxByOs ?? [];
-  const totalAttention = actionSummary.high + actionSummary.medium + actionSummary.stalled;
+  const activeFilterLabel = filterLabels[activeFilter];
+  const totalAttention = attentionQueue.length;
   const totalCards = cards.newOrdersToday + cards.pendingBudgets + cards.overdueOrders + cards.readyForPickup;
   const statusMax = Math.max(1, ...statusDistribution.map((item) => item.count));
   const technicianMax = Math.max(1, ...technicianMetrics.map((item) => item.total));
@@ -192,22 +234,22 @@ export default function CentralDoDia() {
               </div>
 
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-2 xl:grid-cols-4">
-                <div className="rounded-2xl border border-red-200 bg-red-50 p-3 text-red-800">
+                <button type="button" onClick={() => setActiveFilter("critical")} className={`rounded-2xl border border-red-200 bg-red-50 p-3 text-left text-red-800 transition hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-red-200 ${activeFilter === "critical" ? "ring-2 ring-red-200" : ""}`}>
                   <p className="text-[11px] font-medium uppercase tracking-wide">Críticas</p>
-                  <strong className="mt-1 block text-2xl leading-none">{actionSummary.high}</strong>
-                </div>
-                <div className="rounded-2xl border border-purple-200 bg-purple-50 p-3 text-purple-800">
+                  <strong className="mt-1 block text-2xl leading-none">{criticalQueue.length}</strong>
+                </button>
+                <button type="button" onClick={() => setActiveFilter("stalled")} className={`rounded-2xl border border-purple-200 bg-purple-50 p-3 text-left text-purple-800 transition hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-purple-200 ${activeFilter === "stalled" ? "ring-2 ring-purple-200" : ""}`}>
                   <p className="text-[11px] font-medium uppercase tracking-wide">Paradas</p>
-                  <strong className="mt-1 block text-2xl leading-none">{actionSummary.stalled}</strong>
-                </div>
-                <div className="rounded-2xl border border-amber-200 bg-amber-50 p-3 text-amber-800">
+                  <strong className="mt-1 block text-2xl leading-none">{stalledQueue.length}</strong>
+                </button>
+                <button type="button" onClick={() => setActiveFilter("attention")} className={`rounded-2xl border border-amber-200 bg-amber-50 p-3 text-left text-amber-800 transition hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-amber-200 ${activeFilter === "attention" ? "ring-2 ring-amber-200" : ""}`}>
                   <p className="text-[11px] font-medium uppercase tracking-wide">Atenção</p>
                   <strong className="mt-1 block text-2xl leading-none">{totalAttention}</strong>
-                </div>
-                <div className="rounded-2xl border bg-background/80 p-3 text-foreground">
+                </button>
+                <button type="button" onClick={() => setActiveFilter("all")} className={`rounded-2xl border bg-background/80 p-3 text-left text-foreground transition hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/20 ${activeFilter === "all" ? "ring-2 ring-primary/20" : ""}`}>
                   <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Resumo</p>
-                  <strong className="mt-1 block text-2xl leading-none">{totalCards}</strong>
-                </div>
+                  <strong className="mt-1 block text-2xl leading-none">{actionQueue.length}</strong>
+                </button>
               </div>
             </div>
 
@@ -239,7 +281,8 @@ export default function CentralDoDia() {
             description="Entradas registradas desde o início do dia"
             icon={ClipboardList}
             tone="bg-blue-50 text-blue-600"
-            onClick={() => navigate("/painel/os")}
+            onClick={() => setActiveFilter("new_today")}
+            active={activeFilter === "new_today"}
           />
           <StatCard
             title="Orçamentos pendentes"
@@ -247,7 +290,8 @@ export default function CentralDoDia() {
             description="Aguardando aprovação do cliente"
             icon={CalendarClock}
             tone="bg-amber-50 text-amber-600"
-            onClick={() => navigate("/painel/os?status=aguardando_aprovacao")}
+            onClick={() => setActiveFilter("pending_budget")}
+            active={activeFilter === "pending_budget"}
           />
           <StatCard
             title="OS atrasadas"
@@ -255,7 +299,8 @@ export default function CentralDoDia() {
             description="Com prazo estimado vencido"
             icon={AlertTriangle}
             tone="bg-red-50 text-red-600"
-            onClick={() => navigate("/painel/os")}
+            onClick={() => setActiveFilter("overdue")}
+            active={activeFilter === "overdue"}
           />
           <StatCard
             title="Prontas para retirada"
@@ -263,7 +308,8 @@ export default function CentralDoDia() {
             description="Serviços concluídos aguardando cliente"
             icon={CheckCircle2}
             tone="bg-emerald-50 text-emerald-600"
-            onClick={() => navigate("/painel/os?status=pronto")}
+            onClick={() => setActiveFilter("ready_pickup")}
+            active={activeFilter === "ready_pickup"}
           />
         </div>
 
@@ -276,8 +322,13 @@ export default function CentralDoDia() {
                   Fila de ação operacional
                 </CardTitle>
                 <p className="mt-1 text-xs leading-relaxed text-muted-foreground sm:text-sm">
-                  OS ordenadas por urgência, SLA parado, prazo vencido e próxima ação sugerida.
+                  {activeFilter === "all" ? "OS ordenadas por urgência, SLA parado, prazo vencido e próxima ação sugerida." : `Exibindo: ${activeFilterLabel}.`}
                 </p>
+                {activeFilter !== "all" && (
+                  <Button variant="ghost" size="sm" className="mt-2 h-7 px-0 text-xs text-primary" onClick={() => setActiveFilter("all")}>
+                    Limpar filtro e voltar para fila geral
+                  </Button>
+                )}
               </div>
               <div className="grid grid-cols-4 gap-1.5 text-center text-[10px] leading-tight sm:gap-2 sm:text-xs">
                 <div className="rounded-xl border border-red-200 bg-red-50 px-2 py-2 text-red-700"><strong className="block text-base leading-none sm:text-lg">{actionSummary.high}</strong> alta</div>
@@ -287,13 +338,13 @@ export default function CentralDoDia() {
               </div>
             </CardHeader>
             <CardContent className="space-y-2 px-3 pb-3 pt-0 sm:space-y-3 sm:px-5 sm:pb-5">
-              {actionQueue.length === 0 ? (
+              {filteredActionQueue.length === 0 ? (
                 <div className="rounded-xl border border-dashed p-8 text-center">
                   <CheckCircle2 className="mx-auto h-9 w-9 text-emerald-600" />
                   <h3 className="mt-3 font-semibold">Tudo em dia por enquanto</h3>
-                  <p className="mt-1 text-sm text-muted-foreground">Nenhuma OS crítica ou pendente foi encontrada para ação imediata.</p>
+                  <p className="mt-1 text-sm text-muted-foreground">Nenhuma OS encontrada para o filtro selecionado.</p>
                 </div>
-              ) : actionQueue.map((order) => (
+              ) : filteredActionQueue.map((order) => (
                 <button
                   key={order.id}
                   onClick={() => navigate(order.href)}

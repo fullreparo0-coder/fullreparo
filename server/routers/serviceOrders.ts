@@ -1711,12 +1711,12 @@ export const serviceOrdersRouter = router({
           reportedDefect: serviceOrders.reportedDefect,
           estimatedDelivery: serviceOrders.estimatedDelivery,
           totalAmount: serviceOrders.totalAmount,
+          createdAt: serviceOrders.createdAt,
           orderType: serviceOrders.orderType,
           originalServiceOrderId: serviceOrders.originalServiceOrderId,
           warrantyReturnStatus: serviceOrders.warrantyReturnStatus,
           paymentRequestedAt: serviceOrders.paymentRequestedAt,
           deliveryAuthorizedAt: serviceOrders.deliveryAuthorizedAt,
-          createdAt: serviceOrders.createdAt,
           updatedAt: serviceOrders.updatedAt,
           customerName: customers.name,
           deviceBrand: devices.brand,
@@ -1729,11 +1729,11 @@ export const serviceOrdersRouter = router({
         .leftJoin(users, eq(users.id, serviceOrders.technicianId))
         .where(and(
           eq(serviceOrders.tenantId, tenantId),
-          sql`(${serviceOrders.status} IN ('recebido_na_assistencia','solicitado','aguardando_coleta','coleta_agendada','em_diagnostico','aguardando_aprovacao','aguardando_peca','em_reparo','pronto','aguardando_entrega') OR ${serviceOrders.estimatedDelivery} < ${now})`,
+          sql`(${serviceOrders.status} IN ('recebido_na_assistencia','solicitado','aguardando_coleta','coleta_agendada','em_diagnostico','aguardando_aprovacao','aguardando_peca','em_reparo','pronto','aguardando_entrega') OR ${serviceOrders.estimatedDelivery} < ${now} OR ${serviceOrders.createdAt} >= ${startOfToday})`,
           sql`${serviceOrders.status} NOT IN ('finalizado','encerrado_sem_reparo','encerrado_condenado','cancelado','entregue')`,
         ))
         .orderBy(desc(serviceOrders.createdAt))
-        .limit(12),
+        .limit(200),
       db
         .select({
           id: osNotifications.id,
@@ -1800,6 +1800,10 @@ export const serviceOrdersRouter = router({
           createdAt: order.createdAt ? new Date(order.createdAt).toISOString() : null,
           updatedAt: order.updatedAt ? new Date(order.updatedAt).toISOString() : null,
           totalAmount: Number(order.totalAmount ?? 0),
+          isNewToday: order.createdAt ? new Date(order.createdAt) >= startOfToday : false,
+          isPendingBudget: order.status === "aguardando_aprovacao",
+          isOverdue: Boolean(estimatedDelivery && estimatedDelivery < now),
+          isReadyForPickup: order.status === "pronto" || order.status === "aguardando_entrega",
         };
       })
       .sort((a, b) => {
@@ -1807,8 +1811,7 @@ export const serviceOrdersRouter = router({
         const priorityDiff = (weight[b.priority] ?? 0) - (weight[a.priority] ?? 0);
         if (priorityDiff !== 0) return priorityDiff;
         return Number(b.sla?.statusAgeHours ?? 0) - Number(a.sla?.statusAgeHours ?? 0);
-      })
-      .slice(0, 10);
+      });
 
 
     const actionSummary = actionQueue.reduce((acc, item) => {
