@@ -172,39 +172,7 @@ export async function getCustomersByTenant(
   }
   const where = and(...conditions);
   const offset = (page - 1) * pageSize;
-  const customerDebtExpression = sql<number>`CAST(GREATEST(COALESCE((
-    SELECT SUM(GREATEST((
-      CAST(so.totalAmount AS DECIMAL(10,2))
-    ) - COALESCE((
-      SELECT SUM(CAST(p.amount AS DECIMAL(10,2)))
-      FROM payments p
-      WHERE p.tenantId = so.tenantId
-        AND p.serviceOrderId = so.id
-        AND p.status = 'paid'
-    ), 0), 0))
-    FROM service_orders so
-    WHERE so.tenantId = ${tenantId}
-      AND so.customerId = ${customers.id}
-      AND (
-        so.status IN ('entregue', 'finalizado')
-        OR EXISTS (
-          SELECT 1
-          FROM os_status_history h
-          WHERE h.tenantId = so.tenantId
-            AND h.serviceOrderId = so.id
-            AND h.status IN ('entregue', 'finalizado')
-        )
-        OR EXISTS (
-          SELECT 1
-          FROM pickups pk
-          WHERE pk.tenantId = so.tenantId
-            AND pk.serviceOrderId = so.id
-            AND pk.type = 'entrega'
-            AND pk.status = 'completed'
-        )
-      )
-      AND CAST(so.totalAmount AS DECIMAL(10,2)) > 0
-  ), 0), 0) AS DOUBLE)`;
+  const zeroDebtExpression = sql<number>`CAST(0 AS DOUBLE)`;
 
   const [data, countResult] = await Promise.all([
     db
@@ -230,9 +198,9 @@ export async function getCustomersByTenant(
         lastLocalLoginAt: customers.lastLocalLoginAt,
         createdAt: customers.createdAt,
         updatedAt: customers.updatedAt,
-        pendingBalance: customerDebtExpression,
-        amountDue: customerDebtExpression,
-        debtAmount: customerDebtExpression,
+        pendingBalance: zeroDebtExpression,
+        amountDue: zeroDebtExpression,
+        debtAmount: zeroDebtExpression,
       })
       .from(customers)
       .where(where)
