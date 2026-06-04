@@ -16,6 +16,7 @@ export const customersRouter = router({
   list: tenantProcedure
     .input(z.object({
       search: z.string().optional(),
+      source: z.enum(["balcao", "online"]).optional(),
       page: z.number().int().min(1).default(1),
       pageSize: z.number().int().min(1).max(100).default(20),
     }).optional())
@@ -24,7 +25,8 @@ export const customersRouter = router({
         ctx.user.tenantId!,
         input?.search,
         input?.page ?? 1,
-        input?.pageSize ?? 20
+        input?.pageSize ?? 20,
+        input?.source
       );
     }),
 

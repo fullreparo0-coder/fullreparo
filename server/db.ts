@@ -144,7 +144,8 @@ export async function getCustomersByTenant(
   tenantId: number,
   search?: string,
   page = 1,
-  pageSize = 20
+  pageSize = 20,
+  source?: "balcao" | "online"
 ) {
   const db = await getDb();
   if (!db) return { data: [], totalCount: 0, totalPages: 0, currentPage: page };
@@ -154,6 +155,21 @@ export async function getCustomersByTenant(
     like(customers.phone, `%${search}%`),
     like(customers.document, `%${search}%`)
   )!);
+  if (source === "online") {
+    conditions.push(sql`EXISTS (
+      SELECT 1 FROM service_orders so
+      WHERE so.tenantId = ${tenantId}
+        AND so.customerId = ${customers.id}
+        AND so.origin = 'coleta'
+    )`);
+  } else if (source === "balcao") {
+    conditions.push(sql`NOT EXISTS (
+      SELECT 1 FROM service_orders so
+      WHERE so.tenantId = ${tenantId}
+        AND so.customerId = ${customers.id}
+        AND so.origin = 'coleta'
+    )`);
+  }
   const where = and(...conditions);
   const offset = (page - 1) * pageSize;
   const [data, countResult] = await Promise.all([

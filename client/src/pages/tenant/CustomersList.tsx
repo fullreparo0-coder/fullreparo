@@ -30,8 +30,10 @@ import {
 } from "lucide-react";
 import { useState as useExportState } from "react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const PAGE_SIZE = 20;
+type CustomerSourceFilter = "all" | "balcao" | "online";
 
 const EMPTY_FORM = {
   name: "",
@@ -51,6 +53,7 @@ const EMPTY_FORM = {
 export default function CustomersList() {
   const [, navigate] = useLocation();
   const [search, setSearch] = useState("");
+  const [sourceFilter, setSourceFilter] = useState<CustomerSourceFilter>("all");
   const [page, setPage] = useState(1);
   const [exportingCsv, setExportingCsv] = useExportState(false);
   const [exportingPdf, setExportingPdf] = useExportState(false);
@@ -59,10 +62,11 @@ export default function CustomersList() {
   const [docError, setDocError] = useState("");
   const utils = trpc.useUtils();
 
-  useEffect(() => { setPage(1); }, [search]);
+  useEffect(() => { setPage(1); }, [search, sourceFilter]);
 
   const { data, isLoading } = trpc.customers.list.useQuery({
     search: search || undefined,
+    source: sourceFilter === "all" ? undefined : sourceFilter,
     page,
     pageSize: PAGE_SIZE,
   });
@@ -70,6 +74,7 @@ export default function CustomersList() {
   const customers = data?.data ?? [];
   const totalCount = data?.totalCount ?? 0;
   const totalPages = data?.totalPages ?? 0;
+  const counterLabel = totalCount === 1 ? "1 cliente" : `${totalCount} clientes`;
 
   const create = trpc.customers.create.useMutation({
     onSuccess: () => {
@@ -139,45 +144,59 @@ export default function CustomersList() {
     <TenantLayout title="Clientes">
       <div className="space-y-4">
         {/* Toolbar */}
-        <div className="flex gap-3">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Buscar por nome, CPF/CNPJ ou telefone..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-9 pr-9"
-            />
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  type="button"
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                  tabIndex={-1}
-                >
-                  <HelpCircle className="h-4 w-4" />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom" align="end" className="max-w-xs">
-                <p className="font-semibold text-xs mb-1.5">Campos de busca:</p>
-                <ul className="space-y-1 text-xs">
-                  <li><span className="font-medium">Nome</span> do cliente</li>
-                  <li><span className="font-medium">CPF / CNPJ</span></li>
-                  <li><span className="font-medium">Telefone</span></li>
-                </ul>
-              </TooltipContent>
-            </Tooltip>
-          </div>
+        <div className="space-y-3">
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <div className="relative w-full sm:flex-1">
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Buscar cliente..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="h-12 pl-11 pr-11 text-base sm:h-10 sm:text-sm"
+              />
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                    tabIndex={-1}
+                  >
+                    <HelpCircle className="h-4 w-4" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" align="end" className="max-w-xs">
+                  <p className="font-semibold text-xs mb-1.5">Campos de busca:</p>
+                  <ul className="space-y-1 text-xs">
+                    <li><span className="font-medium">Nome</span> do cliente</li>
+                    <li><span className="font-medium">CPF / CNPJ</span></li>
+                    <li><span className="font-medium">Telefone</span></li>
+                  </ul>
+                </TooltipContent>
+              </Tooltip>
+            </div>
 
-          {/* Botões de exportação */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" className="gap-1.5 bg-background">
-                <Download className="h-4 w-4" />
-                Exportar
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-44">
+            <div className="grid grid-cols-2 gap-3 sm:flex sm:shrink-0">
+              <Select value={sourceFilter} onValueChange={(value) => setSourceFilter(value as CustomerSourceFilter)}>
+                <SelectTrigger className="h-11 w-full bg-background text-sm sm:w-36 sm:h-10">
+                  <SelectValue placeholder="Origem" />
+                </SelectTrigger>
+                <SelectContent align="end">
+                  <SelectItem value="all">Todos</SelectItem>
+                  <SelectItem value="balcao">Balcão</SelectItem>
+                  <SelectItem value="online">On-line</SelectItem>
+                </SelectContent>
+              </Select>
+
+              {/* Botões de exportação */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" className="h-11 gap-1.5 bg-background sm:h-10">
+                    <Download className="h-4 w-4" />
+                    Exportar
+                  </Button>
+                </DropdownMenuTrigger>
+
+                <DropdownMenuContent align="end" className="w-44">
               <DropdownMenuItem
                 disabled={exportingCsv}
                 onClick={async () => {
@@ -185,6 +204,7 @@ export default function CustomersList() {
                   try {
                     const params = new URLSearchParams();
                     if (search) params.set("search", search);
+                    if (sourceFilter !== "all") params.set("source", sourceFilter);
                     const a = document.createElement("a");
                     a.href = `/api/export/clientes.csv?${params.toString()}`;
                     a.download = `clientes-${new Date().toISOString().slice(0, 10)}.csv`;
@@ -202,6 +222,7 @@ export default function CustomersList() {
                   try {
                     const params = new URLSearchParams();
                     if (search) params.set("search", search);
+                    if (sourceFilter !== "all") params.set("source", sourceFilter);
                     const a = document.createElement("a");
                     a.href = `/api/export/clientes.pdf?${params.toString()}`;
                     a.download = `clientes-${new Date().toISOString().slice(0, 10)}.pdf`;
@@ -212,14 +233,22 @@ export default function CustomersList() {
                 <FileText className="h-4 w-4 mr-2 text-red-600" />
                 {exportingPdf ? "Gerando..." : "Exportar PDF"}
               </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          </div>
 
-          <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) { setForm(EMPTY_FORM); setDocError(""); } }}>
-            <DialogTrigger asChild>
-              <Button><Plus className="h-4 w-4 mr-1.5" />Novo Cliente</Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-xs text-muted-foreground">
+              Mostrando <span className="font-medium text-foreground/80">{counterLabel}</span>
+            </p>
+
+            <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) { setForm(EMPTY_FORM); setDocError(""); } }}>
+              <DialogTrigger asChild>
+                <Button className="h-10 px-4"><Plus className="h-4 w-4 mr-1.5" />Novo Cliente</Button>
+              </DialogTrigger>
+
+              <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Cadastrar Cliente</DialogTitle>
               </DialogHeader>
@@ -395,7 +424,8 @@ export default function CustomersList() {
                 </Button>
               </div>
             </DialogContent>
-          </Dialog>
+            </Dialog>
+          </div>
         </div>
 
         {/* Lista */}
@@ -409,7 +439,7 @@ export default function CustomersList() {
               <div className="flex flex-col items-center justify-center py-12 text-center">
                 <Users className="h-10 w-10 text-muted-foreground/20 mb-3" />
                 <p className="text-sm text-muted-foreground">
-                  {search ? "Nenhum cliente encontrado para essa busca" : "Nenhum cliente cadastrado"}
+                  {search || sourceFilter !== "all" ? "Nenhum cliente encontrado para esses filtros" : "Nenhum cliente cadastrado"}
                 </p>
               </div>
             ) : (
