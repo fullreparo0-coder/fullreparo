@@ -172,7 +172,7 @@ export async function getCustomersByTenant(
   }
   const where = and(...conditions);
   const offset = (page - 1) * pageSize;
-  const pendingBalanceExpression = sql<number>`CAST(GREATEST(COALESCE((
+  const customerDebtExpression = sql<number>`CAST(GREATEST(COALESCE((
     SELECT SUM(GREATEST((
       CASE
         WHEN CAST(so.totalAmount AS DECIMAL(10,2)) > 0 THEN CAST(so.totalAmount AS DECIMAL(10,2))
@@ -252,7 +252,9 @@ export async function getCustomersByTenant(
         lastLocalLoginAt: customers.lastLocalLoginAt,
         createdAt: customers.createdAt,
         updatedAt: customers.updatedAt,
-        pendingBalance: pendingBalanceExpression,
+        pendingBalance: customerDebtExpression,
+        amountDue: customerDebtExpression,
+        debtAmount: customerDebtExpression,
       })
       .from(customers)
       .where(where)

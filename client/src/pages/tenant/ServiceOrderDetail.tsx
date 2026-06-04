@@ -1130,7 +1130,7 @@ export default function ServiceOrderDetail() {
                     <CardTitle className="text-base font-semibold flex items-center gap-2">
                       <DollarSign className="h-4 w-4 text-muted-foreground" /> Financeiro da OS
                     </CardTitle>
-                    <p className="mt-1 text-xs text-muted-foreground">Orçamento, pagamentos e saldo em um único fluxo visual.</p>
+                    <p className="mt-1 text-xs text-muted-foreground">Orçamento, pagamentos e saldo devedor em um único fluxo visual.</p>
                   </div>
                   {administrativeTotalCents > 0 && administrativeBalanceCents <= 0 && (
                     <Badge variant="default" className="w-fit bg-emerald-600 text-white hover:bg-emerald-600">Quitada</Badge>
@@ -1153,7 +1153,7 @@ export default function ServiceOrderDetail() {
                     <p className="text-lg font-bold text-emerald-700 dark:text-emerald-300">{toCurrency(totalPaidCents / 100)}</p>
                   </div>
                   <div className={`rounded-xl border p-3 ${hasFinancialPending ? "border-red-200 bg-red-50/80 dark:bg-red-950/20" : "bg-blue-50/70 dark:bg-blue-950/20"}`}>
-                    <p className={`text-xs ${hasFinancialPending ? "text-red-700 dark:text-red-300" : "text-blue-700 dark:text-blue-300"}`}>Saldo</p>
+                    <p className={`text-xs ${hasFinancialPending ? "text-red-700 dark:text-red-300" : "text-blue-700 dark:text-blue-300"}`}>{hasFinancialPending ? "Saldo devedor" : "Saldo"}</p>
                     <p className={`text-lg font-bold ${hasFinancialPending ? "text-red-700 dark:text-red-300" : "text-blue-700 dark:text-blue-300"}`}>{toCurrency(administrativeBalanceCents / 100)}</p>
                   </div>
                 </div>
@@ -1161,7 +1161,7 @@ export default function ServiceOrderDetail() {
                   <div className="rounded-xl border border-red-200 bg-red-50/80 px-3 py-2 text-sm text-red-700 dark:bg-red-950/20 dark:text-red-300">
                     <div className="flex items-start gap-2">
                       <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-                      <p><span className="font-semibold">Valor pendente: {toCurrency(administrativeBalanceCents / 100)}.</span> Cliente retirou o aparelho com saldo em aberto nesta OS encerrada.</p>
+                      <p><span className="font-semibold">Saldo devedor: {toCurrency(administrativeBalanceCents / 100)}.</span> Cliente retirou o aparelho com valor em aberto nesta OS entregue.</p>
                     </div>
                   </div>
                 )}

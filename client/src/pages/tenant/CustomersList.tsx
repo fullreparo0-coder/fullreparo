@@ -36,6 +36,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 const PAGE_SIZE = 20;
 type CustomerSourceFilter = "all" | "balcao" | "online";
 
+const formatMoney = (value: number) =>
+  new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value);
+
 const EMPTY_FORM = {
   name: "",
   phone: "",
@@ -446,8 +449,8 @@ export default function CustomersList() {
             ) : (
               <div className="divide-y divide-border">
                 {customers.map((c) => {
-                  const pendingBalance = Number(c.pendingBalance ?? 0);
-                  const hasPendingBalance = pendingBalance > 0.009;
+                  const debtAmount = Number(c.amountDue ?? c.debtAmount ?? c.pendingBalance ?? 0);
+                  const hasDebtAmount = debtAmount > 0.009;
 
                   return (
                     <div
@@ -477,10 +480,10 @@ export default function CustomersList() {
                               {c.document}
                             </span>
                           )}
-                          {hasPendingBalance && (
+                          {hasDebtAmount && (
                             <span className="inline-flex items-center gap-1 rounded-full border border-red-200 bg-red-50 px-2 py-0.5 text-[11px] font-medium text-red-700">
                               <AlertTriangle className="h-3 w-3" />
-                              Pendência financeira
+                              Saldo devedor {formatMoney(debtAmount)}
                             </span>
                           )}
                         </div>

@@ -283,7 +283,7 @@ export default function ServiceOrdersList() {
         acc.total += 1;
         if (action.priority === "alta" || sla.isOverdue || sla.isStageStalled) acc.attention += 1;
         if (total > 0) acc.withValue += 1;
-        if (Math.max(total - paid, 0) > 0) acc.withBalance += 1;
+        if (CLOSED_FINANCIAL_STATUSES.has(String(os.status)) && Math.max(total - paid, 0) > 0) acc.withBalance += 1;
         if (os.origin === "coleta") acc.pickups += 1;
         return acc;
       },
@@ -574,9 +574,9 @@ export default function ServiceOrdersList() {
             </Card>
             <Card className="border-amber-200/70 bg-amber-50/70">
               <CardContent className="p-4">
-                <p className="text-[11px] font-medium uppercase tracking-wide text-amber-700/80">Saldo em aberto</p>
+                <p className="text-[11px] font-medium uppercase tracking-wide text-amber-700/80">Saldo devedor</p>
                 <p className="mt-1 text-2xl font-semibold text-amber-700">{visibleStats.withBalance}</p>
-                <p className="text-xs text-amber-700/75">conforme pagamentos pagos</p>
+                <p className="text-xs text-amber-700/75">somente OS entregues com valor aberto</p>
               </CardContent>
             </Card>
             <Card className="border-blue-200/70 bg-blue-50/70">
@@ -703,11 +703,11 @@ export default function ServiceOrdersList() {
                             {total > 0 ? formatMoney(total) : "Sem valor"}
                           </div>
                           <p className={`mt-1 text-[11px] ${hasFinancialPending ? "font-medium text-red-700" : "text-muted-foreground"}`}>
-                            Pago {formatMoney(paid)} · Saldo {formatMoney(balance)}
+                            Pago {formatMoney(paid)} · {hasFinancialPending ? "Saldo devedor" : "Saldo"} {formatMoney(balance)}
                           </p>
                           {hasFinancialPending && (
                             <Badge variant="outline" className="mt-1 w-fit border-red-200 bg-red-50 px-2 py-0.5 text-[10px] font-medium text-red-700 hover:bg-red-50">
-                              Valor pendente {formatMoney(balance)}
+                              Saldo devedor {formatMoney(balance)}
                             </Badge>
                           )}
                           {hasPendingPayment && (
