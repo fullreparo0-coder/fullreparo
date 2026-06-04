@@ -172,7 +172,7 @@ export async function getCustomersByTenant(
   }
   const where = and(...conditions);
   const offset = (page - 1) * pageSize;
-  const pendingBalanceExpression = sql<string>`COALESCE((
+  const pendingBalanceExpression = sql<number>`CAST(GREATEST(COALESCE((
     SELECT SUM(GREATEST((
       CASE
         WHEN CAST(so.totalAmount AS DECIMAL(10,2)) > 0 THEN CAST(so.totalAmount AS DECIMAL(10,2))
@@ -209,7 +209,7 @@ export async function getCustomersByTenant(
             AND CAST(b.totalCost AS DECIMAL(10,2)) > 0
         )
       )
-  ), 0)`;
+  ), 0), 0) AS DOUBLE)`;
 
   const [data, countResult] = await Promise.all([
     db
