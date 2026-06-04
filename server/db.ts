@@ -264,7 +264,88 @@ export async function getCustomersByTenant(
     db.select({ count: sql<number>`COUNT(*)` }).from(customers).where(where),
   ]);
   const totalCount = Number(countResult[0]?.count ?? 0);
-  return { data, totalCount, totalPages: Math.ceil(totalCount / pageSize), currentPage: page };
+
+  // A listagem precisa expor o saldo devedor por cliente de forma idêntica à
+  // validação financeira: somente OS entregue/retirada, com valor definido e
+  // pagamento insuficiente. O cálculo abaixo é feito apenas para os clientes da
+  // página atual e sobrescreve os campos visuais retornados à interface.
+  const customerIds = data.map((customer) => customer.id);
+  const debtRows = customerIds.length
+    ? await db
+        .select({
+          customerId: serviceOrders.customerId,
+          amountDue: sql<number>`CAST(GREATEST(COALESCE(SUM(GREATEST((
+            CASE
+              WHEN CAST(${serviceOrders.totalAmount} AS DECIMAL(10,2)) > 0 THEN CAST(${serviceOrders.totalAmount} AS DECIMAL(10,2))
+              ELSE COALESCE((
+                SELECT CAST(b.totalCost AS DECIMAL(10,2))
+                FROM budgets b
+                WHERE b.tenantId = ${serviceOrders.tenantId}
+                  AND b.serviceOrderId = ${serviceOrders.id}
+                  AND b.status IN ('approved', 'pending')
+                  AND CAST(b.totalCost AS DECIMAL(10,2)) > 0
+                ORDER BY CASE WHEN b.status = 'approved' THEN 0 ELSE 1 END, b.createdAt DESC
+                LIMIT 1
+              ), 0)
+            END
+          ) - COALESCE((
+            SELECT SUM(CAST(p.amount AS DECIMAL(10,2)))
+            FROM payments p
+            WHERE p.tenantId = ${serviceOrders.tenantId}
+              AND p.serviceOrderId = ${serviceOrders.id}
+              AND p.status = 'paid'
+          ), 0), 0)), 0), 0) AS DOUBLE)`,
+        })
+        .from(serviceOrders)
+        .where(and(
+          eq(serviceOrders.tenantId, tenantId),
+          inArray(serviceOrders.customerId, customerIds),
+          sql`(
+            ${serviceOrders.status} = 'entregue'
+            OR EXISTS (
+              SELECT 1
+              FROM os_status_history h
+              WHERE h.tenantId = ${serviceOrders.tenantId}
+                AND h.serviceOrderId = ${serviceOrders.id}
+                AND h.status = 'entregue'
+            )
+            OR EXISTS (
+              SELECT 1
+              FROM pickups pk
+              WHERE pk.tenantId = ${serviceOrders.tenantId}
+                AND pk.serviceOrderId = ${serviceOrders.id}
+                AND pk.type = 'entrega'
+                AND pk.status = 'completed'
+            )
+          )`,
+          sql`(
+            CAST(${serviceOrders.totalAmount} AS DECIMAL(10,2)) > 0
+            OR EXISTS (
+              SELECT 1
+              FROM budgets b
+              WHERE b.tenantId = ${serviceOrders.tenantId}
+                AND b.serviceOrderId = ${serviceOrders.id}
+                AND b.status IN ('approved', 'pending')
+                AND CAST(b.totalCost AS DECIMAL(10,2)) > 0
+            )
+          )`,
+        ))
+        .groupBy(serviceOrders.customerId)
+    : [];
+  const debtByCustomerId = new Map(
+    debtRows.map((row) => [Number(row.customerId), Number(row.amountDue ?? 0)])
+  );
+  const hydratedData = data.map((customer) => {
+    const amountDue = debtByCustomerId.get(Number(customer.id)) ?? 0;
+    return {
+      ...customer,
+      pendingBalance: amountDue,
+      amountDue,
+      debtAmount: amountDue,
+    };
+  });
+
+  return { data: hydratedData, totalCount, totalPages: Math.ceil(totalCount / pageSize), currentPage: page };
 }
 
 export async function getCustomerById(tenantId: number, id: number) {
