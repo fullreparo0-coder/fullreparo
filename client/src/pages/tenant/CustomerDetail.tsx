@@ -850,7 +850,7 @@ export default function CustomerDetail() {
                 <div className="divide-y divide-border">
                   {orders.map((os) => {
                     const amountDue = Number(os.amountDue ?? 0);
-                    const hasOrderDebt = debtOrderIds.has(Number(os.id)) || amountDue > 0;
+                    const hasOrderDebt = debtOrderIds.has(Number(os.id));
 
                     return (
                     <div
