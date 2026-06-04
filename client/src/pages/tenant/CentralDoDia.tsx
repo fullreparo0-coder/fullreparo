@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -163,6 +163,13 @@ function LoadingGrid() {
 export default function CentralDoDia() {
   const [, navigate] = useLocation();
   const [activeFilter, setActiveFilter] = useState<QueueFilter>("all");
+  const actionQueueRef = useRef<HTMLDivElement | null>(null);
+  const showQueue = (filter: QueueFilter) => {
+    setActiveFilter(filter);
+    window.setTimeout(() => {
+      actionQueueRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 0);
+  };
   const { data, isLoading, isError, refetch, isFetching } = trpc.serviceOrders.centralDay.useQuery(undefined, {
     refetchInterval: 60_000,
   });
@@ -234,19 +241,19 @@ export default function CentralDoDia() {
               </div>
 
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-2 xl:grid-cols-4">
-                <button type="button" onClick={() => setActiveFilter("critical")} className={`rounded-2xl border border-red-200 bg-red-50 p-3 text-left text-red-800 transition hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-red-200 ${activeFilter === "critical" ? "ring-2 ring-red-200" : ""}`}>
+                <button type="button" onClick={() => showQueue("critical")} className={`rounded-2xl border border-red-200 bg-red-50 p-3 text-left text-red-800 transition hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-red-200 ${activeFilter === "critical" ? "ring-2 ring-red-200" : ""}`}>
                   <p className="text-[11px] font-medium uppercase tracking-wide">Críticas</p>
                   <strong className="mt-1 block text-2xl leading-none">{criticalQueue.length}</strong>
                 </button>
-                <button type="button" onClick={() => setActiveFilter("stalled")} className={`rounded-2xl border border-purple-200 bg-purple-50 p-3 text-left text-purple-800 transition hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-purple-200 ${activeFilter === "stalled" ? "ring-2 ring-purple-200" : ""}`}>
+                <button type="button" onClick={() => showQueue("stalled")} className={`rounded-2xl border border-purple-200 bg-purple-50 p-3 text-left text-purple-800 transition hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-purple-200 ${activeFilter === "stalled" ? "ring-2 ring-purple-200" : ""}`}>
                   <p className="text-[11px] font-medium uppercase tracking-wide">Paradas</p>
                   <strong className="mt-1 block text-2xl leading-none">{stalledQueue.length}</strong>
                 </button>
-                <button type="button" onClick={() => setActiveFilter("attention")} className={`rounded-2xl border border-amber-200 bg-amber-50 p-3 text-left text-amber-800 transition hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-amber-200 ${activeFilter === "attention" ? "ring-2 ring-amber-200" : ""}`}>
+                <button type="button" onClick={() => showQueue("attention")} className={`rounded-2xl border border-amber-200 bg-amber-50 p-3 text-left text-amber-800 transition hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-amber-200 ${activeFilter === "attention" ? "ring-2 ring-amber-200" : ""}`}>
                   <p className="text-[11px] font-medium uppercase tracking-wide">Atenção</p>
                   <strong className="mt-1 block text-2xl leading-none">{totalAttention}</strong>
                 </button>
-                <button type="button" onClick={() => setActiveFilter("all")} className={`rounded-2xl border bg-background/80 p-3 text-left text-foreground transition hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/20 ${activeFilter === "all" ? "ring-2 ring-primary/20" : ""}`}>
+                <button type="button" onClick={() => showQueue("all")} className={`rounded-2xl border bg-background/80 p-3 text-left text-foreground transition hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/20 ${activeFilter === "all" ? "ring-2 ring-primary/20" : ""}`}>
                   <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Resumo</p>
                   <strong className="mt-1 block text-2xl leading-none">{actionQueue.length}</strong>
                 </button>
@@ -281,7 +288,7 @@ export default function CentralDoDia() {
             description="Entradas registradas desde o início do dia"
             icon={ClipboardList}
             tone="bg-blue-50 text-blue-600"
-            onClick={() => setActiveFilter("new_today")}
+            onClick={() => showQueue("new_today")}
             active={activeFilter === "new_today"}
           />
           <StatCard
@@ -290,7 +297,7 @@ export default function CentralDoDia() {
             description="Aguardando aprovação do cliente"
             icon={CalendarClock}
             tone="bg-amber-50 text-amber-600"
-            onClick={() => setActiveFilter("pending_budget")}
+            onClick={() => showQueue("pending_budget")}
             active={activeFilter === "pending_budget"}
           />
           <StatCard
@@ -299,7 +306,7 @@ export default function CentralDoDia() {
             description="Com prazo estimado vencido"
             icon={AlertTriangle}
             tone="bg-red-50 text-red-600"
-            onClick={() => setActiveFilter("overdue")}
+            onClick={() => showQueue("overdue")}
             active={activeFilter === "overdue"}
           />
           <StatCard
@@ -308,13 +315,13 @@ export default function CentralDoDia() {
             description="Serviços concluídos aguardando cliente"
             icon={CheckCircle2}
             tone="bg-emerald-50 text-emerald-600"
-            onClick={() => setActiveFilter("ready_pickup")}
+            onClick={() => showQueue("ready_pickup")}
             active={activeFilter === "ready_pickup"}
           />
         </div>
 
         <div className="grid w-full max-w-full gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(320px,1fr)]">
-          <Card className="rounded-2xl border border-border/70 shadow-sm">
+          <Card ref={actionQueueRef} className="scroll-mt-24 rounded-2xl border border-border/70 shadow-sm">
             <CardHeader className="flex flex-col gap-3 px-4 pb-2 pt-4 sm:px-5 sm:pb-3 md:flex-row md:items-start md:justify-between">
               <div>
                 <CardTitle className="flex items-center gap-2 text-base font-semibold leading-tight sm:text-lg">
@@ -325,7 +332,7 @@ export default function CentralDoDia() {
                   {activeFilter === "all" ? "OS ordenadas por urgência, SLA parado, prazo vencido e próxima ação sugerida." : `Exibindo: ${activeFilterLabel}.`}
                 </p>
                 {activeFilter !== "all" && (
-                  <Button variant="ghost" size="sm" className="mt-2 h-7 px-0 text-xs text-primary" onClick={() => setActiveFilter("all")}>
+                  <Button variant="ghost" size="sm" className="mt-2 h-7 px-0 text-xs text-primary" onClick={() => showQueue("all")}>
                     Limpar filtro e voltar para fila geral
                   </Button>
                 )}
