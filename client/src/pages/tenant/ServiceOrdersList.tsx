@@ -21,7 +21,7 @@ const PAGE_SIZE = 20;
 const COLETAS_STATUS = "aguardando_coleta,coleta_agendada";
 
 const FINAL_STATUSES = new Set(["finalizado", "encerrado_sem_reparo", "encerrado_condenado", "cancelado", "entregue"]);
-const CLOSED_FINANCIAL_STATUSES = new Set(["entregue", "finalizado", "encerrado_sem_reparo", "encerrado_condenado"]);
+const CLOSED_FINANCIAL_STATUSES = new Set(["entregue"]);
 const HIGH_TOUCH_STATUSES = new Set(["aguardando_aprovacao", "pronto", "aguardando_entrega", "aguardando_peca"]);
 const SLA_LIMIT_HOURS: Record<string, number> = {
   solicitado: 4,

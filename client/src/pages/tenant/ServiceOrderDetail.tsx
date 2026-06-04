@@ -42,7 +42,7 @@ const MANUAL_PAYMENT_METHODS = [
 ] as const;
 type ManualPaymentMethod = typeof MANUAL_PAYMENT_METHODS[number]["value"];
 
-const CLOSED_FINANCIAL_STATUSES = new Set(["entregue", "finalizado", "encerrado_sem_reparo", "encerrado_condenado"]);
+const CLOSED_FINANCIAL_STATUSES = new Set(["entregue"]);
 
 function toCurrency(value: number) {
   return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
