@@ -21,6 +21,7 @@ const PAGE_SIZE = 20;
 const COLETAS_STATUS = "aguardando_coleta,coleta_agendada";
 
 const FINAL_STATUSES = new Set(["finalizado", "encerrado_sem_reparo", "encerrado_condenado", "cancelado", "entregue"]);
+const CLOSED_FINANCIAL_STATUSES = new Set(["entregue", "finalizado", "encerrado_sem_reparo", "encerrado_condenado"]);
 const HIGH_TOUCH_STATUSES = new Set(["aguardando_aprovacao", "pronto", "aguardando_entrega", "aguardando_peca"]);
 const SLA_LIMIT_HOURS: Record<string, number> = {
   solicitado: 4,
@@ -629,7 +630,7 @@ export default function ServiceOrdersList() {
                     const total = moneyToNumber(os.totalAmount);
                     const paid = moneyToNumber(os.paidAmount);
                     const balance = Math.max(total - paid, 0);
-                    const hasFinancialPending = balance > 0.005;
+                    const hasFinancialPending = CLOSED_FINANCIAL_STATUSES.has(String(os.status)) && balance > 0.005;
                     const hasPendingPayment = Number(os.pendingPaymentsCount ?? 0) > 0;
                     const deviceLabel = buildDeviceLabel(orderRecord);
                     const technicianName = os.technicianName ?? "Sem técnico";

@@ -42,6 +42,8 @@ const MANUAL_PAYMENT_METHODS = [
 ] as const;
 type ManualPaymentMethod = typeof MANUAL_PAYMENT_METHODS[number]["value"];
 
+const CLOSED_FINANCIAL_STATUSES = new Set(["entregue", "finalizado", "encerrado_sem_reparo", "encerrado_condenado"]);
+
 function toCurrency(value: number) {
   return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
@@ -556,7 +558,8 @@ export default function ServiceOrderDetail() {
   const administrativeBudgetCents = moneyToCents(budgetList.find((budget: any) => ["pending", "approved"].includes(budget.status) && moneyToCents(budget.totalCost) > 0)?.totalCost);
   const administrativeTotalCents = totalAmountCents > 0 ? totalAmountCents : administrativeBudgetCents;
   const administrativeBalanceCents = Math.max(0, administrativeTotalCents - totalPaidCents);
-  const hasFinancialPending = administrativeTotalCents > 0 && administrativeBalanceCents > 0;
+  const isClosedForFinancialPending = CLOSED_FINANCIAL_STATUSES.has(String(os.status));
+  const hasFinancialPending = isClosedForFinancialPending && administrativeTotalCents > 0 && administrativeBalanceCents > 0;
   const payableClosingBudgets = budgetList.filter((budget: any) => ["pending", "approved"].includes(budget.status) && moneyToCents(budget.totalCost) > 0);
   const pendingClosingBudgets = payableClosingBudgets.filter((budget: any) => budget.status === "pending");
   const approvedClosingBudgets = payableClosingBudgets.filter((budget: any) => budget.status === "approved");
@@ -1158,7 +1161,7 @@ export default function ServiceOrderDetail() {
                   <div className="rounded-xl border border-red-200 bg-red-50/80 px-3 py-2 text-sm text-red-700 dark:bg-red-950/20 dark:text-red-300">
                     <div className="flex items-start gap-2">
                       <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-                      <p><span className="font-semibold">Valor pendente: {toCurrency(administrativeBalanceCents / 100)}.</span> Cliente liberado ou em atendimento com saldo em aberto nesta OS.</p>
+                      <p><span className="font-semibold">Valor pendente: {toCurrency(administrativeBalanceCents / 100)}.</span> Cliente retirou o aparelho com saldo em aberto nesta OS encerrada.</p>
                     </div>
                   </div>
                 )}

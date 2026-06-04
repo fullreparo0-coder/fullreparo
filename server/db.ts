@@ -197,6 +197,7 @@ export async function getCustomersByTenant(
     FROM service_orders so
     WHERE so.tenantId = ${tenantId}
       AND so.customerId = ${customers.id}
+      AND so.status IN ('entregue', 'finalizado', 'encerrado_sem_reparo', 'encerrado_condenado')
       AND (
         CAST(so.totalAmount AS DECIMAL(10,2)) > 0
         OR EXISTS (
