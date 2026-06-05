@@ -268,7 +268,7 @@ export const budgetsRouter = router({
 
       if (input.action === "approve") {
         await db.update(budgets).set({ status: "approved", approvedAt: now }).where(and(eq(budgets.id, input.budgetId), eq(budgets.tenantId, access.tenantId)));
-        await db.update(serviceOrders).set({ status: "aprovado" }).where(and(eq(serviceOrders.id, os.id), eq(serviceOrders.tenantId, access.tenantId)));
+        await db.update(serviceOrders).set({ status: "aprovado", totalAmount: budget.totalCost }).where(and(eq(serviceOrders.id, os.id), eq(serviceOrders.tenantId, access.tenantId)));
         await db.insert(osStatusHistory).values({
           tenantId: access.tenantId,
           serviceOrderId: os.id,
@@ -384,7 +384,7 @@ export const budgetsRouter = router({
 
       if (input.action === "approve") {
         await db.update(budgets).set({ status: "approved", approvedAt: now }).where(and(eq(budgets.id, input.budgetId), eq(budgets.tenantId, os[0].tenantId)));
-        await db.update(serviceOrders).set({ status: "aprovado" }).where(and(eq(serviceOrders.id, os[0].id), eq(serviceOrders.tenantId, os[0].tenantId)));
+        await db.update(serviceOrders).set({ status: "aprovado", totalAmount: budget[0].totalCost }).where(and(eq(serviceOrders.id, os[0].id), eq(serviceOrders.tenantId, os[0].tenantId)));
         await db.insert(osStatusHistory).values({
           tenantId: os[0].tenantId,
           serviceOrderId: os[0].id,

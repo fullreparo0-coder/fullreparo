@@ -554,12 +554,17 @@ export default function ServiceOrderDetail() {
   const budgetList = Array.isArray(budgets) ? budgets : [];
   const totalAmountCents = moneyToCents(os.totalAmount);
   const totalPaidCents = paidPayments.reduce((sum, payment: any) => sum + moneyToCents(payment.amount), 0);
-  const administrativeBudgetCents = moneyToCents(budgetList.find((budget: any) => ["pending", "approved"].includes(budget.status) && moneyToCents(budget.totalCost) > 0)?.totalCost);
-  const administrativeTotalCents = totalAmountCents > 0 ? totalAmountCents : administrativeBudgetCents;
+  const payableBudgetList = budgetList.filter((budget: any) => ["pending", "approved"].includes(budget.status) && moneyToCents(budget.totalCost) > 0);
+  const latestApprovedBudget = payableBudgetList.find((budget: any) => budget.status === "approved") ?? null;
+  const latestPendingOrApprovedBudget = payableBudgetList[0] ?? null;
+  const latestFinancialBudget = latestApprovedBudget ?? latestPendingOrApprovedBudget;
+  const latestFinancialBudgetCents = latestFinancialBudget ? moneyToCents(latestFinancialBudget.totalCost) : 0;
+  const shouldUseLatestBudgetForFinancials = latestFinancialBudgetCents > 0 && (totalAmountCents === 0 || latestFinancialBudgetCents !== totalAmountCents);
+  const administrativeTotalCents = shouldUseLatestBudgetForFinancials ? latestFinancialBudgetCents : totalAmountCents;
   const administrativeBalanceCents = Math.max(0, administrativeTotalCents - totalPaidCents);
   const isClosedForFinancialPending = CLOSED_FINANCIAL_STATUSES.has(String(os.status));
   const hasFinancialPending = isClosedForFinancialPending && administrativeTotalCents > 0 && administrativeBalanceCents > 0;
-  const payableClosingBudgets = budgetList.filter((budget: any) => ["pending", "approved"].includes(budget.status) && moneyToCents(budget.totalCost) > 0);
+  const payableClosingBudgets = payableBudgetList;
   const pendingClosingBudgets = payableClosingBudgets.filter((budget: any) => budget.status === "pending");
   const approvedClosingBudgets = payableClosingBudgets.filter((budget: any) => budget.status === "approved");
   const selectedClosingBudget = closeApproveBudgetId
@@ -570,13 +575,15 @@ export default function ServiceOrderDetail() {
   const closingHasSinglePendingBudget = totalAmountCents === 0 && pendingClosingBudgets.length === 1;
   const singlePendingClosingBudgetCents = closingHasSinglePendingBudget ? moneyToCents(pendingClosingBudgets[0].totalCost) : 0;
   const isSinglePendingClosingBudgetPaid = singlePendingClosingBudgetCents > 0 && totalPaidCents >= singlePendingClosingBudgetCents;
-  const effectiveClosingTotalCents = totalAmountCents > 0
-    ? totalAmountCents
-    : selectedClosingBudgetCents > 0
-      ? selectedClosingBudgetCents
-      : isSinglePendingClosingBudgetPaid
-        ? singlePendingClosingBudgetCents
-        : 0;
+  const effectiveClosingTotalCents = shouldUseLatestBudgetForFinancials
+    ? latestFinancialBudgetCents
+    : totalAmountCents > 0
+      ? totalAmountCents
+      : selectedClosingBudgetCents > 0
+        ? selectedClosingBudgetCents
+        : isSinglePendingClosingBudgetPaid
+          ? singlePendingClosingBudgetCents
+          : 0;
   const closingBalanceCents = Math.max(0, effectiveClosingTotalCents - totalPaidCents);
   const closingBalance = closingBalanceCents / 100;
   const closingHasMultiplePendingBudgets = totalAmountCents === 0 && pendingClosingBudgets.length > 1;
@@ -585,8 +592,7 @@ export default function ServiceOrderDetail() {
   const isClosingPaymentMethodValid = closeOutcome !== "finalizado" || closingBalanceCents === 0 || closingPaymentAmountCents === 0 || !!closePaymentMethod;
   const isClosingPaymentValid = closeOutcome !== "finalizado" || closingHasMultiplePendingBudgets === false && isClosingBudgetReady && isClosingPaymentMethodValid && closingPaymentAmountCents <= closingBalanceCents;
   const displayPrimaryBudget =
-    budgetList.find((budget: any) => budget.status === "approved" && moneyToCents(budget.totalCost) > 0) ??
-    budgetList.find((budget: any) => ["pending", "approved"].includes(budget.status) && moneyToCents(budget.totalCost) > 0) ??
+    latestFinancialBudget ??
     budgetList[0] ??
     null;
   const isBudgetEffectivelyApproved = (budget: any) => {

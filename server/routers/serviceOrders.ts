@@ -65,6 +65,29 @@ function centsToMoney(cents: number) {
   return (Math.max(0, cents) / 100).toFixed(2);
 }
 
+type PayableBudgetSnapshot = {
+  id: number;
+  totalCost: unknown;
+  status: string | null;
+  createdAt?: Date | string | null;
+  approvedAt?: Date | string | null;
+};
+
+function pickLatestPayableBudget(
+  budgetRows: PayableBudgetSnapshot[],
+  allowedStatuses: string[],
+) {
+  const allowed = new Set(allowedStatuses);
+  return budgetRows
+    .filter((budget) => allowed.has(String(budget.status)) && moneyToCents(budget.totalCost) > 0)
+    .sort((a, b) => {
+      const aDate = new Date((a.approvedAt ?? a.createdAt ?? 0) as any).getTime() || 0;
+      const bDate = new Date((b.approvedAt ?? b.createdAt ?? 0) as any).getTime() || 0;
+      if (bDate !== aDate) return bDate - aDate;
+      return Number(b.id) - Number(a.id);
+    })[0] ?? null;
+}
+
 const SLA_LIMIT_HOURS: Record<string, number> = {
   solicitado: 4,
   aguardando_coleta: 8,
@@ -836,6 +859,24 @@ export const serviceOrdersRouter = router({
 
       let closingBudgetApproval: { id: number; amountCents: number; wasPending: boolean; status: string | null } | null = null;
 
+      if (input.status === "aprovado") {
+        const budgetRows = await db
+          .select({ id: budgets.id, totalCost: budgets.totalCost, status: budgets.status, createdAt: budgets.createdAt, approvedAt: budgets.approvedAt })
+          .from(budgets)
+          .where(and(eq(budgets.tenantId, tenantId), eq(budgets.serviceOrderId, input.id)));
+        const budgetToApprove = pickLatestPayableBudget(budgetRows, ["pending", "approved"]);
+        if (budgetToApprove) {
+          const approvedAmountCents = moneyToCents(budgetToApprove.totalCost);
+          updatePayload.totalAmount = centsToMoney(approvedAmountCents);
+          closingBudgetApproval = {
+            id: budgetToApprove.id,
+            amountCents: approvedAmountCents,
+            wasPending: budgetToApprove.status === "pending",
+            status: budgetToApprove.status,
+          };
+        }
+      }
+
       if (input.status === "finalizado") {
         let totalCents = moneyToCents(os.totalAmount);
         const paidRows = await db
@@ -975,7 +1016,9 @@ export const serviceOrdersRouter = router({
             tenantId,
             serviceOrderId: input.id,
             status: "aprovado",
-            notes: `Orçamento aprovado no encerramento da OS. Valor aprovado: R$ ${centsToMoney(closingBudgetApproval.amountCents).replace(".", ",")}.`,
+            notes: input.status === "finalizado"
+              ? `Orçamento aprovado no encerramento da OS. Valor aprovado: R$ ${centsToMoney(closingBudgetApproval.amountCents).replace(".", ",")}.`
+              : `Orçamento revisado aprovado e refletido no valor da OS. Valor aprovado: R$ ${centsToMoney(closingBudgetApproval.amountCents).replace(".", ",")}.`,
             changedById: ctx.user.id,
             changedByName: ctx.user.name ?? "Usuário",
           });
@@ -984,8 +1027,10 @@ export const serviceOrdersRouter = router({
             serviceOrderId: input.id,
             status: "aprovado",
             channel: "sistema",
-            message: `Orçamento aprovado no encerramento da OS por ${ctx.user.name ?? "Usuário"}. Valor: R$ ${centsToMoney(closingBudgetApproval.amountCents).replace(".", ",")}.`,
-            eventType: "budget_approved_at_closure",
+            message: input.status === "finalizado"
+              ? `Orçamento aprovado no encerramento da OS por ${ctx.user.name ?? "Usuário"}. Valor: R$ ${centsToMoney(closingBudgetApproval.amountCents).replace(".", ",")}.`
+              : `Orçamento revisado aprovado por ${ctx.user.name ?? "Usuário"} e refletido no valor da OS. Valor: R$ ${centsToMoney(closingBudgetApproval.amountCents).replace(".", ",")}.`,
+            eventType: input.status === "finalizado" ? "budget_approved_at_closure" : "budget_revision_approved",
             actorName: ctx.user.name ?? "Usuário",
           });
         }
