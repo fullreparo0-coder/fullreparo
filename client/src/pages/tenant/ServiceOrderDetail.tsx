@@ -1570,13 +1570,13 @@ export default function ServiceOrderDetail() {
             {/* Pagamentos */}
             <Card>
               <CardHeader className="pb-3">
-                <div className="flex items-center justify-between gap-3">
+                <div className="flex flex-col gap-2">
                   <CardTitle className="text-sm font-semibold flex items-center gap-2">
                     <DollarSign className="h-4 w-4 text-muted-foreground" /> Pagamentos
                   </CardTitle>
                   <Dialog open={paymentOpen} onOpenChange={setPaymentOpen}>
                     <DialogTrigger asChild>
-                      <Button size="sm" variant="outline" disabled={administrativeTotalCents > 0 && administrativeBalanceCents <= 0}>
+                      <Button size="sm" variant="outline" className="w-full justify-center" disabled={administrativeTotalCents > 0 && administrativeBalanceCents <= 0}>
                         <Plus className="h-3.5 w-3.5 mr-1" /> Registrar pagamento
                       </Button>
                     </DialogTrigger>
