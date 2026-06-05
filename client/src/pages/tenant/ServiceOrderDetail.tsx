@@ -676,12 +676,6 @@ export default function ServiceOrderDetail() {
               Retorno Garantia
             </Badge>
           )}
-          <Button variant="outline" size="sm" onClick={copyTrackingLink}>
-            <Copy className="h-3.5 w-3.5 mr-1.5" /> Link
-          </Button>
-          <Button variant="outline" size="sm" onClick={openWhatsApp}>
-            <MessageSquare className="h-3.5 w-3.5 mr-1.5" /> WhatsApp
-          </Button>
           {os.status === "aguardando_coleta" && (
             <Button
               size="sm"
@@ -885,9 +879,6 @@ export default function ServiceOrderDetail() {
                       <Clock className="h-3.5 w-3.5 mr-1.5" /> {nextBestAction.ctaLabel ?? "Aplicar ação"}
                     </Button>
                   )}
-                  <Button size="sm" variant="outline" onClick={copyTrackingLink}>
-                    <Copy className="h-3.5 w-3.5 mr-1.5" /> Link do cliente
-                  </Button>
                 </div>
               </div>
             </CardContent>
