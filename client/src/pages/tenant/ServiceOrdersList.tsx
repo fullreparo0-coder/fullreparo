@@ -550,43 +550,77 @@ export default function ServiceOrdersList() {
 
         {/* Resumo da página atual */}
         {!isLoading && orders.length > 0 && (
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-            <Card className="border-border/70 bg-muted/20">
-              <CardContent className="p-4">
-                <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Resultado visível</p>
-                <p className="mt-1 text-2xl font-semibold text-foreground">{visibleStats.total}</p>
-                <p className="text-xs text-muted-foreground">de {totalCount} OS filtradas</p>
+          <>
+            <Card className="border-border/70 bg-muted/20 sm:hidden">
+              <CardContent className="p-2">
+                <div className="grid grid-cols-5 divide-x divide-border/70 overflow-hidden rounded-lg border border-border/60 bg-background/80">
+                  <div className="min-w-0 px-1.5 py-2 text-center">
+                    <p className="truncate text-[9px] font-medium uppercase leading-none text-muted-foreground">Resultado</p>
+                    <p className="mt-1 text-lg font-semibold leading-none text-foreground">{visibleStats.total}</p>
+                    <p className="mt-0.5 truncate text-[9px] leading-none text-muted-foreground">de {totalCount}</p>
+                  </div>
+                  <div className="min-w-0 bg-red-50/70 px-1.5 py-2 text-center">
+                    <p className="truncate text-[9px] font-medium uppercase leading-none text-red-700/80">Atenção</p>
+                    <p className="mt-1 text-lg font-semibold leading-none text-red-700">{visibleStats.attention}</p>
+                    <p className="mt-0.5 truncate text-[9px] leading-none text-red-700/70">risco</p>
+                  </div>
+                  <div className="min-w-0 bg-emerald-50/70 px-1.5 py-2 text-center">
+                    <p className="truncate text-[9px] font-medium uppercase leading-none text-emerald-700/80">Valor</p>
+                    <p className="mt-1 text-lg font-semibold leading-none text-emerald-700">{visibleStats.withValue}</p>
+                    <p className="mt-0.5 truncate text-[9px] leading-none text-emerald-700/70">com R$</p>
+                  </div>
+                  <div className="min-w-0 bg-amber-50/70 px-1.5 py-2 text-center">
+                    <p className="truncate text-[9px] font-medium uppercase leading-none text-amber-700/80">Saldo</p>
+                    <p className="mt-1 text-lg font-semibold leading-none text-amber-700">{visibleStats.withBalance}</p>
+                    <p className="mt-0.5 truncate text-[9px] leading-none text-amber-700/70">aberto</p>
+                  </div>
+                  <div className="min-w-0 bg-blue-50/70 px-1.5 py-2 text-center">
+                    <p className="truncate text-[9px] font-medium uppercase leading-none text-blue-700/80">Coleta</p>
+                    <p className="mt-1 text-lg font-semibold leading-none text-blue-700">{visibleStats.pickups}</p>
+                    <p className="mt-0.5 truncate text-[9px] leading-none text-blue-700/70">página</p>
+                  </div>
+                </div>
               </CardContent>
             </Card>
-            <Card className="border-red-200/70 bg-red-50/70">
-              <CardContent className="p-4">
-                <p className="text-[11px] font-medium uppercase tracking-wide text-red-700/80">Atenção operacional</p>
-                <p className="mt-1 text-2xl font-semibold text-red-700">{visibleStats.attention}</p>
-                <p className="text-xs text-red-700/75">prazo, etapa parada ou ação alta</p>
-              </CardContent>
-            </Card>
-            <Card className="border-emerald-200/70 bg-emerald-50/70">
-              <CardContent className="p-4">
-                <p className="text-[11px] font-medium uppercase tracking-wide text-emerald-700/80">Com valor</p>
-                <p className="mt-1 text-2xl font-semibold text-emerald-700">{visibleStats.withValue}</p>
-                <p className="text-xs text-emerald-700/75">OS com valor informado</p>
-              </CardContent>
-            </Card>
-            <Card className="border-amber-200/70 bg-amber-50/70">
-              <CardContent className="p-4">
-                <p className="text-[11px] font-medium uppercase tracking-wide text-amber-700/80">Saldo devedor</p>
-                <p className="mt-1 text-2xl font-semibold text-amber-700">{visibleStats.withBalance}</p>
-                <p className="text-xs text-amber-700/75">somente OS entregues com valor aberto</p>
-              </CardContent>
-            </Card>
-            <Card className="border-blue-200/70 bg-blue-50/70">
-              <CardContent className="p-4">
-                <p className="text-[11px] font-medium uppercase tracking-wide text-blue-700/80">Coletas</p>
-                <p className="mt-1 text-2xl font-semibold text-blue-700">{visibleStats.pickups}</p>
-                <p className="text-xs text-blue-700/75">origem coleta na página</p>
-              </CardContent>
-            </Card>
-          </div>
+
+            <div className="hidden gap-3 sm:grid sm:grid-cols-2 xl:grid-cols-5">
+              <Card className="border-border/70 bg-muted/20">
+                <CardContent className="p-4">
+                  <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Resultado visível</p>
+                  <p className="mt-1 text-2xl font-semibold text-foreground">{visibleStats.total}</p>
+                  <p className="text-xs text-muted-foreground">de {totalCount} OS filtradas</p>
+                </CardContent>
+              </Card>
+              <Card className="border-red-200/70 bg-red-50/70">
+                <CardContent className="p-4">
+                  <p className="text-[11px] font-medium uppercase tracking-wide text-red-700/80">Atenção operacional</p>
+                  <p className="mt-1 text-2xl font-semibold text-red-700">{visibleStats.attention}</p>
+                  <p className="text-xs text-red-700/75">prazo, etapa parada ou ação alta</p>
+                </CardContent>
+              </Card>
+              <Card className="border-emerald-200/70 bg-emerald-50/70">
+                <CardContent className="p-4">
+                  <p className="text-[11px] font-medium uppercase tracking-wide text-emerald-700/80">Com valor</p>
+                  <p className="mt-1 text-2xl font-semibold text-emerald-700">{visibleStats.withValue}</p>
+                  <p className="text-xs text-emerald-700/75">OS com valor informado</p>
+                </CardContent>
+              </Card>
+              <Card className="border-amber-200/70 bg-amber-50/70">
+                <CardContent className="p-4">
+                  <p className="text-[11px] font-medium uppercase tracking-wide text-amber-700/80">Saldo devedor</p>
+                  <p className="mt-1 text-2xl font-semibold text-amber-700">{visibleStats.withBalance}</p>
+                  <p className="text-xs text-amber-700/75">somente OS entregues com valor aberto</p>
+                </CardContent>
+              </Card>
+              <Card className="border-blue-200/70 bg-blue-50/70">
+                <CardContent className="p-4">
+                  <p className="text-[11px] font-medium uppercase tracking-wide text-blue-700/80">Coletas</p>
+                  <p className="mt-1 text-2xl font-semibold text-blue-700">{visibleStats.pickups}</p>
+                  <p className="text-xs text-blue-700/75">origem coleta na página</p>
+                </CardContent>
+              </Card>
+            </div>
+          </>
         )}
 
         {/* List */}
