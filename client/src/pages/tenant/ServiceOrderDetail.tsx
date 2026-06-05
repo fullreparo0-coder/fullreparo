@@ -1067,46 +1067,50 @@ export default function ServiceOrderDetail() {
             </Card>
 
             <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                  <Clock className="h-4 w-4 text-muted-foreground" /> Atualizar Status
+              <CardHeader className="pb-2 sm:pb-3">
+                <CardTitle className="text-xs sm:text-sm font-semibold flex items-center gap-2">
+                  <Clock className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground" /> Atualizar Status
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-3">
-                <Select value={newStatus} onValueChange={handleStatusChange}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecionar novo status..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {STATUS_OPTIONS.map(([value, label]) => (
-                      <SelectItem key={value} value={value}>{label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              <CardContent className="space-y-2 sm:space-y-3 pt-0">
+                <div className="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_auto] gap-2 sm:items-start">
+                  <Select value={newStatus} onValueChange={handleStatusChange}>
+                    <SelectTrigger className="h-9 text-xs sm:text-sm">
+                      <SelectValue placeholder="Selecionar novo status..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {STATUS_OPTIONS.map(([value, label]) => (
+                        <SelectItem key={value} value={value}>{label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {newStatus === "finalizado" ? (
+                    <Button
+                      variant="default"
+                      className="h-9 w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-xs sm:text-sm text-white"
+                      onClick={() => setCloseModal(true)}
+                    >
+                      <Shield className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-2" /> Encerrar OS...
+                    </Button>
+                  ) : (
+                    <Button
+                      className="h-9 w-full sm:w-auto text-xs sm:text-sm"
+                      disabled={!newStatus || updateStatus.isPending}
+                      onClick={() => updateStatus.mutate({ id: osId, status: newStatus as any, notes: statusNotes })}
+                    >
+                      {updateStatus.isPending ? "Atualizando..." : "Atualizar Status"}
+                    </Button>
+                  )}
+                </div>
                 {/* Observação só aparece para status que não sejam finalizado (finalizado tem modal próprio) */}
                 {newStatus && newStatus !== "finalizado" && (
                   <Textarea
+                    className="min-h-[58px] resize-none text-xs sm:text-sm"
                     placeholder="Observação sobre a mudança (opcional)..."
                     value={statusNotes}
                     onChange={(e) => setStatusNotes(e.target.value)}
                     rows={2}
                   />
-                )}
-                {newStatus === "finalizado" ? (
-                  <Button
-                    variant="default"
-                    className="bg-emerald-600 hover:bg-emerald-700 text-white"
-                    onClick={() => setCloseModal(true)}
-                  >
-                    <Shield className="h-4 w-4 mr-2" /> Encerrar OS...
-                  </Button>
-                ) : (
-                  <Button
-                    disabled={!newStatus || updateStatus.isPending}
-                    onClick={() => updateStatus.mutate({ id: osId, status: newStatus as any, notes: statusNotes })}
-                  >
-                    {updateStatus.isPending ? "Atualizando..." : "Atualizar Status"}
-                  </Button>
                 )}
               </CardContent>
             </Card>
