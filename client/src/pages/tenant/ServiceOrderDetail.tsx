@@ -479,10 +479,50 @@ export default function ServiceOrderDetail() {
     return digits.startsWith("55") ? digits : `55${digits}`;
   };
 
+  const buildCustomerStatusWhatsAppMessage = () => {
+    if (!os?.publicToken) return "";
+
+    const trackingUrl = `${window.location.origin}/rastrear/${os.publicToken}`;
+    const customerName = ((os as any).customerName ?? "").trim();
+    const greeting = customerName ? `Olá, ${customerName}!` : "Olá!";
+    const osNumber = os.osNumber;
+    const status = String(os.status ?? "");
+    const statusLabel = STATUS_LABELS[status] ?? status;
+
+    const statusMessages: Record<string, string> = {
+      solicitado: `Recebemos a sua solicitação da OS *${osNumber}* e vamos dar continuidade ao atendimento.`,
+      aguardando_coleta: `A sua OS *${osNumber}* está aguardando a coleta do aparelho.`,
+      coleta_agendada: `A coleta do aparelho da sua OS *${osNumber}* já está agendada.`,
+      coletado: `O aparelho da sua OS *${osNumber}* já foi coletado.`,
+      recebido_na_assistencia: `O aparelho da sua OS *${osNumber}* foi recebido na assistência.`,
+      em_diagnostico: `O aparelho da sua OS *${osNumber}* está em diagnóstico técnico.`,
+      aguardando_aprovacao: `A sua OS *${osNumber}* está aguardando aprovação do orçamento.`,
+      aprovado: `O orçamento da sua OS *${osNumber}* foi aprovado e vamos dar sequência ao atendimento.`,
+      recusado: `O orçamento da sua OS *${osNumber}* foi marcado como recusado.`,
+      aguardando_peca: `A sua OS *${osNumber}* está aguardando peça para continuidade do reparo.`,
+      em_reparo: `O aparelho da sua OS *${osNumber}* está em reparo.`,
+      pronto: `O seu aparelho da OS *${osNumber}* está pronto. Podemos combinar a retirada, entrega ou pagamento.`,
+      aguardando_entrega: `O aparelho da sua OS *${osNumber}* está aguardando entrega.`,
+      saiu_para_entrega: `O aparelho da sua OS *${osNumber}* saiu para entrega.`,
+      entregue: `O aparelho da sua OS *${osNumber}* foi entregue.`,
+      finalizado: `A sua OS *${osNumber}* foi finalizada.`,
+      encerrado_sem_reparo: `A sua OS *${osNumber}* foi encerrada sem reparo.`,
+      encerrado_condenado: `A sua OS *${osNumber}* foi encerrada como condenado.`,
+      cancelado: `A sua OS *${osNumber}* foi cancelada.`,
+    };
+
+    const mainMessage = statusMessages[status] ?? `A sua OS *${osNumber}* está com status: *${statusLabel}*.`;
+
+    return [
+      greeting,
+      mainMessage,
+      `Acompanhe aqui: ${trackingUrl}`,
+    ].join("\n\n");
+  };
+
   const openWhatsApp = () => {
     if (!os?.publicToken) return;
-    const url = `${window.location.origin}/rastrear/${os.publicToken}`;
-    const msg = encodeURIComponent(`Olá! Sua OS *${os.osNumber}* está em andamento. Acompanhe aqui: ${url}`);
+    const msg = encodeURIComponent(buildCustomerStatusWhatsAppMessage());
     const phone = normalizeBrazilianWhatsAppNumber((os as any).customerPhone);
 
     if (!phone) {
