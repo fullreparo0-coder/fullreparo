@@ -851,34 +851,35 @@ export default function ServiceOrderDetail() {
 
         {nextBestAction && (
           <Card className={`border shadow-sm ${priorityClass}`}>
-            <CardContent className="p-4">
-              <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                <div className="space-y-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Badge variant={nextBestAction.priority === "alta" ? "destructive" : "secondary"} className="uppercase tracking-wide">
+            <CardContent className="p-3 md:p-4">
+              <div className="flex flex-col gap-2 md:gap-4 md:flex-row md:items-center md:justify-between">
+                <div className="space-y-0.5 md:space-y-1">
+                  <div className="flex flex-wrap items-center gap-1.5 md:gap-2">
+                    <Badge variant={nextBestAction.priority === "alta" ? "destructive" : "secondary"} className="h-5 px-1.5 text-[10px] uppercase tracking-wide md:h-auto md:px-2.5 md:text-xs">
                       {nextBestAction.priority === "alta" ? "ação crítica" : nextBestAction.priority === "media" ? "atenção" : "próxima ação"}
                     </Badge>
                     <span className="text-xs font-medium opacity-80">{statusAgeLabel}</span>
                     {sla?.isOverdue && <Badge variant="destructive">prazo vencido</Badge>}
                     {sla?.isStageStalled && <Badge variant="outline">etapa parada</Badge>}
                   </div>
-                  <h2 className="text-base font-semibold">{nextBestAction.title}</h2>
-                  <p className="text-sm opacity-85">{nextBestAction.description}</p>
+                  <h2 className="text-sm font-semibold leading-tight md:text-base">{nextBestAction.title}</h2>
+                  <p className="text-xs leading-snug opacity-85 md:text-sm">{nextBestAction.description}</p>
                 </div>
-                <div className="flex flex-wrap gap-2 md:justify-end">
-                  <Button size="sm" variant="secondary" onClick={openWhatsApp}>
+                <div className="flex flex-wrap gap-1.5 md:gap-2 md:justify-end">
+                  <Button size="sm" variant="secondary" className="h-8 px-2 text-xs md:h-9 md:px-3 md:text-sm" onClick={openWhatsApp}>
                     <MessageSquare className="h-3.5 w-3.5 mr-1.5" /> Avisar cliente
                   </Button>
                   {quickActionStatus && os.status !== quickActionStatus && (
                     <Button
                       size="sm"
+                      className="h-8 px-2 text-xs md:h-9 md:px-3 md:text-sm"
                       disabled={updateStatus.isPending}
                       onClick={() => updateStatus.mutate({ id: osId, status: quickActionStatus as any, notes: `Ação rápida v19: ${nextBestAction.ctaLabel ?? nextBestAction.title}` })}
                     >
                       <Clock className="h-3.5 w-3.5 mr-1.5" /> {nextBestAction.ctaLabel ?? "Aplicar ação"}
                     </Button>
                   )}
-                  <Button size="sm" variant="outline" onClick={copyTrackingLink}>
+                  <Button size="sm" variant="outline" className="h-8 px-2 text-xs md:h-9 md:px-3 md:text-sm" onClick={copyTrackingLink}>
                     <Copy className="h-3.5 w-3.5 mr-1.5" /> Link do cliente
                   </Button>
                 </div>
