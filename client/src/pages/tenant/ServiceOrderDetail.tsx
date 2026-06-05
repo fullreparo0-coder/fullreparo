@@ -1073,9 +1073,9 @@ export default function ServiceOrderDetail() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-2 sm:space-y-3 pt-0">
-                <div className="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_auto] gap-2 sm:items-start">
+                <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2">
                   <Select value={newStatus} onValueChange={handleStatusChange}>
-                    <SelectTrigger className="h-9 text-xs sm:text-sm">
+                    <SelectTrigger className="h-9 w-full min-w-0 text-xs sm:text-sm">
                       <SelectValue placeholder="Selecionar novo status..." />
                     </SelectTrigger>
                     <SelectContent>
@@ -1087,14 +1087,14 @@ export default function ServiceOrderDetail() {
                   {newStatus === "finalizado" ? (
                     <Button
                       variant="default"
-                      className="h-9 w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-xs sm:text-sm text-white"
+                      className="h-9 w-auto shrink-0 whitespace-nowrap bg-emerald-600 px-3 text-xs text-white hover:bg-emerald-700 sm:px-4 sm:text-sm"
                       onClick={() => setCloseModal(true)}
                     >
                       <Shield className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-2" /> Encerrar OS...
                     </Button>
                   ) : (
                     <Button
-                      className="h-9 w-full sm:w-auto text-xs sm:text-sm"
+                      className="h-9 w-auto shrink-0 whitespace-nowrap px-3 text-xs sm:px-4 sm:text-sm"
                       disabled={!newStatus || updateStatus.isPending}
                       onClick={() => updateStatus.mutate({ id: osId, status: newStatus as any, notes: statusNotes })}
                     >
