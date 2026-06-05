@@ -1045,23 +1045,23 @@ export default function ServiceOrderDetail() {
 
             {/* Update Status */}
             <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                  <Clock className="h-4 w-4 text-muted-foreground" /> SLA e tempo parado
+              <CardHeader className="pb-1.5 md:pb-3 pt-3 md:pt-6 px-3 md:px-6">
+                <CardTitle className="text-xs md:text-sm font-semibold flex items-center gap-1.5 md:gap-2">
+                  <Clock className="h-3.5 w-3.5 md:h-4 md:w-4 text-muted-foreground" /> SLA e tempo parado
                 </CardTitle>
               </CardHeader>
-              <CardContent className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
-                <div className="rounded-lg border bg-muted/30 p-3">
-                  <p className="text-xs text-muted-foreground">Tempo na etapa</p>
-                  <p className="font-semibold">{statusAgeLabel}</p>
+              <CardContent className="grid grid-cols-3 gap-1.5 md:gap-3 px-3 pb-3 md:px-6 md:pb-6 text-xs md:text-sm">
+                <div className="rounded-md md:rounded-lg border bg-muted/30 p-2 md:p-3">
+                  <p className="text-[10px] leading-tight text-muted-foreground md:text-xs">Tempo na etapa</p>
+                  <p className="text-xs font-semibold leading-tight md:text-sm">{statusAgeLabel}</p>
                 </div>
-                <div className="rounded-lg border bg-muted/30 p-3">
-                  <p className="text-xs text-muted-foreground">Sinalização</p>
-                  <p className="font-semibold">{sla?.isOverdue ? "Prazo vencido" : sla?.isStageStalled ? "Etapa parada" : "Dentro do fluxo"}</p>
+                <div className="rounded-md md:rounded-lg border bg-muted/30 p-2 md:p-3">
+                  <p className="text-[10px] leading-tight text-muted-foreground md:text-xs">Sinalização</p>
+                  <p className="text-xs font-semibold leading-tight md:text-sm">{sla?.isOverdue ? "Prazo vencido" : sla?.isStageStalled ? "Etapa parada" : "Dentro do fluxo"}</p>
                 </div>
-                <div className="rounded-lg border bg-muted/30 p-3">
-                  <p className="text-xs text-muted-foreground">Entrega prevista</p>
-                  <p className="font-semibold">{sla?.estimatedDelivery ? new Date(sla.estimatedDelivery).toLocaleDateString("pt-BR") : os.estimatedDelivery ? new Date(os.estimatedDelivery).toLocaleDateString("pt-BR") : "Não informada"}</p>
+                <div className="rounded-md md:rounded-lg border bg-muted/30 p-2 md:p-3">
+                  <p className="text-[10px] leading-tight text-muted-foreground md:text-xs">Entrega prevista</p>
+                  <p className="text-xs font-semibold leading-tight md:text-sm">{sla?.estimatedDelivery ? new Date(sla.estimatedDelivery).toLocaleDateString("pt-BR") : os.estimatedDelivery ? new Date(os.estimatedDelivery).toLocaleDateString("pt-BR") : "Não informada"}</p>
                 </div>
               </CardContent>
             </Card>
