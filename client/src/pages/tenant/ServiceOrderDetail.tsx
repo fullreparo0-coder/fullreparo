@@ -473,11 +473,24 @@ export default function ServiceOrderDetail() {
     toast.success("Link copiado!");
   };
 
+  const normalizeBrazilianWhatsAppNumber = (phone?: string | null) => {
+    const digits = String(phone ?? "").replace(/\D/g, "");
+    if (!digits) return "";
+    return digits.startsWith("55") ? digits : `55${digits}`;
+  };
+
   const openWhatsApp = () => {
     if (!os?.publicToken) return;
     const url = `${window.location.origin}/rastrear/${os.publicToken}`;
     const msg = encodeURIComponent(`Olá! Sua OS *${os.osNumber}* está em andamento. Acompanhe aqui: ${url}`);
-    window.open(`https://wa.me/?text=${msg}`, "_blank");
+    const phone = normalizeBrazilianWhatsAppNumber((os as any).customerPhone);
+
+    if (!phone) {
+      toast.error("Cliente sem telefone cadastrado para WhatsApp.");
+      return;
+    }
+
+    window.open(`https://wa.me/${phone}?text=${msg}`, "_blank");
   };
 
   const handleBudgetSubmit = () => {
@@ -661,8 +674,8 @@ export default function ServiceOrderDetail() {
       `🔗 Verifique sua garantia a qualquer momento:`,
       verifyUrl,
     ].join("\n");
-    const phone = ((os as any).customerPhone ?? "").replace(/\D/g, "");
-    return `https://wa.me/${phone ? `55${phone}` : ""}?text=${encodeURIComponent(msg)}`;
+    const phone = normalizeBrazilianWhatsAppNumber((os as any).customerPhone);
+    return `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`;
   };
 
   return (
@@ -1185,8 +1198,8 @@ export default function ServiceOrderDetail() {
                             variant="outline"
                             className="flex-1 h-7 text-xs bg-green-50 hover:bg-green-100 border-green-200 text-green-700 hover:text-green-800"
                             onClick={() => {
-                              const phone = String((os as any).customerPhone).replace(/\D/g, "");
-                              window.open(`https://wa.me/55${phone}`, "_blank");
+                              const phone = normalizeBrazilianWhatsAppNumber((os as any).customerPhone);
+                              window.open(`https://wa.me/${phone}`, "_blank");
                             }}
                           >
                             <MessageSquare className="h-3 w-3 mr-1" /> WhatsApp
