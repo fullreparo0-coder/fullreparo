@@ -549,7 +549,6 @@ export default function ServiceOrderDetail() {
     );
   }
 
-  const trackingUrl = `${window.location.origin}/rastrear/${os.publicToken}`;
   const paidPayments = (payments ?? []).filter((payment: any) => payment.status === "paid");
   const totalPaid = paidPayments.reduce((sum, p) => sum + Number(p.amount), 0);
   const budgetList = Array.isArray(budgets) ? budgets : [];
@@ -879,6 +878,9 @@ export default function ServiceOrderDetail() {
                       <Clock className="h-3.5 w-3.5 mr-1.5" /> {nextBestAction.ctaLabel ?? "Aplicar ação"}
                     </Button>
                   )}
+                  <Button size="sm" variant="outline" onClick={copyTrackingLink}>
+                    <Copy className="h-3.5 w-3.5 mr-1.5" /> Link do cliente
+                  </Button>
                 </div>
               </div>
             </CardContent>
@@ -1694,27 +1696,6 @@ export default function ServiceOrderDetail() {
               </Card>
             )}
 
-            {/* Link de rastreamento */}
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                  <ExternalLink className="h-4 w-4 text-muted-foreground" /> Link Público
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                <p className="text-xs text-muted-foreground break-all font-mono bg-muted px-2 py-1.5 rounded">
-                  {trackingUrl}
-                </p>
-                <div className="flex gap-2">
-                  <Button size="sm" variant="outline" className="flex-1" onClick={copyTrackingLink}>
-                    <Copy className="h-3.5 w-3.5 mr-1" /> Copiar
-                  </Button>
-                  <Button size="sm" variant="outline" className="flex-1" onClick={() => window.open(trackingUrl, "_blank")}>
-                    <ExternalLink className="h-3.5 w-3.5 mr-1" /> Abrir
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
           </div>
         </div>
       </div>
