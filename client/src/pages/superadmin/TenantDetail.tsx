@@ -389,7 +389,7 @@ export default function SuperAdminTenantDetail() {
                   </div>
                   <div className="text-center p-3 rounded-lg bg-muted/50">
                     <FileText className="h-5 w-5 mx-auto mb-1 text-primary" />
-                    <p className="text-xl font-bold">—</p>
+                    <p className="text-xl font-bold">{(tenant as any).metrics?.serviceOrders || 0}</p>
                     <p className="text-[10px] text-muted-foreground uppercase">Total OS</p>
                   </div>
                 </div>

@@ -3,7 +3,7 @@ import { z } from "zod";
 import crypto from "crypto";
 import bcrypt from "bcryptjs";
 import { getDb, getTenantById, getTenantBySlug, getAllTenants } from "../db";
-import { tenants, plans, users } from "../../drizzle/schema";
+import { tenants, plans, users, serviceOrders } from "../../drizzle/schema";
 import { protectedProcedure, publicProcedure, router } from "../_core/trpc";
 import { and, eq, gt, sql } from "drizzle-orm";
 import { notifyOwner } from "../_core/notification";
@@ -474,21 +474,25 @@ export const tenantsRouter = router({
       const tenant = await getTenantById(input.id);
       if (!tenant) throw new TRPCError({ code: "NOT_FOUND", message: "Assistência não encontrada" });
 
-      // Buscar métricas básicas
-      const [userCount] = await db
-        .select({ count: sql<number>`count(*)` })
-        .from(users)
-        .where(eq(users.tenantId, input.id))
-        .execute() as any;
-      
-      // Nota: Em um sistema real, buscaríamos contagem de OS, etc.
-      // Por simplicidade, vamos retornar o que temos no schema
+      // Buscar métricas básicas reais do tenant
+      const [[userCount], [serviceOrderCount]] = await Promise.all([
+        db
+          .select({ count: sql<number>`count(*)` })
+          .from(users)
+          .where(eq(users.tenantId, input.id))
+          .execute() as any,
+        db
+          .select({ count: sql<number>`count(*)` })
+          .from(serviceOrders)
+          .where(eq(serviceOrders.tenantId, input.id))
+          .execute() as any,
+      ]);
       
       return {
         ...tenant,
         metrics: {
-          users: userCount?.count ?? 0,
-          // Adicione outras métricas conforme necessário
+          users: Number(userCount?.count ?? 0),
+          serviceOrders: Number(serviceOrderCount?.count ?? 0),
         }
       };
     }),
