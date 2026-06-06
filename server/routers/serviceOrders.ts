@@ -255,7 +255,7 @@ export const serviceOrdersRouter = router({
     const os = await getServiceOrderById(ctx.user.tenantId!, input.id);
     if (!os) throw new TRPCError({ code: "NOT_FOUND" });
     const db = await getDb();
-    const [timeline, checklistItems, photoList, warrantyRows, originalRows] = await Promise.all([
+    const [timeline, checklistItems, photoList, warrantyRows, originalRows, customerNoticeRows] = await Promise.all([
       getOsTimeline(ctx.user.tenantId!, input.id),
       getChecklistByOs(ctx.user.tenantId!, input.id),
       getPhotosByOs(ctx.user.tenantId!, input.id),
@@ -288,6 +288,28 @@ export const serviceOrdersRouter = router({
             .where(and(eq(serviceOrders.tenantId, ctx.user.tenantId!), eq(serviceOrders.id, Number((os as any).originalServiceOrderId))))
             .limit(1)
         : Promise.resolve([]),
+      db
+        ? db
+            .select({
+              id: osNotifications.id,
+              status: osNotifications.status,
+              channel: osNotifications.channel,
+              message: osNotifications.message,
+              eventType: osNotifications.eventType,
+              actorName: osNotifications.actorName,
+              sentAt: osNotifications.sentAt,
+            })
+            .from(osNotifications)
+            .where(and(
+              eq(osNotifications.tenantId, ctx.user.tenantId!),
+              eq(osNotifications.serviceOrderId, input.id),
+              eq(osNotifications.status, os.status),
+              eq(osNotifications.channel, "whatsapp"),
+              eq(osNotifications.eventType, "customer_manual_notice"),
+            ))
+            .orderBy(desc(osNotifications.sentAt))
+            .limit(1)
+        : Promise.resolve([]),
     ]);
     const warranty = warrantyRows[0] ?? null;
     const now = new Date();
@@ -297,6 +319,7 @@ export const serviceOrdersRouter = router({
       warranty,
       warrantyActive,
       originalServiceOrder: originalRows[0] ?? null,
+      customerNotice: customerNoticeRows[0] ?? null,
       timeline,
       checklist: checklistItems,
       photos: photoList,
@@ -304,6 +327,50 @@ export const serviceOrdersRouter = router({
       nextBestAction: buildNextBestAction(os as SmartActionContext, "tenant"),
     };
   }),
+
+  // Registrar aviso manual ao cliente sem alterar o status real da OS
+  markCustomerNotified: tenantProcedure
+    .input(z.object({
+      id: z.number(),
+      message: z.string().min(3, "Informe a mensagem enviada ao cliente."),
+      status: z.string().optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      const os = await getServiceOrderById(ctx.user.tenantId!, input.id);
+      if (!os) throw new TRPCError({ code: "NOT_FOUND" });
+
+      const currentStatus = String(os.status ?? "");
+      if (input.status && input.status !== currentStatus) {
+        throw new TRPCError({
+          code: "CONFLICT",
+          message: "O status da OS mudou. Atualize a tela antes de avisar o cliente.",
+        });
+      }
+
+      const sentAt = new Date();
+      const actorName = ctx.user.name ?? "Usuário";
+      await db.insert(osNotifications).values({
+        tenantId: ctx.user.tenantId!,
+        serviceOrderId: input.id,
+        status: currentStatus,
+        channel: "whatsapp",
+        message: input.message,
+        eventType: "customer_manual_notice",
+        actorName,
+        sentAt,
+      });
+
+      return {
+        status: currentStatus,
+        channel: "whatsapp",
+        message: input.message,
+        eventType: "customer_manual_notice",
+        actorName,
+        sentAt,
+      };
+    }),
 
   // Criar retorno em garantia vinculado a uma OS original encerrada
   createWarrantyReturn: tenantProcedure

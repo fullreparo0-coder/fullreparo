@@ -151,6 +151,13 @@ export default function ServiceOrderDetail() {
     onError: () => toast.error("Erro ao atualizar item"),
   });
 
+  const markCustomerNotified = trpc.serviceOrders.markCustomerNotified.useMutation({
+    onSuccess: () => {
+      utils.serviceOrders.getById.invalidate({ id: osId });
+    },
+    onError: (error) => toast.error(error.message || "Erro ao registrar aviso ao cliente"),
+  });
+
   const updateStatus = trpc.serviceOrders.updateStatus.useMutation({
     onSuccess: (data) => {
       toast.success("Status atualizado");
@@ -520,17 +527,39 @@ export default function ServiceOrderDetail() {
     ].join("\n\n");
   };
 
-  const openWhatsApp = () => {
+  const openWhatsApp = async () => {
     if (!os?.publicToken) return;
-    const msg = encodeURIComponent(buildCustomerStatusWhatsAppMessage());
+    const message = buildCustomerStatusWhatsAppMessage();
+    const msg = encodeURIComponent(message);
     const phone = normalizeBrazilianWhatsAppNumber((os as any).customerPhone);
+    const customerNotice = (os as any).customerNotice as { status?: string; sentAt?: string | Date; actorName?: string | null } | null;
 
     if (!phone) {
       toast.error("Cliente sem telefone cadastrado para WhatsApp.");
       return;
     }
 
-    window.open(`https://wa.me/${phone}?text=${msg}`, "_blank");
+    if (customerNotice?.sentAt) {
+      const sentAtLabel = new Date(customerNotice.sentAt).toLocaleString("pt-BR");
+      const shouldResend = window.confirm(
+        `Este cliente já foi avisado neste status em ${sentAtLabel}. Deseja avisar novamente?`
+      );
+      if (!shouldResend) return;
+    }
+
+    const popup = window.open("about:blank", "_blank");
+    if (!popup) {
+      toast.error("O navegador bloqueou a abertura do WhatsApp. Libere pop-ups para este site.");
+      return;
+    }
+
+    try {
+      await markCustomerNotified.mutateAsync({ id: osId, status: String(os.status ?? ""), message });
+      popup.location.href = `https://wa.me/${phone}?text=${msg}`;
+      toast.success("Aviso ao cliente registrado na OS.");
+    } catch (error) {
+      popup.close();
+    }
   };
 
   const handleBudgetSubmit = () => {
@@ -669,6 +698,15 @@ export default function ServiceOrderDetail() {
       : primaryBudget
         ? "Pendente de aprovação"
         : "Não lançado";
+  const customerNotice = (os as any).customerNotice as { status?: string; sentAt?: string | Date; actorName?: string | null } | null;
+  const customerNoticeSentAt = customerNotice?.sentAt ? new Date(customerNotice.sentAt) : null;
+  const customerNoticeLabel = customerNoticeSentAt
+    ? `Cliente avisado em ${customerNoticeSentAt.toLocaleString("pt-BR")}`
+    : "Ainda não avisado neste status";
+  const customerNoticeActor = customerNotice?.actorName;
+  const customerNoticeDetail = customerNoticeSentAt
+    ? `${customerNoticeActor ? `Registrado por ${customerNoticeActor}` : "Aviso registrado"} para o status ${STATUS_LABELS[String(os.status ?? "")] ?? os.status}.`
+    : `Use o botão Avisar cliente para registrar o contato no status ${STATUS_LABELS[String(os.status ?? "")] ?? os.status}.`;
   const pickupPhotos = ((os as any).photos ?? []).filter((photo: any) => photo.type === "coleta");
   const pickupLatitude = Number((os as any).pickupLatitude);
   const pickupLongitude = Number((os as any).pickupLongitude);
@@ -1000,6 +1038,16 @@ export default function ServiceOrderDetail() {
                   <div className="rounded-lg border border-amber-200 bg-amber-50/60 p-3 dark:border-amber-900/60 dark:bg-amber-950/20">
                     <p className="text-xs text-amber-700 dark:text-amber-300">Status do orçamento</p>
                     <p className="font-semibold text-amber-900 dark:text-amber-100">{primaryBudgetStatusLabel}</p>
+                  </div>
+                  <div className={`col-span-2 rounded-lg border p-3 ${customerNoticeSentAt ? "border-emerald-200 bg-emerald-50/70 dark:border-emerald-900/60 dark:bg-emerald-950/20" : "border-slate-200 bg-slate-50/70 dark:border-slate-800 dark:bg-slate-950/20"}`}>
+                    <div className="flex items-start gap-2">
+                      <MessageSquare className={`mt-0.5 h-4 w-4 shrink-0 ${customerNoticeSentAt ? "text-emerald-700 dark:text-emerald-300" : "text-slate-500"}`} />
+                      <div>
+                        <p className={`text-xs ${customerNoticeSentAt ? "text-emerald-700 dark:text-emerald-300" : "text-muted-foreground"}`}>Aviso ao cliente</p>
+                        <p className={`font-semibold ${customerNoticeSentAt ? "text-emerald-900 dark:text-emerald-100" : "text-foreground"}`}>{customerNoticeLabel}</p>
+                        <p className="text-xs text-muted-foreground">{customerNoticeDetail}</p>
+                      </div>
+                    </div>
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground">Marca</p>
