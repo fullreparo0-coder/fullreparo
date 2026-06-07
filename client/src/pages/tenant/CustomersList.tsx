@@ -14,6 +14,7 @@ import { toast } from "sonner";
 import { useCepLookup, formatCep } from "@/hooks/useCepLookup";
 import { isValidDocument, detectDocumentType, onlyDigits } from "@shared/cpfCnpj";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { buildPdfViewerUrl } from "@/lib/pdfViewer";
 import {
   Plus,
   Search,
@@ -227,10 +228,14 @@ export default function CustomersList() {
                     const params = new URLSearchParams();
                     if (search) params.set("search", search);
                     if (sourceFilter !== "all") params.set("source", sourceFilter);
-                    const a = document.createElement("a");
-                    a.href = `/api/export/clientes.pdf?${params.toString()}`;
-                    a.download = `clientes-${new Date().toISOString().slice(0, 10)}.pdf`;
-                    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+                    const query = params.toString();
+                    const filename = `clientes-${new Date().toISOString().slice(0, 10)}.pdf`;
+                    navigate(buildPdfViewerUrl({
+                      src: `/api/export/clientes.pdf${query ? `?${query}` : ""}`,
+                      title: "Relatório de clientes",
+                      filename,
+                      back: "/painel/clientes",
+                    }));
                   } finally { setExportingPdf(false); }
                 }}
               >

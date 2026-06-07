@@ -15,6 +15,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { buildPdfViewerUrl } from "@/lib/pdfViewer";
 
 const STATUS_OPTIONS = Object.entries(STATUS_LABELS);
 const PAGE_SIZE = 20;
@@ -212,9 +213,22 @@ export default function ServiceOrdersList() {
     if (isExportingCsv) setExportingCsv(true); else setExportingPdf(true);
     try {
       const url = buildExportUrl(exportFormat);
+      const filename = `ordens-de-servico-${new Date().toISOString().slice(0, 10)}.${exportFormat}`;
+
+      if (exportFormat === "pdf") {
+        setExportModalOpen(false);
+        navigate(buildPdfViewerUrl({
+          src: url,
+          title: "Relatório de ordens de serviço",
+          filename,
+          back: "/painel/os",
+        }));
+        return;
+      }
+
       const a = document.createElement("a");
       a.href = url;
-      a.download = `ordens-de-servico-${new Date().toISOString().slice(0, 10)}.${exportFormat}`;
+      a.download = filename;
       document.body.appendChild(a); a.click(); document.body.removeChild(a);
       setExportModalOpen(false);
     } finally {

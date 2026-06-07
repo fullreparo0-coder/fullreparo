@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { useLocation } from "wouter";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { TenantLayout } from "@/components/TenantLayout";
@@ -11,6 +12,7 @@ import {
 } from "recharts";
 import { TrendingUp, DollarSign, Wrench, CreditCard, Download, FileText, BarChart2 } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { buildPdfViewerUrl } from "@/lib/pdfViewer";
 
 const STATUS_LABELS: Record<string, string> = {
   solicitado: "Solicitado",
@@ -59,6 +61,7 @@ function formatMonthLabel(ym: string) {
 type PeriodPreset = "3" | "6" | "12" | "custom";
 
 export default function FinancialReports() {
+  const [, navigate] = useLocation();
   const [exportingPdf, setExportingPdf] = useState(false);
   const [periodPreset, setPeriodPreset] = useState<PeriodPreset>("12");
   const [customStart, setCustomStart] = useState("");
@@ -121,12 +124,13 @@ export default function FinancialReports() {
   const handleExportPdf = async () => {
     setExportingPdf(true);
     try {
-      const a = document.createElement("a");
-      a.href = `/api/export/relatorio-financeiro.pdf${periodParams}`;
-      a.download = `relatorio-financeiro-${new Date().toISOString().slice(0, 10)}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
+      const filename = `relatorio-financeiro-${new Date().toISOString().slice(0, 10)}.pdf`;
+      navigate(buildPdfViewerUrl({
+        src: `/api/export/relatorio-financeiro.pdf${periodParams}`,
+        title: "Relatório financeiro",
+        filename,
+        back: "/painel/relatorios",
+      }));
     } finally {
       setExportingPdf(false);
     }
