@@ -3,11 +3,23 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
 import { trpc } from "@/lib/trpc";
 import { useRoute } from "wouter";
 import { useTenantNav } from "@/hooks/useTenantNav";
-import { Wrench, Shield, DollarSign, CheckCircle2, XCircle, Clock, MessageCircle } from "lucide-react";
+import {
+  CalendarDays,
+  CheckCircle2,
+  ClipboardCheck,
+  Clock,
+  DollarSign,
+  Info,
+  MessageCircle,
+  Shield,
+  Smartphone,
+  User,
+  Wrench,
+  XCircle,
+} from "lucide-react";
 import { WhatsAppFAB } from "@/components/WhatsAppFAB";
 import { useTenantHost } from "@/contexts/TenantHostContext";
 import { TenantPublicHeader } from "./Coleta";
@@ -21,6 +33,162 @@ function getContrastColor(hex: string): string {
   const g = parseInt(full.slice(2, 4), 16);
   const b = parseInt(full.slice(4, 6), 16);
   return 0.2126 * r + 0.7152 * g + 0.0722 * b > 140 ? "#000000" : "#ffffff";
+}
+
+function formatDate(value?: string | Date | null) {
+  if (!value) return "Não informada";
+  return new Date(value).toLocaleDateString("pt-BR");
+}
+
+function formatMoney(value: unknown) {
+  return Number(value).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+}
+
+function getFirstName(name?: string | null) {
+  return name?.trim().split(/\s+/)[0] || "cliente";
+}
+
+function getStatusStep(status: string) {
+  const steps = [
+    ["solicitado", "aguardando_coleta", "coleta_agendada", "coletado", "recebido_na_assistencia"],
+    ["em_diagnostico"],
+    ["aguardando_aprovacao", "aprovado", "recusado"],
+    ["aguardando_peca", "em_reparo", "pronto"],
+    ["aguardando_entrega", "saiu_para_entrega", "entregue", "finalizado", "encerrado_sem_reparo", "encerrado_condenado", "cancelado"],
+  ];
+  const index = steps.findIndex((group) => group.includes(status));
+  return index >= 0 ? index : 0;
+}
+
+function getNextStepMessage(status: string, hasPendingBudget: boolean) {
+  if (hasPendingBudget || status === "aguardando_aprovacao") {
+    return {
+      title: "Ação necessária: orçamento aguardando sua resposta",
+      description: "Confira o valor e decida se deseja aprovar ou recusar o serviço. A assistência será notificada automaticamente.",
+    };
+  }
+
+  const messages: Record<string, { title: string; description: string }> = {
+    solicitado: {
+      title: "Solicitação recebida",
+      description: "A assistência já recebeu sua solicitação e seguirá com a organização da coleta ou atendimento.",
+    },
+    aguardando_coleta: {
+      title: "Aguardando coleta",
+      description: "Seu aparelho ainda será coletado. Fique atento ao contato da assistência para confirmar o melhor horário.",
+    },
+    coleta_agendada: {
+      title: "Coleta agendada",
+      description: "A coleta já foi programada. Após o recebimento, a equipe fará a conferência e o diagnóstico.",
+    },
+    coletado: {
+      title: "Equipamento coletado",
+      description: "Seu aparelho foi coletado e seguirá para conferência na assistência.",
+    },
+    recebido_na_assistencia: {
+      title: "Recebido na assistência",
+      description: "O equipamento já está com a equipe técnica. O próximo passo é a análise inicial.",
+    },
+    em_diagnostico: {
+      title: "Em diagnóstico técnico",
+      description: "A equipe está avaliando o defeito informado para definir orçamento, prazo e necessidade de peças.",
+    },
+    aprovado: {
+      title: "Orçamento aprovado",
+      description: "O reparo foi autorizado e seguirá para execução conforme disponibilidade técnica e de peças.",
+    },
+    aguardando_peca: {
+      title: "Aguardando peça",
+      description: "A assistência está aguardando a peça necessária para continuar o reparo.",
+    },
+    em_reparo: {
+      title: "Reparo em andamento",
+      description: "O serviço está sendo executado pela equipe técnica. Você verá novas atualizações neste acompanhamento.",
+    },
+    pronto: {
+      title: "Equipamento pronto",
+      description: "Seu aparelho está pronto. Entre em contato com a assistência para combinar retirada ou entrega.",
+    },
+    aguardando_entrega: {
+      title: "Aguardando entrega",
+      description: "O equipamento está pronto para ser entregue ao cliente.",
+    },
+    saiu_para_entrega: {
+      title: "Saiu para entrega",
+      description: "Seu equipamento está em rota de entrega. Acompanhe as próximas atualizações.",
+    },
+    entregue: {
+      title: "Equipamento entregue",
+      description: "O atendimento foi concluído. Caso exista garantia digital, ela aparecerá nesta página.",
+    },
+    finalizado: {
+      title: "Atendimento finalizado",
+      description: "O atendimento foi concluído com reparo entregue ao cliente.",
+    },
+    recusado: {
+      title: "Orçamento recusado",
+      description: "O orçamento foi recusado. A assistência poderá orientar os próximos passos sobre retirada ou devolução.",
+    },
+    encerrado_sem_reparo: {
+      title: "Encerrado sem reparo",
+      description: "A OS foi encerrada sem execução de reparo. Consulte a assistência se precisar de mais detalhes.",
+    },
+    encerrado_condenado: {
+      title: "Equipamento condenado",
+      description: "A análise indicou inviabilidade de reparo. A assistência poderá orientar as alternativas disponíveis.",
+    },
+    cancelado: {
+      title: "Atendimento cancelado",
+      description: "Esta ordem de serviço foi cancelada. Em caso de dúvida, fale com a assistência.",
+    },
+  };
+
+  return messages[status] ?? {
+    title: "Acompanhamento atualizado",
+    description: "Consulte o histórico abaixo para ver as movimentações registradas pela assistência.",
+  };
+}
+
+function ProgressOverview({ status, primaryColor }: { status: string; primaryColor: string }) {
+  const currentStep = getStatusStep(status);
+  const steps = ["Recebido", "Diagnóstico", "Orçamento", "Reparo", "Entrega"];
+
+  return (
+    <Card className="border-border/70 shadow-sm">
+      <CardContent className="p-4 sm:p-5">
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Progresso da OS</p>
+            <p className="text-sm text-muted-foreground">Etapa atual do atendimento</p>
+          </div>
+          <StatusBadge status={status} size="sm" />
+        </div>
+        <div className="grid grid-cols-5 gap-2">
+          {steps.map((step, index) => {
+            const isDone = index < currentStep;
+            const isCurrent = index === currentStep;
+            return (
+              <div key={step} className="flex flex-col items-center gap-2 text-center">
+                <div
+                  className="flex h-8 w-8 items-center justify-center rounded-full border text-xs font-bold"
+                  style={
+                    isDone || isCurrent
+                      ? { backgroundColor: primaryColor, borderColor: primaryColor, color: getContrastColor(primaryColor) }
+                      : undefined
+                  }
+                >
+                  {isDone ? <CheckCircle2 className="h-4 w-4" /> : index + 1}
+                </div>
+                <span className={`text-[11px] leading-tight ${isCurrent ? "font-semibold text-foreground" : "text-muted-foreground"}`}>
+                  {step}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      </CardContent>
+    </Card>
+  );
 }
 
 export default function PublicTrack() {
@@ -52,12 +220,14 @@ export default function PublicTrack() {
 
   if (error || !os) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="text-center">
-          <Wrench className="h-12 w-12 text-muted-foreground/20 mx-auto mb-4" />
-          <h1 className="text-xl font-bold text-foreground mb-2">OS não encontrada</h1>
-          <p className="text-muted-foreground text-sm">Verifique o link ou entre em contato com a assistência.</p>
-        </div>
+      <div className="min-h-screen flex items-center justify-center bg-background px-4">
+        <Card className="w-full max-w-md border-border/70 shadow-sm">
+          <CardContent className="p-8 text-center">
+            <Wrench className="h-12 w-12 text-muted-foreground/20 mx-auto mb-4" />
+            <h1 className="text-xl font-bold text-foreground mb-2">OS não encontrada</h1>
+            <p className="text-muted-foreground text-sm">Verifique o link ou entre em contato com a assistência.</p>
+          </CardContent>
+        </Card>
       </div>
     );
   }
@@ -84,60 +254,102 @@ export default function PublicTrack() {
     logoUrl: branding.logoUrl,
     primaryColor,
   };
+  const nextStep = getNextStepMessage(os.status, !!os.pendingBudget);
 
   return (
-    <div className="min-h-screen bg-background">
-      <TenantPublicHeader tenant={brandingTenant} subtitle="Rastreamento de OS" />
+    <div className="min-h-screen bg-gradient-to-b from-muted/50 via-background to-background">
+      <TenantPublicHeader tenant={brandingTenant} subtitle="Acompanhamento da OS" />
 
-      <main className="max-w-xl mx-auto px-4 py-6 space-y-4">
-        {/* OS Header */}
-        <Card>
-          <CardContent className="p-5">
-            <div className="flex items-start justify-between gap-3 mb-3">
-              <div>
-                <p className="text-xs text-muted-foreground mb-1">Ordem de Serviço</p>
-                <h1 className="font-display text-2xl font-bold text-foreground">{os.osNumber}</h1>
+      <main className="mx-auto w-full max-w-3xl px-4 py-5 sm:py-8 space-y-4 pb-24">
+        <Card className="overflow-hidden border-border/70 shadow-sm">
+          <div className="h-1.5" style={{ backgroundColor: primaryColor }} />
+          <CardContent className="p-5 sm:p-6 space-y-5">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+              <div className="min-w-0 space-y-1">
+                <p className="text-sm text-muted-foreground">Olá, {getFirstName(os.customerName)}.</p>
+                <h1 className="font-display text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
+                  Acompanhe sua OS
+                </h1>
+                <p className="text-sm text-muted-foreground">
+                  Ordem de Serviço <span className="font-mono font-semibold text-foreground">{os.osNumber}</span>
+                </p>
               </div>
-              <StatusBadge status={os.status} size="lg" />
+              <StatusBadge status={os.status} size="lg" className="w-fit" />
             </div>
-            <p className="text-sm text-muted-foreground mb-3">{os.reportedDefect}</p>
-            <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
-              <span className="flex items-center gap-1">
-                <Clock className="h-3.5 w-3.5" />
-                Aberta em {new Date(os.createdAt).toLocaleDateString("pt-BR")}
-              </span>
-              {os.estimatedDelivery && (
-                <span className="flex items-center gap-1">
-                  Previsão: {new Date(os.estimatedDelivery).toLocaleDateString("pt-BR")}
-                </span>
-              )}
+
+            <div className="rounded-2xl bg-muted/60 p-4">
+              <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                <Smartphone className="h-3.5 w-3.5" /> Defeito informado
+              </div>
+              <p className="text-sm font-medium leading-relaxed text-foreground">{os.reportedDefect || "Não informado"}</p>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-3">
+              <div className="rounded-2xl border border-border/70 bg-background/80 p-3">
+                <CalendarDays className="mb-2 h-4 w-4 text-muted-foreground" />
+                <p className="text-xs text-muted-foreground">Abertura</p>
+                <p className="text-sm font-semibold text-foreground">{formatDate(os.createdAt)}</p>
+              </div>
+              <div className="rounded-2xl border border-border/70 bg-background/80 p-3">
+                <Clock className="mb-2 h-4 w-4 text-muted-foreground" />
+                <p className="text-xs text-muted-foreground">Previsão</p>
+                <p className="text-sm font-semibold text-foreground">{formatDate(os.estimatedDelivery)}</p>
+              </div>
+              <div className="rounded-2xl border border-border/70 bg-background/80 p-3">
+                <User className="mb-2 h-4 w-4 text-muted-foreground" />
+                <p className="text-xs text-muted-foreground">Cliente</p>
+                <p className="truncate text-sm font-semibold text-foreground">{os.customerName}</p>
+              </div>
             </div>
           </CardContent>
         </Card>
 
-        {/* Orçamento pendente */}
+        <ProgressOverview status={os.status} primaryColor={primaryColor} />
+
+        <Card className="border-border/70 shadow-sm">
+          <CardContent className="p-4 sm:p-5">
+            <div className="flex gap-3">
+              <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted">
+                <Info className="h-4 w-4 text-muted-foreground" />
+              </div>
+              <div className="space-y-1">
+                <p className="text-sm font-semibold text-foreground">{nextStep.title}</p>
+                <p className="text-sm leading-relaxed text-muted-foreground">{nextStep.description}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
         {os.pendingBudget && (
-          <Card className="border-amber-200 bg-amber-50/50">
+          <Card className="border-amber-200 bg-amber-50/70 shadow-sm">
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-semibold flex items-center gap-2 text-amber-800">
-                <DollarSign className="h-4 w-4" /> Orçamento Aguardando Aprovação
+              <CardTitle className="flex items-center gap-2 text-base font-semibold text-amber-900">
+                <DollarSign className="h-5 w-5" /> Orçamento aguardando aprovação
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-muted-foreground">Valor total</span>
-                <span className="text-xl font-bold text-foreground">
-                  R$ {Number(os.pendingBudget.totalCost).toFixed(2)}
-                </span>
+            <CardContent className="space-y-4">
+              <div className="rounded-2xl bg-background/80 p-4">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="text-xs text-muted-foreground">Valor total do serviço</p>
+                    <p className="mt-1 text-3xl font-bold tracking-tight text-foreground">
+                      {formatMoney(os.pendingBudget.totalCost)}
+                    </p>
+                  </div>
+                  <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-100">Pendente</Badge>
+                </div>
+                {os.pendingBudget.description && (
+                  <p className="mt-3 text-sm leading-relaxed text-muted-foreground">{os.pendingBudget.description}</p>
+                )}
+                {os.pendingBudget.validUntil && (
+                  <p className="mt-3 text-xs text-muted-foreground">
+                    Válido até {formatDate(os.pendingBudget.validUntil)}
+                  </p>
+                )}
               </div>
-              {os.pendingBudget.validUntil && (
-                <p className="text-xs text-muted-foreground">
-                  Válido até {new Date(os.pendingBudget.validUntil).toLocaleDateString("pt-BR")}
-                </p>
-              )}
-              <div className="flex gap-2">
+              <div className="grid gap-2 sm:grid-cols-2">
                 <Button
-                  className="flex-1"
+                  className="h-11 w-full"
                   style={{ backgroundColor: primaryColor, color: contrastColor, borderColor: primaryColor }}
                   onClick={() =>
                     approveBudget.mutate({
@@ -148,11 +360,11 @@ export default function PublicTrack() {
                   }
                   disabled={approveBudget.isPending}
                 >
-                  <CheckCircle2 className="h-4 w-4 mr-1.5" /> Aprovar
+                  <CheckCircle2 className="h-4 w-4 mr-1.5" /> Aprovar orçamento
                 </Button>
                 <Button
                   variant="outline"
-                  className="flex-1 border-red-200 text-red-700 hover:bg-red-50"
+                  className="h-11 w-full border-red-200 text-red-700 hover:bg-red-50"
                   onClick={() =>
                     approveBudget.mutate({
                       budgetId: os.pendingBudget!.id,
@@ -162,14 +374,13 @@ export default function PublicTrack() {
                   }
                   disabled={approveBudget.isPending}
                 >
-                  <XCircle className="h-4 w-4 mr-1.5" /> Recusar
+                  <XCircle className="h-4 w-4 mr-1.5" /> Recusar orçamento
                 </Button>
               </div>
             </CardContent>
           </Card>
         )}
 
-        {/* Garantia Digital — bloco destacado */}
         {os.warranty && (() => {
           const now = Date.now();
           const start = new Date(os.warranty.startsAt).getTime();
@@ -182,9 +393,8 @@ export default function PublicTrack() {
           const warrantyDays = os.warranty.warrantyDays ?? 0;
 
           return (
-            <Card className={isActive ? "border-emerald-300 bg-emerald-50/60" : "border-muted bg-muted/30"}>
+            <Card className={isActive ? "border-emerald-300 bg-emerald-50/60 shadow-sm" : "border-muted bg-muted/30 shadow-sm"}>
               <CardContent className="p-5 space-y-4">
-                {/* Cabeçalho */}
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-3">
                     <div className={`p-2 rounded-full ${isActive ? "bg-emerald-100" : "bg-muted"}`}>
@@ -204,7 +414,6 @@ export default function PublicTrack() {
                   </span>
                 </div>
 
-                {/* Detalhes */}
                 <div className="grid grid-cols-2 gap-3 text-xs">
                   <div className="bg-background/70 rounded-lg p-2.5">
                     <p className="text-muted-foreground mb-0.5">Prazo total</p>
@@ -212,30 +421,28 @@ export default function PublicTrack() {
                   </div>
                   <div className="bg-background/70 rounded-lg p-2.5">
                     <p className="text-muted-foreground mb-0.5">Válida até</p>
-                    <p className="font-semibold text-foreground">{new Date(os.warranty.expiresAt).toLocaleDateString("pt-BR")}</p>
+                    <p className="font-semibold text-foreground">{formatDate(os.warranty.expiresAt)}</p>
                   </div>
                 </div>
 
-                {/* Barra de progresso */}
                 {warrantyDays > 0 && (
                   <div className="space-y-1.5">
                     <div className="flex justify-between text-xs text-muted-foreground">
-                      <span>Início: {new Date(os.warranty.startsAt).toLocaleDateString("pt-BR")}</span>
+                      <span>Início: {formatDate(os.warranty.startsAt)}</span>
                       <span>{progressPct}% consumido</span>
                     </div>
                     <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
                       <div
-                        className={`h-full rounded-full transition-all ${isActive ? "bg-emerald-500" : "bg-muted-foreground/40"}`}
+                        className={`h-full rounded-full ${isActive ? "bg-emerald-500" : "bg-muted-foreground/40"}`}
                         style={{ width: `${progressPct}%` }}
                       />
                     </div>
                   </div>
                 )}
 
-                {/* Botão verificar */}
                 <a
                   href={tenantPath(`/garantia?codigo=${encodeURIComponent(os.warranty.warrantyCode)}`)}
-                  className={`flex items-center justify-center gap-2 w-full py-2.5 rounded-lg text-sm font-semibold transition-colors ${
+                  className={`flex items-center justify-center gap-2 w-full py-2.5 rounded-lg text-sm font-semibold ${
                     isActive
                       ? "bg-emerald-600 hover:bg-emerald-700 text-white"
                       : "bg-muted text-muted-foreground hover:bg-muted/80"
@@ -249,31 +456,31 @@ export default function PublicTrack() {
           );
         })()}
 
-        {/* Timeline */}
-        <Card>
+        <Card className="border-border/70 shadow-sm">
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-semibold">Histórico de Status</CardTitle>
+            <CardTitle className="flex items-center gap-2 text-base font-semibold">
+              <ClipboardCheck className="h-5 w-5 text-muted-foreground" /> Acompanhamento da OS
+            </CardTitle>
           </CardHeader>
           <CardContent>
             {os.timeline && os.timeline.length > 0 ? (
               <OSTimeline entries={os.timeline} />
             ) : (
-              <p className="text-sm text-muted-foreground">Nenhum registro ainda</p>
+              <p className="text-sm text-muted-foreground">Nenhuma movimentação registrada ainda.</p>
             )}
           </CardContent>
         </Card>
 
-        {/* Contato via WhatsApp */}
         {whatsappUrl && (
           <a
             href={whatsappUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center justify-center gap-2 w-full py-3 rounded-xl text-sm font-semibold transition-opacity hover:opacity-90"
+            className="flex w-full items-center justify-center gap-2 rounded-2xl px-4 py-3.5 text-sm font-semibold shadow-sm"
             style={{ backgroundColor: primaryColor, color: contrastColor }}
           >
             <MessageCircle className="h-4 w-4" />
-            Falar com a assistência no WhatsApp
+            Falar com a assistência sobre esta OS
           </a>
         )}
       </main>
@@ -281,15 +488,13 @@ export default function PublicTrack() {
       <footer className="text-center py-8 text-xs text-muted-foreground">
         {branding.name !== "fullreparo" ? (
           <>
-            {branding.name} · Powered by{" "}
-            <span className="font-semibold text-foreground">fullreparo</span>
+            {branding.name} · Powered by <span className="font-semibold text-foreground">fullreparo</span>
           </>
         ) : (
           <>Powered by <span className="font-semibold text-foreground">fullreparo</span></>
         )}
       </footer>
 
-      {/* Botão flutuante WhatsApp — mensagem pré-preenchida com número da OS */}
       <WhatsAppFAB
         whatsappNumber={branding.whatsappNumber}
         tenantName={branding.name}
@@ -325,46 +530,54 @@ function DemoPage() {
   const demoContrast = getContrastColor(demoColor);
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-gradient-to-b from-muted/50 via-background to-background">
       <TenantPublicHeader
         tenant={{ name: "fullreparo", logoUrl: null, primaryColor: demoColor }}
         subtitle="Demonstração"
       />
-      <main className="max-w-xl mx-auto px-4 py-6 space-y-4">
-        <Badge variant="secondary" className="text-xs">Modo Demo</Badge>
-        <Card>
-          <CardContent className="p-5">
-            <div className="flex items-start justify-between gap-3 mb-3">
+      <main className="mx-auto w-full max-w-3xl px-4 py-5 sm:py-8 space-y-4 pb-24">
+        <Badge variant="secondary" className="w-fit text-xs">Modo Demo</Badge>
+        <Card className="overflow-hidden border-border/70 shadow-sm">
+          <div className="h-1.5" style={{ backgroundColor: demoColor }} />
+          <CardContent className="p-5 sm:p-6 space-y-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div>
-                <p className="text-xs text-muted-foreground mb-1">Ordem de Serviço</p>
-                <h1 className="font-display text-2xl font-bold text-foreground">OS-2024-001</h1>
+                <p className="text-sm text-muted-foreground">Olá, cliente.</p>
+                <h1 className="font-display text-2xl font-bold tracking-tight text-foreground sm:text-3xl">Acompanhe sua OS</h1>
+                <p className="text-sm text-muted-foreground">Ordem de Serviço <span className="font-mono font-semibold text-foreground">OS-2024-001</span></p>
               </div>
-              <StatusBadge status="aguardando_aprovacao" size="lg" />
+              <StatusBadge status="aguardando_aprovacao" size="lg" className="w-fit" />
             </div>
-            <p className="text-sm text-muted-foreground">Tela quebrada e bateria com problema</p>
+            <div className="rounded-2xl bg-muted/60 p-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Defeito informado</p>
+              <p className="text-sm font-medium text-foreground">Tela quebrada e bateria com problema</p>
+            </div>
           </CardContent>
         </Card>
-        <Card className="border-amber-200 bg-amber-50/50">
-          <CardContent className="p-4">
-            <p className="text-sm font-semibold text-amber-800 mb-2">Orçamento Aguardando Aprovação</p>
-            <p className="text-2xl font-bold text-foreground mb-3">R$ 280,00</p>
-            <div className="flex gap-2">
+        <ProgressOverview status="aguardando_aprovacao" primaryColor={demoColor} />
+        <Card className="border-amber-200 bg-amber-50/70 shadow-sm">
+          <CardContent className="p-5 space-y-4">
+            <p className="text-base font-semibold text-amber-900">Orçamento aguardando aprovação</p>
+            <p className="text-3xl font-bold text-foreground">R$ 280,00</p>
+            <div className="grid gap-2 sm:grid-cols-2">
               <Button
-                className="flex-1"
+                className="h-11 w-full"
                 style={{ backgroundColor: demoColor, color: demoContrast }}
                 onClick={() => alert("Em produção, aprovaria o orçamento!")}
               >
-                <CheckCircle2 className="h-4 w-4 mr-1.5" /> Aprovar
+                <CheckCircle2 className="h-4 w-4 mr-1.5" /> Aprovar orçamento
               </Button>
-              <Button variant="outline" className="flex-1 border-red-200 text-red-700">
-                <XCircle className="h-4 w-4 mr-1.5" /> Recusar
+              <Button variant="outline" className="h-11 w-full border-red-200 text-red-700">
+                <XCircle className="h-4 w-4 mr-1.5" /> Recusar orçamento
               </Button>
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="border-border/70 shadow-sm">
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-semibold">Histórico de Status</CardTitle>
+            <CardTitle className="flex items-center gap-2 text-base font-semibold">
+              <ClipboardCheck className="h-5 w-5 text-muted-foreground" /> Acompanhamento da OS
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <OSTimeline entries={demoTimeline} />
