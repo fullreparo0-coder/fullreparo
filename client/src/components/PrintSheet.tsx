@@ -271,7 +271,8 @@ export function PrintSheetA4({ os, tenant, budgets, warranty, checklist }: Omit<
           {/* Checklist */}
           {checklist && checklist.filter((c) => c.checked).length > 0 && (
             <div className="print-a4-section">
-              <div className="print-a4-section-title" style={{ color: primary }}>ACESSÓRIOS RECEBIDOS</div>
+              <div className="print-a4-section-title" style={{ color: primary }}>CHECKLIST DE RECEBIMENTO</div>
+              <div className="print-a4-text print-a4-muted">Itens sinalizados na entrada do equipamento:</div>
               <div className="print-a4-checklist">
                 {checklist
                   .filter((c) => c.checked)
