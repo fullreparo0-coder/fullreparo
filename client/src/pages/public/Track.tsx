@@ -198,7 +198,7 @@ export default function PublicTrack() {
   const { tenantPath } = useTenantNav();
 
   const { data: os, isLoading, error } = trpc.public.trackOs.useQuery(
-    { token },
+    { token, tenantSlug: hostTenant?.slug },
     { enabled: !!token && token !== "demo" }
   );
 

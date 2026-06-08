@@ -7,16 +7,30 @@ import { and, eq } from "drizzle-orm";
 
 export const publicRouter = router({
   // Rastrear OS por token público
-  trackOs: publicProcedure.input(z.object({ token: z.string() })).query(async ({ input }) => {
+  trackOs: publicProcedure
+    .input(z.object({
+      token: z.string(),
+      tenantSlug: z.string().min(1).max(100).optional(),
+    }))
+    .query(async ({ ctx, input }) => {
+    const requestTenant = ctx.tenantFromHost ?? (input.tenantSlug ? await getTenantBySlug(input.tenantSlug) : null);
     const os = await getServiceOrderByPublicToken(input.token);
     if (!os) throw new TRPCError({ code: "NOT_FOUND", message: "OS não encontrada" });
+
+    // Defesa multi-tenant: quando o portal foi aberto por subdomínio, domínio
+    // próprio ou preview com slug, o token precisa pertencer ao mesmo tenant.
+    // Isso evita que um link/token de outra assistência seja exibido no portal atual.
+    if (requestTenant && os.tenantId !== requestTenant.id) {
+      throw new TRPCError({ code: "NOT_FOUND", message: "OS não encontrada" });
+    }
+
     const db = await getDb();
     if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
     const [timeline, customer, warranty, tenant] = await Promise.all([
       getOsTimeline(os.tenantId, os.id),
-      db.select().from(customers).where(eq(customers.id, os.customerId)).limit(1),
+      db.select().from(customers).where(and(eq(customers.id, os.customerId), eq(customers.tenantId, os.tenantId))).limit(1),
       getWarrantyByOs(os.tenantId, os.id),
-      getTenantById(os.tenantId),
+      requestTenant?.id === os.tenantId ? requestTenant : getTenantById(os.tenantId),
     ]);
     // Buscar orçamentos pendentes para aprovação
     const budgetList = await getBudgetsByOs(os.tenantId, os.id);
@@ -63,7 +77,7 @@ export const publicRouter = router({
           }
         : null,
     };
-  }),
+    }),
 
   /**
    * Busca o token público de uma OS pelo número (osNumber).
@@ -80,14 +94,12 @@ export const publicRouter = router({
 
       const normalizedOsNumber = input.query.trim().toUpperCase();
       const tenant = ctx.tenantFromHost ?? (input.tenantSlug ? await getTenantBySlug(input.tenantSlug) : null);
-      const whereClause = tenant
-        ? and(eq(serviceOrders.osNumber, normalizedOsNumber), eq(serviceOrders.tenantId, tenant.id))
-        : eq(serviceOrders.osNumber, normalizedOsNumber);
+      if (!tenant) return null;
 
       const rows = await db
         .select({ token: serviceOrders.publicToken })
         .from(serviceOrders)
-        .where(whereClause)
+        .where(and(eq(serviceOrders.osNumber, normalizedOsNumber), eq(serviceOrders.tenantId, tenant.id)))
         .limit(1);
       if (!rows[0]?.token) return null;
       return { token: rows[0].token };
